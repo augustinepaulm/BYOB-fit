@@ -1,0 +1,1 @@
+Private seed data. Put your own program at seed/program.json; it is gitignored and never committed. A generic sample lives at public/sample-program.json.
