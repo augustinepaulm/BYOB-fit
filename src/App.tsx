@@ -2,14 +2,13 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 
 import { ProgramProvider } from './program/ProgramProvider.tsx'
 import { RequireProgram } from './program/RequireProgram.tsx'
+import { BuildScreen } from './screens/BuildScreen.tsx'
 import { DeckScreen } from './screens/DeckScreen.tsx'
 import { ImportScreen } from './screens/ImportScreen.tsx'
 import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
-import {
-  MealsScreen,
-  ProfileScreen,
-  SettingsScreen,
-} from './screens/Placeholders.tsx'
+import { MealsScreen } from './screens/MealsScreen.tsx'
+import { ProfileScreen } from './screens/ProfileScreen.tsx'
+import { SettingsScreen } from './screens/SettingsScreen.tsx'
 import { TodayScreen } from './screens/TodayScreen.tsx'
 import { WeekScreen } from './screens/WeekScreen.tsx'
 import { PlainLayout, TabbedLayout } from './ui/AppShell.tsx'
@@ -34,6 +33,7 @@ export default function App() {
             </Route>
             <Route element={<PlainLayout />}>
               <Route path="/deck" element={<DeckScreen />} />
+              <Route path="/build" element={<BuildScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
             </Route>
           </Route>

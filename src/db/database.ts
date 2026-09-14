@@ -7,13 +7,14 @@ import type { Program } from '../types/program.ts'
 import type {
   MealDay,
   Profile,
+  Reprogram,
   Session,
   Settings,
   WeekPlan,
 } from '../types/stores.ts'
 
 export const DB_NAME = 'byob-fit'
-export const DB_VERSION = 1
+export const DB_VERSION = 2
 
 /** The single record keys for the one-row stores. */
 export const PROFILE_KEY = 'me'
@@ -31,6 +32,7 @@ export interface ByobDB extends DBSchema {
   profile: { key: string; value: Profile }
   meals: { key: string; value: MealDay }
   settings: { key: string; value: Settings }
+  reprograms: { key: string; value: Reprogram; indexes: { week: number } }
   meta: { key: string; value: string }
 }
 
@@ -39,20 +41,28 @@ let dbPromise: Promise<IDBPDatabase<ByobDB>> | null = null
 export function getDB(): Promise<IDBPDatabase<ByobDB>> {
   if (!dbPromise) {
     dbPromise = openDB<ByobDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        db.createObjectStore('programs', { keyPath: 'id' })
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          db.createObjectStore('programs', { keyPath: 'id' })
 
-        const sessions = db.createObjectStore('sessions', { keyPath: 'id' })
-        sessions.createIndex('date', 'date')
-        sessions.createIndex('dayId', 'dayId')
+          const sessions = db.createObjectStore('sessions', { keyPath: 'id' })
+          sessions.createIndex('date', 'date')
+          sessions.createIndex('dayId', 'dayId')
 
-        db.createObjectStore('weekPlans', { keyPath: 'programWeek' })
-        db.createObjectStore('meals', { keyPath: 'date' })
+          db.createObjectStore('weekPlans', { keyPath: 'programWeek' })
+          db.createObjectStore('meals', { keyPath: 'date' })
 
-        // Single-record stores and the key-value store use out-of-line keys.
-        db.createObjectStore('profile')
-        db.createObjectStore('settings')
-        db.createObjectStore('meta')
+          // Single-record stores and the key-value store use out-of-line keys.
+          db.createObjectStore('profile')
+          db.createObjectStore('settings')
+          db.createObjectStore('meta')
+        }
+        if (oldVersion < 2) {
+          const reprograms = db.createObjectStore('reprograms', {
+            keyPath: 'id',
+          })
+          reprograms.createIndex('week', 'week')
+        }
       },
     })
   }

@@ -8,6 +8,7 @@ import {
   buildDeck,
   findEntry,
   isSetConfirmed,
+  restDayState,
   summarise,
 } from '../lib/session.ts'
 import { useProgram } from '../program/useProgram.ts'
@@ -142,6 +143,7 @@ export function TodayScreen() {
 
   if (day.rest) {
     const hasItems = day.sections.some((section) => section.items.length > 0)
+    const restDone = restDayState(session, deck) === 'done'
     return (
       <div className="page">
         <div className="page-head">
@@ -165,6 +167,14 @@ export function TodayScreen() {
                 }
               />
             ))}
+            {restDone && (
+              <div className="action-dock">
+                <div className="btn-done-today">
+                  <CheckIcon size={20} />
+                  Done today
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="empty">

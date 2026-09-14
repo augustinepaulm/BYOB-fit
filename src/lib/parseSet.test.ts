@@ -114,11 +114,30 @@ describe('bare numbers by item type', () => {
     expect(ok('24', cardio)).toEqual({ minutes: 24 })
   })
 
-  it('leaves a bare number unparsed for load_reps, since it is ambiguous', () => {
-    const result = parseSet('60', load)
+  it('flags a bare number on load_reps when there is no load to inherit', () => {
+    const result = parseSet('8', load)
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.raw).toBe('60')
+    expect(result.raw).toBe('8')
+  })
+
+  it('reads a bare number as reps and inherits the load (EXEC-04 2a)', () => {
+    expect(ok('8', { ...load, inheritWeight: 62.5 })).toEqual({
+      weight: 62.5,
+      reps: 8,
+    })
+  })
+
+  it('still flags a fractional bare number, which is never a rep count', () => {
+    // "sixty two half" normalises to 62.5: a misheard load, not 62.5 reps.
+    const result = parseSet('sixty two half', { ...load, inheritWeight: 60 })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.raw).toBe('sixty two half')
+  })
+
+  it('flags a fractional bare number on bodyweight_reps too', () => {
+    expect(parseSet('10.5', bw).ok).toBe(false)
   })
 })
 

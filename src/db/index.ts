@@ -5,6 +5,7 @@ import type { Program } from '../types/program.ts'
 import type {
   MealDay,
   Profile,
+  Reprogram,
   Session,
   Settings,
   WeekPlan,
@@ -145,4 +146,92 @@ export async function getSettings(): Promise<Settings | undefined> {
 export async function saveSettings(settings: Settings): Promise<void> {
   const db = await getDB()
   await db.put('settings', settings, SETTINGS_KEY)
+}
+
+// ── Reprogramming records ──
+
+export async function saveReprogram(record: Reprogram): Promise<void> {
+  const db = await getDB()
+  await db.put('reprograms', record)
+}
+
+export async function listReprograms(): Promise<Reprogram[]> {
+  const db = await getDB()
+  return db.getAll('reprograms')
+}
+
+/** Everything the export contains, and everything Reset and Import replace. */
+export const DATA_STORES = [
+  'programs',
+  'sessions',
+  'weekPlans',
+  'meals',
+  'profile',
+  'settings',
+  'reprograms',
+  'meta',
+] as const
+
+export async function clearAllStores(): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction(DATA_STORES, 'readwrite')
+  await Promise.all(DATA_STORES.map((name) => tx.objectStore(name).clear()))
+  await tx.done
+}
+
+/** Bulk read for export. The caller decides what to do with the API key. */
+export async function readAllStores(): Promise<{
+  programs: Program[]
+  sessions: Session[]
+  weekPlans: WeekPlan[]
+  meals: MealDay[]
+  profile: Profile | null
+  settings: Settings | null
+  reprograms: Reprogram[]
+  meta: Record<string, string>
+}> {
+  const db = await getDB()
+  const metaKeys = await db.getAllKeys('meta')
+  const metaValues = await db.getAll('meta')
+  const meta: Record<string, string> = {}
+  metaKeys.forEach((key, i) => {
+    meta[String(key)] = metaValues[i]
+  })
+  return {
+    programs: await db.getAll('programs'),
+    sessions: await db.getAll('sessions'),
+    weekPlans: await db.getAll('weekPlans'),
+    meals: await db.getAll('meals'),
+    profile: (await db.get('profile', PROFILE_KEY)) ?? null,
+    settings: (await db.get('settings', SETTINGS_KEY)) ?? null,
+    reprograms: await db.getAll('reprograms'),
+    meta,
+  }
+}
+
+/** Replace every store with the contents of an export. */
+export async function replaceAllStores(data: {
+  programs: Program[]
+  sessions: Session[]
+  weekPlans: WeekPlan[]
+  meals: MealDay[]
+  profile: Profile | null
+  settings: Settings | null
+  reprograms: Reprogram[]
+  meta: Record<string, string>
+}): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction(DATA_STORES, 'readwrite')
+  await Promise.all(DATA_STORES.map((name) => tx.objectStore(name).clear()))
+  for (const program of data.programs) await tx.objectStore('programs').put(program)
+  for (const s of data.sessions) await tx.objectStore('sessions').put(s)
+  for (const plan of data.weekPlans) await tx.objectStore('weekPlans').put(plan)
+  for (const meal of data.meals) await tx.objectStore('meals').put(meal)
+  for (const record of data.reprograms) await tx.objectStore('reprograms').put(record)
+  if (data.profile) await tx.objectStore('profile').put(data.profile, PROFILE_KEY)
+  if (data.settings) await tx.objectStore('settings').put(data.settings, SETTINGS_KEY)
+  for (const [key, value] of Object.entries(data.meta)) {
+    await tx.objectStore('meta').put(value, key)
+  }
+  await tx.done
 }

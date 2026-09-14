@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { listSessionsBetween } from '../db/index.ts'
 import {
@@ -9,7 +10,12 @@ import {
   toISODate,
 } from '../lib/dates.ts'
 import { dayForDate, weekDates } from '../lib/program.ts'
-import { sessionState, type DayState } from '../lib/session.ts'
+import {
+  buildDeck,
+  restDayState,
+  sessionState,
+  type DayState,
+} from '../lib/session.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
@@ -125,6 +131,7 @@ function SwapSheet({
 
 export function WeekScreen() {
   const { program, today, week, weekPlan, applySwap } = useProgram()
+  const navigate = useNavigate()
   const [sessions, setSessions] = useState<Session[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -150,6 +157,8 @@ export function WeekScreen() {
   if (!program) return null
 
   const byDayId = new Map(sessions.map((s) => [s.dayId, s]))
+  // D-016: there is nothing to reprogram from until a session is finished.
+  const canBuild = sessions.some((session) => session.endedAt)
 
   return (
     <div className="page">
@@ -191,16 +200,29 @@ export function WeekScreen() {
                 <div className="day-card__name">{day.name}</div>
                 {meta && <div className="day-card__meta">{meta}</div>}
               </div>
-              <StateMark state={sessionState(byDayId.get(day.id))} />
+              <StateMark
+                state={
+                  day.rest
+                    ? restDayState(byDayId.get(day.id), buildDeck(day, week))
+                    : sessionState(byDayId.get(day.id))
+                }
+              />
             </div>
           )
         })}
 
-        <button type="button" className="build-card" disabled>
+        <button
+          type="button"
+          className="build-card"
+          disabled={!canBuild}
+          onClick={() => navigate('/build')}
+        >
           <div className="day-card__body">
             <div className="build-card__title">Build next week</div>
             <div className="build-card__body">
-              Uses this week&apos;s log to propose next week&apos;s program
+              {canBuild
+                ? "Uses this week's log to propose next week's program"
+                : 'Finish a session this week to build next week'}
             </div>
           </div>
           <ChevronRightIcon />
