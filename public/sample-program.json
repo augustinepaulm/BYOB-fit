@@ -1,0 +1,706 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-3day",
+  "name": "Sample three-day program",
+  "version": "sample",
+  "weekStartsOn": "sunday",
+  "programWeeks": 8,
+  "startDate": "2026-09-06",
+  "notes": "Generic sample so anyone can try the app. Replace it with your own program via Settings, Import program.",
+  "exercises": {
+    "walk": {
+      "name": "Walk",
+      "howTo": "Easy pace, upright posture, relaxed arms.",
+      "tags": [
+        "warmup"
+      ]
+    },
+    "band-pull-apart": {
+      "name": "Band pull-apart",
+      "howTo": "Arms straight at shoulder height, pull the band apart to the chest, squeeze the shoulder blades.",
+      "tags": [
+        "warmup"
+      ]
+    },
+    "ramp": {
+      "name": "Ramp sets",
+      "howTo": "Light sets building to the working weight with the same technique as the working sets.",
+      "tags": [
+        "warmup"
+      ]
+    },
+    "back-squat": {
+      "name": "Back squat",
+      "howTo": "Bar on the upper back, brace, sit down under control to full depth, drive up with knees tracking over toes.",
+      "tags": [
+        "legs"
+      ]
+    },
+    "leg-press": {
+      "name": "Leg press",
+      "howTo": "Feet mid-platform, lower until the knees pass 90 degrees without the lower back lifting, press through mid-foot.",
+      "tags": [
+        "legs"
+      ]
+    },
+    "hamstring-curl": {
+      "name": "Hamstring curl",
+      "howTo": "Curl fully, pause, lower over 2 seconds.",
+      "tags": [
+        "hamstrings"
+      ]
+    },
+    "standing-calf-raise": {
+      "name": "Standing calf raise",
+      "howTo": "Rise fully onto the toes, lower over 3 seconds to a full stretch.",
+      "tags": [
+        "calves"
+      ]
+    },
+    "bench-press": {
+      "name": "Barbell bench press",
+      "howTo": "Shoulder blades pinned, bar to the lower chest with elbows about 45 degrees, pause, press.",
+      "tags": [
+        "chest"
+      ]
+    },
+    "incline-db-press": {
+      "name": "Incline dumbbell press",
+      "howTo": "Bench at 30 degrees, press the dumbbells up and slightly together, lower under control.",
+      "tags": [
+        "chest"
+      ]
+    },
+    "seated-db-ohp": {
+      "name": "Seated dumbbell overhead press",
+      "howTo": "Back supported, press the dumbbells overhead, lower to ear height.",
+      "tags": [
+        "shoulders"
+      ]
+    },
+    "lateral-raise": {
+      "name": "Lateral raise",
+      "howTo": "Raise the dumbbells to shoulder height with a soft elbow, lower over 2 seconds.",
+      "tags": [
+        "shoulders"
+      ]
+    },
+    "rope-pushdown": {
+      "name": "Rope pushdown",
+      "howTo": "Elbows pinned to the sides, push the rope down and apart, control the return.",
+      "tags": [
+        "triceps"
+      ]
+    },
+    "pull-up": {
+      "name": "Pull-up",
+      "howTo": "Full hang, pull the chest to the bar, lower to a full hang each rep.",
+      "tags": [
+        "back"
+      ]
+    },
+    "chest-supported-row": {
+      "name": "Chest-supported row",
+      "howTo": "Chest on the pad, row to the ribs, squeeze the shoulder blades, lower slowly.",
+      "tags": [
+        "back"
+      ]
+    },
+    "face-pull": {
+      "name": "Face pull",
+      "howTo": "Rope at face height, pull toward the face with elbows high, rotate the hands back at the end.",
+      "tags": [
+        "rear-delts"
+      ]
+    },
+    "db-curl": {
+      "name": "Dumbbell curl",
+      "howTo": "Elbows at the sides, curl to full contraction, lower over 2 seconds.",
+      "tags": [
+        "biceps"
+      ]
+    },
+    "plank": {
+      "name": "Plank",
+      "howTo": "Forearms and toes, body in one line, glutes squeezed, breathe.",
+      "tags": [
+        "abs"
+      ]
+    },
+    "dead-bug": {
+      "name": "Dead bug",
+      "howTo": "On your back, lower the opposite arm and leg with the lower back pressed down, return, alternate.",
+      "tags": [
+        "abs"
+      ]
+    },
+    "farmer-carry": {
+      "name": "Farmer carry",
+      "howTo": "Heavy dumbbells at the sides, walk tall with short quick steps.",
+      "tags": [
+        "grip"
+      ]
+    },
+    "incline-walk": {
+      "name": "Incline walk",
+      "howTo": "Treadmill at 6 to 8%, hands off the rails, nose-breathing pace.",
+      "tags": [
+        "cardio"
+      ]
+    },
+    "couch-stretch": {
+      "name": "Couch stretch",
+      "howTo": "Rear knee against a wall, front foot forward, tuck the pelvis, stay tall, hold.",
+      "tags": [
+        "mobility"
+      ]
+    },
+    "doorway-pec-stretch": {
+      "name": "Doorway pec stretch",
+      "howTo": "Forearm on the door frame, step through until the chest stretches, hold.",
+      "tags": [
+        "mobility"
+      ]
+    },
+    "single-leg-stance": {
+      "name": "Single-leg stance",
+      "howTo": "Stand on one foot for the hold; close the eyes once steady.",
+      "tags": [
+        "balance"
+      ]
+    },
+    "steps": {
+      "name": "Steps 8,000+",
+      "howTo": "Check the day's step count before bed.",
+      "tags": [
+        "daily"
+      ]
+    }
+  },
+  "days": [
+    {
+      "id": "sun",
+      "order": 0,
+      "name": "Sunday",
+      "focus": "Rest",
+      "durationMin": 20,
+      "rest": true,
+      "sections": [
+        {
+          "id": "sun-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s001",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s002",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mon",
+      "order": 1,
+      "name": "Monday",
+      "focus": "Push",
+      "durationMin": 60,
+      "sections": [
+        {
+          "id": "mon-wu",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "s003",
+              "exerciseId": "walk",
+              "type": "cardio_block",
+              "minutes": 5
+            },
+            {
+              "id": "s004",
+              "exerciseId": "band-pull-apart",
+              "type": "bodyweight_reps",
+              "sets": 2,
+              "repMin": 15,
+              "repMax": 15
+            },
+            {
+              "id": "s005",
+              "exerciseId": "ramp",
+              "type": "check",
+              "cue": "Bench ramp: bar x10, 50% x5"
+            }
+          ]
+        },
+        {
+          "id": "mon-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "s006",
+              "exerciseId": "bench-press",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 8,
+              "unit": "kg",
+              "index": true,
+              "restSec": 180,
+              "tempo": "2-1-1"
+            },
+            {
+              "id": "s007",
+              "exerciseId": "incline-db-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 10,
+              "unit": "kg",
+              "restSec": 120
+            },
+            {
+              "id": "s008",
+              "exerciseId": "seated-db-ohp",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 10,
+              "unit": "kg"
+            },
+            {
+              "id": "s009",
+              "exerciseId": "lateral-raise",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "unit": "kg"
+            },
+            {
+              "id": "s010",
+              "exerciseId": "rope-pushdown",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 12,
+              "unit": "kg"
+            }
+          ]
+        },
+        {
+          "id": "mon-abs",
+          "kind": "abs",
+          "title": "Abs",
+          "items": [
+            {
+              "id": "s011",
+              "exerciseId": "plank",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 45,
+              "cue": "+5 seconds per week"
+            }
+          ]
+        },
+        {
+          "id": "mon-cd",
+          "kind": "cooldown",
+          "title": "Cooldown",
+          "items": [
+            {
+              "id": "s012",
+              "exerciseId": "doorway-pec-stretch",
+              "type": "timed_hold",
+              "sets": 2,
+              "holdSec": 45,
+              "perSide": true
+            }
+          ]
+        },
+        {
+          "id": "mon-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s013",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s014",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tue",
+      "order": 2,
+      "name": "Tuesday",
+      "focus": "Rest",
+      "durationMin": 20,
+      "rest": true,
+      "sections": [
+        {
+          "id": "tue-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s015",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s016",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wed",
+      "order": 3,
+      "name": "Wednesday",
+      "focus": "Legs",
+      "durationMin": 70,
+      "swappableWith": "thu",
+      "sections": [
+        {
+          "id": "wed-wu",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "s017",
+              "exerciseId": "walk",
+              "type": "cardio_block",
+              "minutes": 8
+            },
+            {
+              "id": "s018",
+              "exerciseId": "ramp",
+              "type": "check",
+              "cue": "Squat ramp: bar x10, 40% x6, 60% x3"
+            }
+          ]
+        },
+        {
+          "id": "wed-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "s019",
+              "exerciseId": "back-squat",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 5,
+              "repMax": 6,
+              "unit": "kg",
+              "index": true,
+              "tempo": "3-1-1",
+              "restSec": 180,
+              "byWeek": {
+                "5": {
+                  "sets": 5
+                }
+              }
+            },
+            {
+              "id": "s020",
+              "exerciseId": "leg-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 10,
+              "unit": "kg",
+              "restSec": 120
+            },
+            {
+              "id": "s021",
+              "exerciseId": "hamstring-curl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 12,
+              "unit": "kg"
+            },
+            {
+              "id": "s022",
+              "exerciseId": "standing-calf-raise",
+              "type": "bodyweight_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 12,
+              "cue": "3-second lower"
+            },
+            {
+              "id": "s023",
+              "exerciseId": "farmer-carry",
+              "type": "distance",
+              "sets": 3,
+              "distanceM": 40
+            }
+          ]
+        },
+        {
+          "id": "wed-abs",
+          "kind": "abs",
+          "title": "Abs",
+          "items": [
+            {
+              "id": "s024",
+              "exerciseId": "dead-bug",
+              "type": "bodyweight_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 10,
+              "perSide": true
+            }
+          ]
+        },
+        {
+          "id": "wed-cd",
+          "kind": "cooldown",
+          "title": "Cooldown",
+          "items": [
+            {
+              "id": "s025",
+              "exerciseId": "couch-stretch",
+              "type": "timed_hold",
+              "sets": 2,
+              "holdSec": 45,
+              "perSide": true
+            }
+          ]
+        },
+        {
+          "id": "wed-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s026",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s027",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thu",
+      "order": 4,
+      "name": "Thursday",
+      "focus": "Light",
+      "durationMin": 45,
+      "swappableWith": "wed",
+      "sections": [
+        {
+          "id": "thu-cardio",
+          "kind": "cardio",
+          "title": "Zone 2",
+          "items": [
+            {
+              "id": "s028",
+              "exerciseId": "incline-walk",
+              "type": "cardio_block",
+              "minutes": 40,
+              "cue": "6 to 8%"
+            }
+          ]
+        },
+        {
+          "id": "thu-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s029",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s030",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fri",
+      "order": 5,
+      "name": "Friday",
+      "focus": "Pull",
+      "durationMin": 60,
+      "sections": [
+        {
+          "id": "fri-wu",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "s031",
+              "exerciseId": "walk",
+              "type": "cardio_block",
+              "minutes": 5
+            },
+            {
+              "id": "s032",
+              "exerciseId": "band-pull-apart",
+              "type": "bodyweight_reps",
+              "sets": 2,
+              "repMin": 15,
+              "repMax": 15
+            }
+          ]
+        },
+        {
+          "id": "fri-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "s033",
+              "exerciseId": "pull-up",
+              "type": "bodyweight_reps",
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 8,
+              "index": true,
+              "cue": "add load when 4x8 is clean"
+            },
+            {
+              "id": "s034",
+              "exerciseId": "chest-supported-row",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 10,
+              "unit": "kg",
+              "restSec": 120
+            },
+            {
+              "id": "s035",
+              "exerciseId": "face-pull",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 15,
+              "repMax": 20,
+              "unit": "kg"
+            },
+            {
+              "id": "s036",
+              "exerciseId": "db-curl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 10,
+              "unit": "kg"
+            }
+          ]
+        },
+        {
+          "id": "fri-abs",
+          "kind": "abs",
+          "title": "Abs",
+          "items": [
+            {
+              "id": "s037",
+              "exerciseId": "plank",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 45
+            }
+          ]
+        },
+        {
+          "id": "fri-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s038",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s039",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sat",
+      "order": 6,
+      "name": "Saturday",
+      "focus": "Rest",
+      "durationMin": 20,
+      "rest": true,
+      "sections": [
+        {
+          "id": "sat-daily",
+          "kind": "daily",
+          "title": "Daily layer",
+          "items": [
+            {
+              "id": "s040",
+              "exerciseId": "single-leg-stance",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "perSide": true
+            },
+            {
+              "id": "s041",
+              "exerciseId": "steps",
+              "type": "check"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

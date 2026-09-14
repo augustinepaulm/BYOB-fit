@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.2 · Date: Saturday, Sep 12, 2026 · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.3 · Date: Sunday, Sep 13, 2026 (v1.2 was Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -22,12 +22,12 @@ All decisions live in DECISIONS.md (checksummed in section 8). Summary of the fr
 
 | Input | Provenance | Where it lives |
 |---|---|---|
-| Training program v10 | STATED, pasted into chat Sep 12, 2026; source-of-truth build is the FitDay fork index.html, md5 ce20664fb136ad4548c1659f1341afe9 (Auggie's figure, not re-verified here) | Converted to `seed/program.json`, gitignored; imported on first run |
+| Training program v11 (muscle-preservation block) | STATED, pasted into chat Sep 13, 2026; supersedes the v10 handoff of Sep 12 (the FitDay fork still carries v10) | Converted to `seed/program.json`, gitignored; imported on first run. Hash recorded in chat only, since the file is private. Week 1 assumed to start Sunday Aug 10, 2026 (week 6 = Sep 14); Auggie to confirm |
 | Exercise descriptions | To be written per item; STATED where Auggie supplies, DEFAULT where Claude drafts | Inside the seed program file |
 | Profile and goal fields | STATED by Auggie at first run, typed into the app | IndexedDB only |
 | Anthropic API key | Auggie's own | IndexedDB only, entered in Settings |
 
-The pasted v10 document also carries measured, stated and modeled health context. None of it enters the repo, the plan, or any committed file. The app stores only what Auggie types into Profile.
+The pasted v11 document also carries measured, stated and modeled health context. None of it enters the repo, the plan, or any committed file. The app stores only what Auggie types into Profile.
 
 ## 4. Screens
 
@@ -43,27 +43,43 @@ The pasted v10 document also carries measured, stated and modeled health context
 
 Reprogramming lives under Week: "Build next week" runs the model, shows a diff, waits for approval (D-016).
 
-## 5. Data model (DEFAULT, to be frozen at Gate 2)
+## 5. Data model (FROZEN at Gate 2, Sep 13, 2026)
+
+The machine-readable contract is `docs/program.schema.json` (JSON Schema 2020-12). The import screen validates every program file against it; a file that fails does not load. Summary:
 
 ```
-Program        { id, name, weekStartsOn: "sunday", programWeeks: 12, days: Day[7] }
-Day            { id, name, order, durationMin, sections: Section[], swappableWith?: dayId }
-Section        { id, kind: warmup|main|block|abs|cardio|cooldown|daily, title, items: Item[] }
-Item           { id, exerciseId, type: load_reps|bodyweight_reps|timed_hold|distance|cardio_block|check,
-                 perSide: bool, sets, repMin, repMax, holdSec, distanceM, minutes,
-                 tempo, restSec, rpe, notes, byWeek?: { [week]: partial Item } }
-Exercise       { id, name, description, unit: kg|lb, tags[] }
-Session        { id, date, dayId, programWeek, startedAt, endedAt, swapped: bool, entries: Entry[] }
-Entry          { itemId, sets: SetLog[], checked: bool, note }
-SetLog         { n, side?: L|R, weight, reps, seconds, distanceM, minutes, rpe, raw: string }
-Profile        { fields: { [label]: value }, updatedAt }
-MealDay        { date, lines: string[], parsed?: { kcal, proteinG, items[] }, parsedAt }
-Settings       { apiKey, model, lastExportAt }
+Program   { schemaVersion: 1, id, name, version, weekStartsOn: "sunday", programWeeks, startDate,
+            notes, exercises: { [id]: Exercise }, days: Day[7] }
+Exercise  { name, howTo, tags[] }
+Day       { id, order (0 = Sunday), name, focus, durationMin, swappableWith?, rest?, sections: Section[] }
+Section   { id, kind: warmup|main|block|abs|cardio|cooldown|daily, title, items: Item[] }
+Item      { id, exerciseId, type: load_reps|bodyweight_reps|timed_hold|distance|cardio_block|check,
+            perSide?, sets?, repMin?, repMax?, holdSec?, distanceM?, minutes?, tempo?, restSec?, rpe?,
+            unit?: kg|lb, index?, logged?, cue?, notes?, alternateExerciseId?, byWeek?: { [week]: partial Item } }
 ```
 
-`raw` on SetLog keeps what was typed or dictated, so parser errors can be corrected without losing the input. `byWeek` carries staged prescriptions (plyo progression, calf-raise loading) without duplicating the program.
+Rules frozen with it:
+- `currentWeek` = floor((today − startDate) / 7 days) + 1, clamped to 1..programWeeks. Derived, not stored.
+- `byWeek` keys are program week numbers. An override applies from that week onward until a higher key takes over. Any Item field may be overridden, including `exerciseId` (staged progressions such as plyo stages).
+- `logged` default by section kind: main, block and abs log per set; cardio logs minutes plus a note; warmup, cooldown and daily are check-off. `logged: true|false` on an item overrides that.
+- `unit` is shown as entered, no conversion. `index: true` marks the monitored lifts; the Log screen has an index-lift view and the reprogramming prompt carries the ">5% down on two or more index lifts over two weeks" rule.
+- `alternateExerciseId` renders a one-tap substitute on the tile; the session records which exercise was actually done.
+- Warm-up ramps and rotations are ordinary `check` items with a `cue`.
 
-Parser grammar (D-011), DEFAULT: `<number> (for|x|by|×) <number>` → weight, reps · `<number> (s|sec|seconds)` → seconds · `<number> (m|meters|metres)` → distance · `same` → copy last week's set · `bodyweight` or `bw` → weight 0 · spoken numbers ("twenty two point five") normalised before matching. Unparseable input stays in `raw`, row flagged, never silently zeroed.
+Stores outside the program file (unchanged from v1.2):
+
+```
+Session   { id, date, dayId, programWeek, startedAt, endedAt, swapped, entries: Entry[] }
+Entry     { itemId, exerciseId (as performed), sets: SetLog[], checked, note }
+SetLog    { n, side?: L|R, weight, reps, seconds, distanceM, minutes, rpe, raw }
+Profile   { fields: { [label]: value }, updatedAt }
+MealDay   { date, lines[], parsed?: { kcal, proteinG, items[] }, parsedAt }
+Settings  { apiKey, model, lastExportAt }
+```
+
+Parser grammar (D-011): `<number> (for|x|by|×) <number>` → weight, reps · `<number> (s|sec|seconds)` → seconds · `<number> (m|meters|metres)` → distance · `<number> (min|minutes)` → minutes · `same` → copy last week's set · `bodyweight` or `bw` → weight 0 · spoken numbers ("twenty two point five") normalised before matching. Unparseable input stays in `raw`, row flagged, never silently zeroed.
+
+Seed and sample: `seed/program.json` is v11, 7 days, 222 items, 115 exercises, 5 index lifts, 2 alternates, 10 items with `byWeek`, drafted how-to text per exercise, gitignored. `public/sample-program.json` is a generic 3-day program, 41 items, 24 exercises, committed for forks.
 
 ## 6. Phases and numbered tasks
 
@@ -83,11 +99,11 @@ Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this c
 1.3 Export → Hand off to Claude Code; bundle stored under `design/` in the repo
 
 ### Phase 2: Data and import (gate: Today shows v10 Sunday from the seed file)
-2.1 Convert v10 to `seed/program.json` (drafted in this chat; Auggie reviews item by item)
+2.1 `seed/program.json` from v11: delivered Sep 13, validated against the schema; Auggie reviews the how-to text and the unit defaults (dumbbell, cable and machine loads defaulted to lb, kettlebell and goblet work to kg), then places the file by hand
 2.2 IndexedDB schema and repository layer for all entities in section 5
 2.3 Import screen: load seed JSON, validate, activate
 2.4 Today and Week screens from the handoff bundle, reading real data
-2.5 Sample generic program committed as `public/sample-program.json` for forks
+2.5 `public/sample-program.json` (delivered Sep 13, validated) committed for forks; `docs/program.schema.json` committed as the contract
 
 ### Phase 3: Deck and logging (gate: full Sunday session logged on Auggie's phone)
 3.1 Deck navigation: sections in order, tile stack, progress, rest timer
@@ -121,8 +137,12 @@ Method: one focused weekend per phase for 2 to 5, half a weekend for 0, 1 and 6;
 | File | Role | md5 |
 |---|---|---|
 | docs/DECISIONS.md | Decision records D-001 to D-021 | a2403900620b790463d5d25045c92190 |
-| docs/PLAN.md | This file, v1.2 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/PLAN.md | This file, v1.3 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
+| docs/EXEC-01.md | Executor prompt, scaffold | 359389c78a7097dcfbc7162902c618b2 |
+| design/BYOB-fit_Design.html | Claude Design export, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
+| docs/program.schema.json | Program file contract, frozen at Gate 2 | ed3a0fe2a95c33efc49ed144eb572d8a |
+| public/sample-program.json | Generic sample program | 8416d1974b9746f2172f8b73c493a0f9 |
 
 Sequence for every delivered file: download → copy into repo → `md5` against the recorded value → `git add` → commit. Not saved until the hash check passes in the repo.
 
@@ -138,6 +158,6 @@ B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Ex
 
 O-1 Resolved Sep 12, 2026: BYOB-fit, BYOB expanding to Build Your Own Body; logo and marketing use that expansion
 O-2 iOS storage eviction for home-screen PWAs: hypothesis that installed apps are exempt from Safari's storage clearing; not verified; export (D-017) is the mitigation either way; Phase 5.3 records observed behaviour
-O-3 Exercise descriptions: who writes them, Auggie or Claude draft for Auggie's review (DEFAULT: Claude drafts, one line each, Auggie edits)
+O-3 Exercise how-to text: drafted by Claude in the v11 seed (115 exercises); Auggie edits in the seed file; not blocking
 O-4 Profile fields: which fields Auggie wants (DEFAULT: goal statement, program week and dates, weekly targets he chooses to enter; nothing computed by the app)
 O-5 Reprogramming rules the model must follow: to be supplied by Auggie as plain text before Phase 4 (the v10 handoff's standing rules are the starting point)
