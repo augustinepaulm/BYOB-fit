@@ -96,12 +96,41 @@ describe('resolveItem', () => {
     expect(resolveItem(bench, 8).repMin).toBe(5)
   })
 
-  it('lets a higher key supersede a lower one', () => {
+  it('lets a higher key overwrite the fields it names', () => {
     const r = resolveItem(bench, 10)
     expect(r.repMin).toBe(3)
     expect(r.repMax).toBe(5)
-    // The week 9 entry takes over from week 5, so sets returns to the base.
-    expect(r.sets).toBe(4)
+    // D-023: cumulative, so week 5's sets survives week 9, which is silent on it.
+    expect(r.sets).toBe(5)
+  })
+
+  it('keeps a lower key field a higher key does not mention (walk-jog)', () => {
+    // seed/program.json sat/i204: base is off, week 8 turns logging on, and
+    // weeks 10 and 12 only refine the cue and minutes.
+    const walkJog: Item = {
+      id: 'i204',
+      exerciseId: 'walk-jog',
+      type: 'cardio_block',
+      minutes: 24,
+      logged: false,
+      cue: 'not before week 8',
+      byWeek: {
+        '8': { logged: true, cue: '1 min jog, 2 min walk, x8' },
+        '10': { cue: '2 min jog, 1 min walk, x8' },
+        '12': { minutes: 15, cue: 'continuous 15 min' },
+      },
+    }
+    expect(resolveItem(walkJog, 7).logged).toBe(false)
+    expect(resolveItem(walkJog, 8).logged).toBe(true)
+    // The week 10 and 12 entries are silent on logged, so week 8's true stands.
+    expect(resolveItem(walkJog, 10).logged).toBe(true)
+    expect(resolveItem(walkJog, 10).cue).toBe('2 min jog, 1 min walk, x8')
+    expect(resolveItem(walkJog, 10).minutes).toBe(24)
+    expect(resolveItem(walkJog, 12).logged).toBe(true)
+    expect(resolveItem(walkJog, 12).minutes).toBe(15)
+    // And the section default is not consulted while logged is set.
+    expect(isLogged('cardio', resolveItem(walkJog, 12))).toBe(true)
+    expect(isLogged('cardio', resolveItem(walkJog, 7))).toBe(false)
   })
 
   it('drops byWeek from the resolved item but keeps the id', () => {

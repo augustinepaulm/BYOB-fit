@@ -38,20 +38,22 @@ export function currentWeek(program: Program, today: Date): number {
 }
 
 /**
- * Apply byWeek overrides for a program week. An override applies from its key
- * week onward until a higher key takes over, so the entry with the greatest key
- * at or below `week` is the one in force, merged over the item's base fields.
+ * Apply byWeek overrides for a program week (D-023). Overrides are cumulative:
+ * every override whose key is <= week applies in ascending key order on top of
+ * the base item, later keys overwriting earlier ones field by field. A field a
+ * later key does not mention keeps the value an earlier key gave it.
  */
 export function resolveItem(item: Item, week: number): ItemFields & { id: string } {
   const { byWeek, ...base } = item
   if (!byWeek) return base
-  let keyInForce = -1
-  for (const key of Object.keys(byWeek)) {
-    const n = Number(key)
-    if (Number.isFinite(n) && n <= week && n > keyInForce) keyInForce = n
-  }
-  if (keyInForce < 0) return base
-  return { ...base, ...byWeek[String(keyInForce)] }
+  const keys = Object.keys(byWeek)
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n <= week)
+    .sort((a, b) => a - b)
+  return keys.reduce<ItemFields & { id: string }>(
+    (resolved, key) => ({ ...resolved, ...byWeek[String(key)] }),
+    base,
+  )
 }
 
 /**

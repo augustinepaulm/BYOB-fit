@@ -7,6 +7,7 @@ import addFormats from 'ajv-formats'
 
 import schema from '../../docs/program.schema.json'
 import type { ItemFields, Program } from '../types/program.ts'
+import { parseISODate } from './program.ts'
 
 export type ImportResult =
   | { ok: true; program: Program }
@@ -57,6 +58,20 @@ function itemReferences(
   return refs
 }
 
+/**
+ * The schema can say `format: date` but not "is a Sunday", so the week-start
+ * rule is checked here: program week 1 begins on the startDate, and every week
+ * boundary after it is a Sunday.
+ */
+function startDateErrors(program: Program): string[] {
+  const date = parseISODate(program.startDate)
+  if (date.getDay() === 0) return []
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date)
+  return [
+    `/startDate: must be a Sunday, but ${program.startDate} is a ${weekday}`,
+  ]
+}
+
 /** Check that every exercise id an item names actually exists in `exercises`. */
 function referenceErrors(program: Program): string[] {
   const errors: string[] = []
@@ -85,7 +100,7 @@ export function importProgram(value: unknown): ImportResult {
     const errors = (validate.errors ?? []).map(formatError)
     return { ok: false, errors: errors.length ? errors : ['File is not a valid program.'] }
   }
-  const errors = referenceErrors(value)
+  const errors = [...startDateErrors(value), ...referenceErrors(value)]
   if (errors.length) return { ok: false, errors }
   return { ok: true, program: value }
 }

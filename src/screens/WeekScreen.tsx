@@ -9,18 +9,11 @@ import {
   toISODate,
 } from '../lib/dates.ts'
 import { dayForDate, weekDates } from '../lib/program.ts'
+import { sessionState, type DayState } from '../lib/session.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, ChevronRightIcon, SwapIcon } from '../ui/icons.tsx'
-
-type DayState = 'done' | 'partial' | 'not-started'
-
-function stateOf(session: Session | undefined): DayState {
-  if (!session) return 'not-started'
-  if (session.endedAt) return 'done'
-  return 'partial'
-}
 
 function StateMark({ state }: { state: DayState }) {
   if (state === 'done') {
@@ -198,7 +191,7 @@ export function WeekScreen() {
                 <div className="day-card__name">{day.name}</div>
                 {meta && <div className="day-card__meta">{meta}</div>}
               </div>
-              <StateMark state={stateOf(byDayId.get(day.id))} />
+              <StateMark state={sessionState(byDayId.get(day.id))} />
             </div>
           )
         })}

@@ -4,17 +4,6 @@ import { formatLongDate } from '../lib/dates.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { ChevronLeftIcon, GearIcon } from '../ui/icons.tsx'
 
-export function LogScreen() {
-  return (
-    <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">Log</h1>
-      </div>
-      <p className="muted-line">Coming in Phase 3</p>
-    </div>
-  )
-}
-
 export function MealsScreen() {
   const { today } = useProgram()
   return (

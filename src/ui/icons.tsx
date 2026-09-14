@@ -167,3 +167,46 @@ export function RestIcon({ size = 24 }: IconProps) {
     </svg>
   )
 }
+
+export function ChevronDownIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M8 10l4 4 4-4" />
+    </svg>
+  )
+}
+
+export function PlayIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 5l12 7-12 7z" />
+    </svg>
+  )
+}
+
+export function SearchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="6" />
+      <line x1="15.5" y1="15.5" x2="20" y2="20" />
+    </svg>
+  )
+}
