@@ -18,6 +18,7 @@ import {
   findSet,
   isSetConfirmed,
   isSetFlagged,
+  nearestWeightAbove,
   referenceSet,
   setRowsFor,
   summarise,
@@ -179,6 +180,8 @@ export function DeckScreen() {
       const result = parseSet(text, {
         type: current.resolved.type ?? 'load_reps',
         reference,
+        // The row's own pre-fill load: this session first, then last week.
+        inheritWeight: nearestWeightAbove(entry, row) ?? reference?.weight,
       })
       const base: SetLog = { n: row.n, ...(row.side ? { side: row.side } : {}) }
       if (result.ok) {
@@ -200,7 +203,7 @@ export function DeckScreen() {
         return next
       })
     },
-    [api, current, exerciseId, referenceEntry, startRest],
+    [api, current, entry, exerciseId, referenceEntry, startRest],
   )
 
   const confirmPrefill = useCallback(

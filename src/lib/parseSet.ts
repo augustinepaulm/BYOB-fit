@@ -18,6 +18,11 @@ export interface ParseContext {
   type: ItemType
   /** The set "same" copies. */
   reference?: SetLog
+  /**
+   * The load a bare number inherits on a load_reps row: the nearest confirmed
+   * set above it in this session, else the last-week reference (EXEC-04 2a).
+   */
+  inheritWeight?: number
 }
 
 const UNITS: Record<string, number> = {
@@ -179,9 +184,12 @@ export function parseSet(input: string, context: ParseContext): ParseResult {
   // A bare number means different things by item type.
   if ((match = text.match(new RegExp(`^${NUM}$`)))) {
     const value = Number(match[1])
+    // Reps are integers in the schema, so a fractional bare number is never a
+    // rep count: "sixty two half" is a misheard load, not 62.5 reps.
+    const wholeReps = Number.isInteger(value) && value > 0
     switch (context.type) {
       case 'bodyweight_reps':
-        return fields({ reps: value })
+        return wholeReps ? fields({ reps: value }) : { ok: false, raw }
       case 'timed_hold':
         return fields({ seconds: value })
       case 'distance':
@@ -189,9 +197,14 @@ export function parseSet(input: string, context: ParseContext): ParseResult {
       case 'cardio_block':
         return fields({ minutes: value })
       case 'load_reps':
+        // A bare number is the rep count; the load carries over from the row
+        // above or from last week. With no load to inherit, flag it.
+        if (!wholeReps || context.inheritWeight === undefined) {
+          return { ok: false, raw }
+        }
+        return fields({ weight: context.inheritWeight, reps: value })
       case 'check':
       default:
-        // Ambiguous: 60 could be the load or the reps. Flag it, keep the raw.
         return { ok: false, raw }
     }
   }

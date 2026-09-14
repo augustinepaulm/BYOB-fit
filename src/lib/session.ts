@@ -216,3 +216,48 @@ export function summarise(
     swapped: session?.swapped === true,
   }
 }
+
+function orderKey(row: { n: number; side?: string }): number {
+  return row.n * 2 + (row.side === 'R' ? 1 : 0)
+}
+
+/**
+ * The load a bare rep count inherits: the nearest confirmed set above this row
+ * in the current session (EXEC-04 2a). Undefined when nothing above carries one.
+ */
+export function nearestWeightAbove(
+  entry: Entry | undefined,
+  row: SetRow,
+): number | undefined {
+  if (!entry) return undefined
+  const target = orderKey(row)
+  const above = entry.sets
+    .filter(
+      (set) =>
+        isSetConfirmed(set) && set.weight !== undefined && orderKey(set) < target,
+    )
+    .sort((a, b) => orderKey(a) - orderKey(b))
+  return above.length > 0 ? above[above.length - 1].weight : undefined
+}
+
+/**
+ * Rest days have no Finish button, so a rest day whose check-off items are all
+ * checked counts as done (EXEC-04 2b).
+ */
+export function restDayState(
+  session: Session | undefined,
+  deck: DeckItem[],
+): DayState {
+  if (!session) return 'not-started'
+  if (session.endedAt) return 'done'
+  const checkable = deck.filter((deckItem) => !deckItem.logged)
+  if (
+    checkable.length > 0 &&
+    checkable.every(
+      (deckItem) => findEntry(session, deckItem.item.id)?.checked === true,
+    )
+  ) {
+    return 'done'
+  }
+  return sessionState(session)
+}
