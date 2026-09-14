@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.3 · Date: Sunday, Sep 13, 2026 (v1.2 was Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.4 · Date: Monday, Sep 14, 2026 (v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -22,7 +22,7 @@ All decisions live in DECISIONS.md (checksummed in section 8). Summary of the fr
 
 | Input | Provenance | Where it lives |
 |---|---|---|
-| Training program v11 (muscle-preservation block) | STATED, pasted into chat Sep 13, 2026; supersedes the v10 handoff of Sep 12 (the FitDay fork still carries v10) | Converted to `seed/program.json`, gitignored; imported on first run. Hash recorded in chat only, since the file is private. Week 1 assumed to start Sunday Aug 10, 2026 (week 6 = Sep 14); Auggie to confirm |
+| Training program v11 (muscle-preservation block) | STATED, pasted into chat Sep 13, 2026; supersedes the v10 handoff of Sep 12 (the FitDay fork still carries v10) | Converted to `seed/program.json`, gitignored; imported on first run. Hash recorded in chat only, since the file is private. Week 1 starts Sunday Aug 9, 2026, so Sunday Sep 13 begins week 6 (v11 counts the block Mon Sep 14 to Sun Oct 25; app weeks start Sunday). Corrected Sep 13 after the first import showed week 5 |
 | Exercise descriptions | To be written per item; STATED where Auggie supplies, DEFAULT where Claude drafts | Inside the seed program file |
 | Profile and goal fields | STATED by Auggie at first run, typed into the app | IndexedDB only |
 | Anthropic API key | Auggie's own | IndexedDB only, entered in Settings |
@@ -43,7 +43,7 @@ The pasted v11 document also carries measured, stated and modeled health context
 
 Reprogramming lives under Week: "Build next week" runs the model, shows a diff, waits for approval (D-016).
 
-## 5. Data model (FROZEN at Gate 2, Sep 13, 2026)
+## 5. Data model (FROZEN at Gate 2, Sep 13, 2026; byWeek wording re-frozen Sep 14, D-023)
 
 The machine-readable contract is `docs/program.schema.json` (JSON Schema 2020-12). The import screen validates every program file against it; a file that fails does not load. Summary:
 
@@ -59,8 +59,8 @@ Item      { id, exerciseId, type: load_reps|bodyweight_reps|timed_hold|distance|
 ```
 
 Rules frozen with it:
-- `currentWeek` = floor((today − startDate) / 7 days) + 1, clamped to 1..programWeeks. Derived, not stored.
-- `byWeek` keys are program week numbers. An override applies from that week onward until a higher key takes over. Any Item field may be overridden, including `exerciseId` (staged progressions such as plyo stages).
+- `currentWeek` = floor((today − startDate) / 7 days) + 1, clamped to 1..programWeeks. Derived, not stored. `startDate` must be a Sunday; import rejects any other weekday.
+- `byWeek` keys are program week numbers. Overrides are cumulative (D-023): for week W, apply every override with key <= W in ascending order on top of the base item, later keys overwriting earlier ones field by field. Any Item field may be overridden, including `exerciseId` (staged progressions such as plyo stages).
 - `logged` default by section kind: main, block and abs log per set; cardio logs minutes plus a note; warmup, cooldown and daily are check-off. `logged: true|false` on an item overrides that.
 - `unit` is shown as entered, no conversion. `index: true` marks the monitored lifts; the Log screen has an index-lift view and the reprogramming prompt carries the ">5% down on two or more index lifts over two weeks" rule.
 - `alternateExerciseId` renders a one-tap substitute on the tile; the session records which exercise was actually done.
@@ -83,7 +83,7 @@ Seed and sample: `seed/program.json` is v11, 7 days, 222 items, 115 exercises, 5
 
 ## 6. Phases and numbered tasks
 
-Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this chat verifies; Auggie approves. Production deploy (GitHub Pages) only on Auggie's explicit approval in chat.
+Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this chat verifies independently from GitHub; Auggie approves. Production deploy (GitHub Pages) happens only when Auggie merges the phase branch into `main` (D-024); the executor never merges.
 
 ### Phase 0: Setup (gate: hello page live on GitHub Pages)
 0.1 Confirm Node, npm, git versions on Auggie's Mac
@@ -105,7 +105,8 @@ Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this c
 2.4 Today and Week screens from the handoff bundle, reading real data
 2.5 `public/sample-program.json` (delivered Sep 13, validated) committed for forks; `docs/program.schema.json` committed as the contract
 
-### Phase 3: Deck and logging (gate: full Sunday session logged on Auggie's phone)
+### Phase 3: Deck and logging (gate: full session logged on Auggie's phone)
+3.0 Carry-overs from Phase 2 review: cumulative `byWeek` (D-023), HashRouter (D-022), Sunday check on `startDate`, rest days render the daily section
 3.1 Deck navigation: sections in order, tile stack, progress, rest timer
 3.2 Per-set rows with last-week defaults
 3.3 Parser and free-text row input (D-011); dictation tested on device
@@ -136,12 +137,14 @@ Method: one focused weekend per phase for 2 to 5, half a weekend for 0, 1 and 6;
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-021 | a2403900620b790463d5d25045c92190 |
-| docs/PLAN.md | This file, v1.3 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-024 | 671b6dbcf369ebb7763261b18f1b75ab |
+| docs/PLAN.md | This file, v1.4 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/EXEC-01.md | Executor prompt, scaffold | 359389c78a7097dcfbc7162902c618b2 |
 | design/BYOB-fit_Design.html | Claude Design export, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
-| docs/program.schema.json | Program file contract, frozen at Gate 2 | ed3a0fe2a95c33efc49ed144eb572d8a |
+| docs/program.schema.json | Program file contract, Gate 2, wording re-frozen Sep 14 | 99ca7724a761ea782fa106d12b6f15e5 |
+| docs/EXEC-02.md | Executor prompt, Phase 2 | da3fa48a359e09cce1487cb8241ddd13 |
+| docs/EXEC-03.md | Executor prompt, Phase 3 | recorded in chat at delivery |
 | public/sample-program.json | Generic sample program | 8416d1974b9746f2172f8b73c493a0f9 |
 
 Sequence for every delivered file: download → copy into repo → `md5` against the recorded value → `git add` → commit. Not saved until the hash check passes in the repo.
@@ -157,7 +160,7 @@ B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Ex
 ## 11. Open items
 
 O-1 Resolved Sep 12, 2026: BYOB-fit, BYOB expanding to Build Your Own Body; logo and marketing use that expansion
-O-2 iOS storage eviction for home-screen PWAs: hypothesis that installed apps are exempt from Safari's storage clearing; not verified; export (D-017) is the mitigation either way; Phase 5.3 records observed behaviour
+O-2 (unchanged) iOS storage eviction for home-screen PWAs: hypothesis that installed apps are exempt from Safari's storage clearing; not verified; export (D-017) is the mitigation either way; Phase 5.3 records observed behaviour
 O-3 Exercise how-to text: drafted by Claude in the v11 seed (115 exercises); Auggie edits in the seed file; not blocking
 O-4 Profile fields: which fields Auggie wants (DEFAULT: goal statement, program week and dates, weekly targets he chooses to enter; nothing computed by the app)
 O-5 Reprogramming rules the model must follow: to be supplied by Auggie as plain text before Phase 4 (the v10 handoff's standing rules are the starting point)
