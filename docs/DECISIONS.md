@@ -75,3 +75,12 @@ Trigger to revisit: anyone other than Auggie using the app without their own key
 
 ## D-021 Private repo (PARKED)
 Superseded by D-003 for this project; the FitDay fork's open question (Cloudflare Pages vs GitHub Pro) is unaffected.
+
+## D-022 Client-side routing: HashRouter (FROZEN, Sep 14, 2026)
+Routes live after `#` (`/BYOB-fit/#/week`). GitHub Pages has no SPA fallback, so a BrowserRouter deep link or a home-screen restore to `/week` returned GitHub's 404. Found by the executor after the Phase 2 deploy.
+
+## D-023 byWeek overrides are cumulative (FROZEN, Sep 14, 2026)
+For week W, every override with key <= W applies in ascending order on top of the base item, later keys overwriting earlier ones field by field. Replaces the Gate 2 wording "applies from that week onward until a higher key takes over", which the executor read as greatest-key-wins; the two readings diverged on one seed item (walk-jog logging from week 10). Chat and executor found it independently.
+
+## D-024 Production approval is the merge (FROZEN, Sep 14, 2026)
+Auggie merging a pull request into `main` on GitHub is the explicit production approval PLAN section 6 refers to. The executor never merges and never needs to infer approval.

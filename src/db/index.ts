@@ -9,6 +9,7 @@ import type {
   Settings,
   WeekPlan,
 } from '../types/stores.ts'
+import { sessionIdFor } from '../lib/session.ts'
 import {
   ACTIVE_PROGRAM_KEY,
   PROFILE_KEY,
@@ -86,6 +87,20 @@ export async function listSessionsByDay(dayId: string): Promise<Session[]> {
 export async function listSessionsByDate(date: string): Promise<Session[]> {
   const db = await getDB()
   return db.getAllFromIndex('sessions', 'date', date)
+}
+
+export async function listAllSessions(): Promise<Session[]> {
+  const db = await getDB()
+  return db.getAll('sessions')
+}
+
+/** One session per (date, dayId); the id encodes the pair. */
+export async function getSessionByDateAndDay(
+  date: string,
+  dayId: string,
+): Promise<Session | undefined> {
+  const db = await getDB()
+  return db.get('sessions', sessionIdFor(date, dayId))
 }
 
 export async function listSessionsBetween(
