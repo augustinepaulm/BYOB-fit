@@ -7,7 +7,8 @@ import type { Appearance } from '../types/stores.ts'
 import { appearanceOf, effectiveTheme } from './defaults.ts'
 
 export const APPEARANCE_KEY = 'byob-appearance'
-const GROUND = { light: '#f5f2ec', dark: '#171512' } as const
+/** theme-color needs literal values; a test keeps them equal to the --bg tokens. */
+export const GROUND = { light: '#f5f2ec', dark: '#171512' } as const
 
 let current: Appearance = 'system'
 let media: MediaQueryList | null = null

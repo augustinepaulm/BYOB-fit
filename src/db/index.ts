@@ -198,6 +198,16 @@ export async function appendSentLog(entry: SentLogEntry): Promise<void> {
   await db.add('sentLog', entry)
 }
 
+/** Records how a logged call ended; nothing else in the entry changes (D-050 rule 1). */
+export async function setSentLogStatus(id: string, status: 'sent' | 'failed', error?: string): Promise<void> {
+  const db = await getDB()
+  const entry = await db.get('sentLog', id)
+  if (!entry) return
+  const next: SentLogEntry = { ...entry, status }
+  if (error !== undefined) next.error = error
+  await db.put('sentLog', next)
+}
+
 /** Every sent-log entry, oldest first. */
 export async function listSentLog(): Promise<SentLogEntry[]> {
   const db = await getDB()

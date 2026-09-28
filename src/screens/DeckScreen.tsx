@@ -3,7 +3,7 @@
 // the demo slot (D-033), the dictation hint, and a session-only swap.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { ExercisePicker } from '../builder/ExercisePicker.tsx'
 import { Sheet } from '../builder/ui.tsx'
@@ -36,6 +36,7 @@ import { useSettings } from '../settings/useSettings.ts'
 import type { Exercise, ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 import { ChevronLeftIcon, PlayIcon } from '../ui/icons.tsx'
+import { StateBlock } from '../ui/StateBlock.tsx'
 
 const DEMO_SEEN = 'demoSeen'
 const HINT_COUNT = 'dictationHintCount'
@@ -93,6 +94,8 @@ export function DeckScreen() {
   const { program, today, week, weekPlan } = useProgram()
   const { settings } = useSettings()
   const navigate = useNavigate()
+  // Today's Resume button already asked; a reopened deck asks here (7b).
+  const fromToday = (useLocation().state as { fromToday?: boolean } | null)?.fromToday === true
   const { templates } = useStarterTemplates()
   const library = useLibrary(program, templates)
 
@@ -125,6 +128,10 @@ export function DeckScreen() {
   const [feltChoice, setFeltChoice] = useState<FeltOff | null>(null)
   const [seenAtLoad, setSeenAtLoad] = useState<string[] | null>(null)
   const [hintCount, setHintCount] = useState<number | null>(null)
+  // 7b states: the resume prompt, a set that did not save, and End early.
+  const [resumeAsked, setResumeAsked] = useState(fromToday)
+  const [saveFailed, setSaveFailed] = useState<{ row: SetRow; text: string | null } | null>(null)
+  const [endAsked, setEndAsked] = useState(false)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -219,7 +226,7 @@ export function DeckScreen() {
 
   const commitRow = useCallback(
     async (row: SetRow, text: string) => {
-      if (!current) return
+      if (!current) return true
       const key = rowKey(current.item.id, row)
       const reference = referenceSet(referenceEntry, row)
       const result = parseSet(text, {
@@ -228,31 +235,47 @@ export function DeckScreen() {
         inheritWeight: nearestWeightAbove(entry, row) ?? reference?.weight,
       })
       const base: SetLog = { n: row.n, ...(row.side ? { side: row.side } : {}) }
-      if (result.ok) {
-        await api.writeSet(current.item.id, exerciseId, { ...base, ...result.fields })
-        startRest()
-        countSet()
-      } else {
-        // Never a silent zero: the raw text is kept and the row is flagged.
-        await api.writeSet(current.item.id, exerciseId, { ...base, raw: result.raw })
+      try {
+        if (result.ok) {
+          await api.writeSet(current.item.id, exerciseId, { ...base, ...result.fields })
+          startRest()
+          countSet()
+        } else {
+          // Never a silent zero: the raw text is kept and the row is flagged.
+          await api.writeSet(current.item.id, exerciseId, { ...base, raw: result.raw })
+        }
+      } catch {
+        // 7b: the text stays in its field; nothing else is lost.
+        setDrafts((d) => ({ ...d, [key]: text }))
+        setSaveFailed({ row, text })
+        return false
       }
+      setSaveFailed(null)
       setDrafts((d) => {
         const next = { ...d }
         delete next[key]
         return next
       })
+      return true
     },
     [api, current, entry, exerciseId, referenceEntry, startRest, countSet],
   )
 
   const confirmPrefill = useCallback(
     async (row: SetRow) => {
-      if (!current) return
+      if (!current) return true
       const { fields } = prefillFor(row)
-      if (!hasValue(fields)) return
-      await api.writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), ...fields })
+      if (!hasValue(fields)) return true
+      try {
+        await api.writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), ...fields })
+      } catch {
+        setSaveFailed({ row, text: null })
+        return false
+      }
+      setSaveFailed(null)
       startRest()
       countSet()
+      return true
     },
     [api, current, exerciseId, prefillFor, startRest, countSet],
   )
@@ -287,8 +310,8 @@ export function DeckScreen() {
       const key = rowKey(current.item.id, row)
       const draft = drafts[key]
       const stored = findSet(entry, row)
-      if (draft !== undefined && draft.trim() !== '') await commitRow(row, draft)
-      else if (!stored) await confirmPrefill(row)
+      const saved = draft !== undefined && draft.trim() !== '' ? await commitRow(row, draft) : stored ? true : await confirmPrefill(row)
+      if (!saved) return
     }
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, commitRow, confirmPrefill, advance])
@@ -314,6 +337,14 @@ export function DeckScreen() {
   }
 
   const summary = summarise(api.session ?? undefined, deck)
+  const setsLogged = summary.setsConfirmed
+  // Exercises with nothing recorded yet, for End early (7b).
+  const notDone = deck.filter((deckItem) => {
+    const recorded = findEntry(api.session ?? undefined, deckItem.item.id)
+    if (recorded?.skipped) return false
+    if (deckItem.logged) return !(recorded?.sets ?? []).some(isSetConfirmed)
+    return recorded?.checked !== true
+  }).length
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
   const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
 
@@ -553,6 +584,11 @@ export function DeckScreen() {
           type="button"
           className="dk-end"
           onClick={() => {
+            if (notDone > 0) {
+              setEndAsked(true)
+              window.scrollTo({ top: 0 })
+              return
+            }
             setPhase('summary')
             window.scrollTo({ top: 0 })
           }}
@@ -563,6 +599,56 @@ export function DeckScreen() {
       <div className="dk-progress">
         <span style={{ width: `${(current.position / deck.length) * 100}%` }} />
       </div>
+      {!resumeAsked && setsLogged > 0 && (
+        <div className="tl-state">
+          <StateBlock
+            mark="↺"
+            title="Pick up where you left off?"
+            body={`${day.focus ?? day.name} · ${current.section.title}, ${current.position} of ${deck.length} · ${setsLogged} ${setsLogged === 1 ? 'set' : 'sets'} logged.`}
+            primary={{ label: 'Resume', onClick: () => setResumeAsked(true) }}
+            secondary={{
+              label: 'End session',
+              onClick: () => {
+                setResumeAsked(true)
+                setPhase('summary')
+              },
+            }}
+          />
+        </div>
+      )}
+      {endAsked && (
+        <div className="tl-state">
+          <StateBlock
+            role="alert"
+            mark="?"
+            title="End this session?"
+            body={`${notDone} ${notDone === 1 ? 'exercise is' : 'exercises are'} not done. What you logged is kept.`}
+            primary={{ label: 'Keep going', onClick: () => setEndAsked(false) }}
+            secondary={{
+              label: 'End session',
+              onClick: () => {
+                setEndAsked(false)
+                setPhase('summary')
+                window.scrollTo({ top: 0 })
+              },
+            }}
+          />
+        </div>
+      )}
+      {saveFailed && (
+        <div className="tl-state">
+          <StateBlock
+            role="alert"
+            mark="!"
+            title="Couldn't save that set"
+            body="It’s still on screen. Try again; nothing else is lost."
+            primary={{
+              label: 'Try again',
+              onClick: () => void (saveFailed.text === null ? confirmPrefill(saveFailed.row) : commitRow(saveFailed.row, saveFailed.text)),
+            }}
+          />
+        </div>
+      )}
 
       <div className="dk-title">
         <h1 className="dk-title__name">

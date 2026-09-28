@@ -1,16 +1,38 @@
 // App-wide notices above every screen (EXEC-05 tasks 4 and 9): the update
-// banner, the one-time offline-ready toast, and the per-load disclaimer.
+// banner, the one-time offline-ready toast, and the per-load disclaimer; and
+// the offline bar from frame 7a (EXEC-11 task 9).
 
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 
+import { useOnline } from '../ai/usePreview.tsx'
 import { showDisclaimerOn } from '../lib/notices.ts'
 
 const DISCLAIMER =
   'This app and its AI features are not medical, dietary or training advice. Verify changes with a qualified professional.'
 
 const TOAST_MS = 4000
+
+function OfflineIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M3 3l18 18" />
+    </svg>
+  )
+}
+
+/** Frame 7a: shows on every screen while offline. Logging still works. */
+export function OfflineBar() {
+  const online = useOnline()
+  if (online) return null
+  return (
+    <div className="st-offline" role="status">
+      <OfflineIcon />
+      <span>You're offline. Logging works; AI features need a connection.</span>
+    </div>
+  )
+}
 
 export function AppNotices() {
   // registerType 'prompt': a waiting worker only takes over when the user taps
@@ -33,9 +55,7 @@ export function AppNotices() {
     return () => clearTimeout(timer)
   }, [offlineReady, setOfflineReady])
 
-  if (!disclaimer && !needRefresh && !offlineReady) return null
-
-  return (
+  const notices = (disclaimer || needRefresh || offlineReady) && (
     <div className="app-notices">
       {needRefresh && (
         <div className="banner" role="status">
@@ -76,5 +96,12 @@ export function AppNotices() {
         </div>
       )}
     </div>
+  )
+
+  return (
+    <>
+      <OfflineBar />
+      {notices}
+    </>
   )
 }

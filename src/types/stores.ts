@@ -108,6 +108,10 @@ export interface Settings {
   }
   /** System follows the phone; Light and Dark override it for this app (D-039). */
   appearance?: Appearance
+  /** Monthly backup note on Today (D-050 rule 2); missing means on. */
+  backupReminder?: boolean
+  /** When the backup note was last dismissed. */
+  backupNoteDismissedAt?: string
   /** Program ids whose review suggestion banner the user has dismissed. */
   reviewBannerDismissedFor?: string[]
 }
@@ -165,6 +169,10 @@ export interface SentLogEntry {
   payloadSummary: string
   /** Exactly what was sent, as JSON. */
   payload: unknown
+  /** Set when the call returns (D-050 rule 1); a missing status reads as sent. */
+  status?: 'sent' | 'failed'
+  /** The error message of a failed call. */
+  error?: string
 }
 
 /** One reprogramming round trip, kept whether or not it was approved (D-016). */

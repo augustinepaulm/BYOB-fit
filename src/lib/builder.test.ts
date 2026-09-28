@@ -192,6 +192,18 @@ describe('exercise library (D-042 rule 7)', () => {
     const none = filterLibrary(lib, { noEquipment: true })
     expect(none.every((e) => e.exercise.equipment === 'none')).toBe(true)
   })
+  it('search matches name, muscles and equipment (EXEC-11 task 11)', () => {
+    const byMuscle = filterLibrary(lib, { query: 'glutes' })
+    expect(byMuscle.length).toBeGreaterThan(0)
+    expect(byMuscle.every((e) => e.exercise.muscles?.includes('glutes') || e.exercise.name.toLowerCase().includes('glute'))).toBe(true)
+    const byEquipment = filterLibrary(lib, { query: 'Machine' })
+    expect(byEquipment.some((e) => e.exercise.equipment === 'machine' && !e.exercise.name.toLowerCase().includes('machine'))).toBe(true)
+    expect(filterLibrary(lib, { query: 'full body' }).every((e) => e.exercise.muscles?.includes('full_body') || /full body/i.test(e.exercise.name))).toBe(true)
+    const both = filterLibrary(lib, { query: 'dumbbell legs' })
+    expect(both.length).toBeGreaterThan(0)
+    expect(both.every((e) => e.exercise.equipment === 'dumbbell' && e.exercise.muscles?.includes('legs'))).toBe(true)
+    expect(filterLibrary(lib, { query: 'zzz' })).toEqual([])
+  })
   it('shows exercises without metadata only when no filter is on', () => {
     const bare = lib.filter((e) => !e.exercise.muscles)
     expect(bare.length).toBeGreaterThan(0)

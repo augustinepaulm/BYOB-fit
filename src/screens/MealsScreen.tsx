@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { sendAndLog } from '../ai/send.ts'
-import { usePreview } from '../ai/usePreview.tsx'
+import { useOnline, usePreview } from '../ai/usePreview.tsx'
 import { getGoals, getMealDay, saveMealDay } from '../db/index.ts'
 import { stripCodeFences } from '../lib/anthropic.ts'
 import { toISODate } from '../lib/dates.ts'
@@ -19,6 +19,15 @@ import { PrimaryButton, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Goals, MealDay, MealSource, ParsedMealLine, PrivacyLevel } from '../types/stores.ts'
+import { StateBlock } from '../ui/StateBlock.tsx'
+
+/** 7d "Skip" hides the baseline prompt until the next page load. */
+let baselinePromptSkipped = false
+
+/** Sunday to Saturday around `today`, for the week average without a program. */
+function plainWeek(today: Date): Date[] {
+  return Array.from({ length: 7 }, (_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay() + i))
+}
 
 type SendState = { kind: 'idle' } | { kind: 'sending' } | { kind: 'error'; text: string }
 
@@ -60,7 +69,9 @@ export function MealsScreen() {
   const [send, setSend] = useState<SendState>({ kind: 'idle' })
 
   const foods = useMemo(() => settings.mealFoods ?? [], [settings.mealFoods])
-  const dates = useMemo(() => (program ? weekDates(program, week).map(toISODate) : []), [program, week])
+  const dates = useMemo(() => (program ? weekDates(program, week) : plainWeek(today)).map(toISODate), [program, week, today])
+  const online = useOnline()
+  const [skipped, setSkipped] = useState(baselinePromptSkipped)
 
   useEffect(() => {
     let live = true
@@ -221,6 +232,25 @@ export function MealsScreen() {
         )}
       </div>
 
+      {foods.length === 0 && !skipped && (
+        // 7d "No baseline yet"
+        <div className="tl-state">
+          <StateBlock
+            mark="+"
+            title="Set up your baseline"
+            body="Save your usual meals once, then type BASE breakfast instead of the details."
+            primary={{ label: 'Set up baseline', onClick: () => navigate('/settings/foods') }}
+            secondary={{
+              label: 'Skip',
+              onClick: () => {
+                baselinePromptSkipped = true
+                setSkipped(true)
+              },
+            }}
+          />
+        </div>
+      )}
+
       <div style={{ margin: '0 24px' }}>
         <SectionHead>Today&apos;s entry</SectionHead>
         <textarea
@@ -234,6 +264,12 @@ export function MealsScreen() {
         <div style={{ marginTop: 12 }}>
           <PrimaryButton onClick={() => void parse()}>Parse</PrimaryButton>
         </div>
+        {text.trim() === '' && items.length === 0 && (
+          // 7d "Empty day"
+          <div className="lg-state" style={{ marginTop: 16 }}>
+            <StateBlock mark="–" title="Nothing entered today" body="Type one meal per line, then tap Parse." />
+          </div>
+        )}
 
         {/* 3o: counted lines, by where their numbers came from. */}
         {bySource.map((group) => (
@@ -307,6 +343,17 @@ export function MealsScreen() {
                 <button type="button" className="ai-btn" onClick={() => setManual(null)}>
                   Cancel
                 </button>
+              </div>
+            ) : !online ? (
+              // 7d "Offline with lines waiting"
+              <div className="lg-state" style={{ marginTop: 16 }}>
+                <StateBlock
+                  role="status"
+                  mark="!"
+                  title="Sending needs a connection"
+                  body="Enter kcal yourself now, or send when you're back online. The line is kept."
+                  primary={{ label: 'Enter kcal myself', onClick: () => setManual({}) }}
+                />
               </div>
             ) : (
               <>

@@ -2,8 +2,8 @@
 // rules 5 and 6). A new program becomes active on Save; the previous one and
 // its sessions stay stored.
 
-import { useEffect, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { listPrograms, saveProgram, setActiveProgram } from '../db/index.ts'
 import { BuilderEntry } from '../builder/BuilderEntry.tsx'
@@ -18,6 +18,7 @@ import { useProgram } from '../program/useProgram.ts'
 import { unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Program } from '../types/program.ts'
+import { ImportErrorState } from '../ui/StateBlock.tsx'
 
 /** Save a program as a new one (fresh id if taken) and make it active. */
 async function saveAsNew(program: Program): Promise<void> {
@@ -59,9 +60,12 @@ export function NewProgramScreen() {
   const { today, week, refresh } = useProgram()
   const { settings, loading } = useSettings()
   const { templates, error } = useStarterTemplates()
-  const [choice, setChoice] = useState<Choice>(null)
+  // "Build my own" from a no-program state (7a) opens the builder directly.
+  const buildFirst = (useLocation().state as { build?: boolean } | null)?.build === true
+  const [choice, setChoice] = useState<Choice>(buildFirst ? 'forms' : null)
   const [checked, setChecked] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const fileInput = useRef<HTMLInputElement>(null)
 
   // A waiting draft is resumed straight away (D-042 rule 1).
   useEffect(() => {
@@ -172,18 +176,9 @@ export function NewProgramScreen() {
             <div className="bd-day__sub">If someone gave you a BYOB-fit .json file</div>
           </span>
           <ChevronRight />
-          <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={(e) => void onFile(e)} />
+          <input ref={fileInput} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={(e) => void onFile(e)} />
         </label>
-        {errors.length > 0 && (
-          <div className="ob-errors" role="alert">
-            {errors.length === 1 ? '1 problem' : `${errors.length} problems`}, nothing was saved:
-            <ul>
-              {errors.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {errors.length > 0 && <ImportErrorState errors={errors} onChoose={() => fileInput.current?.click()} />}
       </div>
     </div>
   )

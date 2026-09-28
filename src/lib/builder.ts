@@ -237,14 +237,21 @@ export interface LibraryFilter {
  */
 export function filterLibrary(lib: LibraryEntry[], filter: LibraryFilter): LibraryEntry[] {
   const muscles = filter.sameMusclesAs?.length ? filter.sameMusclesAs : null
-  const query = filter.query?.trim().toLowerCase() ?? ''
+  const words = (filter.query ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
   return lib.filter(({ exercise }) => {
     if (muscles && !exercise.muscles?.some((m) => muscles.includes(m))) return false
     if (filter.beginner && exercise.level !== 'beginner') return false
     if (filter.noEquipment && exercise.equipment !== 'none') return false
-    if (query && !exercise.name.toLowerCase().includes(query)) return false
+    if (words.length && !words.every((w) => searchText(exercise).includes(w))) return false
     return true
   })
+}
+
+/** Name, muscles and equipment, as the search reads them (EXEC-11 task 11). */
+function searchText(exercise: Exercise): string {
+  const parts = [exercise.name, ...(exercise.muscles ?? []).flatMap((m) => [m, muscleLabel(m)])]
+  if (exercise.equipment) parts.push(exercise.equipment, EQUIPMENT_LABEL[exercise.equipment])
+  return parts.join(' ').toLowerCase()
 }
 
 const EQUIPMENT_LABEL: Record<Equipment, string> = {

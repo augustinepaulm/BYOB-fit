@@ -22,7 +22,8 @@ export interface MessageRequest {
 
 export type MessageResult =
   | { ok: true; text: string }
-  | { ok: false; error: string }
+  /** `reached`: the API answered with a success status, but the reply was unusable. */
+  | { ok: false; error: string; reached?: true }
 
 /** The exact request the client sends. Pure, so it can be tested without a network. */
 export function buildRequest(request: MessageRequest): {
@@ -120,9 +121,10 @@ export async function sendMessage(
   if (!response.ok) return { ok: false, error: readErrorMessage(response.status, body) }
 
   try {
-    return readResponseText(JSON.parse(body))
+    const result = readResponseText(JSON.parse(body))
+    return result.ok ? result : { ...result, reached: true }
   } catch {
-    return { ok: false, error: 'The model returned a response that was not JSON.' }
+    return { ok: false, error: 'The model returned a response that was not JSON.', reached: true }
   }
 }
 

@@ -18,6 +18,7 @@ import { useProgram } from '../program/useProgram.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, ChevronLeftIcon } from '../ui/icons.tsx'
+import { StateBlock } from '../ui/StateBlock.tsx'
 
 const DAY_DATE = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
@@ -166,7 +167,24 @@ export function WeekScreen() {
     }
   }, [dates])
 
-  if (!program) return null
+  if (!program) {
+    // 7c "Week, no program".
+    return (
+      <div className="tl" style={{ paddingBottom: 24 }}>
+        <div className="bd-hero">
+          <h1 className="lg-title">Week</h1>
+        </div>
+        <div className="tl-state">
+          <StateBlock
+            mark="+"
+            title="No program yet"
+            body="Your week appears here once you have a program."
+            primary={{ label: 'Pick a starter', onClick: () => navigate('/program/new') }}
+          />
+        </div>
+      </div>
+    )
+  }
 
   if (openDay) {
     const day = program.days.find((d) => d.id === openDay.dayId)

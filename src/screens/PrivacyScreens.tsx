@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { PrivacyLevelPicker } from '../ai/Privacy.tsx'
+import { sentStatusOf } from '../ai/send.ts'
 import { BuilderBar, Hero } from '../builder/ui.tsx'
 import { listSentLog } from '../db/index.ts'
 import { LEVEL_LABEL } from '../lib/payload.ts'
@@ -11,6 +12,7 @@ import { SectionHead } from '../onboarding/ui.tsx'
 import { privacyLevelOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { SentLogEntry } from '../types/stores.ts'
+import { StateBlock } from '../ui/StateBlock.tsx'
 
 export function PrivacyLevelScreen() {
   const navigate = useNavigate()
@@ -85,7 +87,12 @@ export function SentLogScreen() {
       <BuilderBar title="Settings" onBack={() => navigate('/settings')} />
       <Hero title="Sent log" sub="Everything this phone has sent to Anthropic. Nothing here can be edited." />
       <div style={{ margin: '0 24px' }}>
-        {groups.length === 0 && <div className="bd-hint">Nothing has been sent yet.</div>}
+        {groups.length === 0 && (
+          // 7e "Sent log, empty"
+          <div className="lg-state" style={{ marginTop: 16 }}>
+            <StateBlock mark="–" title="Nothing sent yet" body="AI calls appear here after you tap Send." />
+          </div>
+        )}
         {groups.map((group) => (
           <div key={group.key}>
             <SectionHead aside={`${group.items.length} ${group.items.length === 1 ? 'call' : 'calls'}`}>{group.label}</SectionHead>
@@ -102,6 +109,13 @@ export function SentLogScreen() {
                     <div style={{ flex: 1 }}>
                       <div className="ai-sent__title">{TITLE[entry.kind]}</div>
                       <div className="ai-sent__sub">{rowSub(entry)}</div>
+                      {/* D-050 rule 1 */}
+                      {sentStatusOf(entry) === 'failed' && (
+                        <div className="ai-sent__failed">
+                          <b>Failed</b>
+                          {entry.error ? ` · ${entry.error}` : ''}
+                        </div>
+                      )}
                     </div>
                   </button>
                   {expanded && (
