@@ -1,5 +1,6 @@
 // Exercise history for the Log screen (task 13).
 
+import type { Program } from '../types/program.ts'
 import type { Session, SetLog } from '../types/stores.ts'
 import { isSetConfirmed } from './session.ts'
 
@@ -135,4 +136,19 @@ export function bestSetChange(from: SetLog | undefined, to: SetLog | undefined, 
     }
   }
   return null
+}
+
+/**
+ * Exercise names for the Log: the active program, then every stored program,
+ * then the starter programs' library (the swap picker's source). An id with no
+ * name anywhere shows as itself.
+ */
+export function exerciseNames(active: Program | null, stored: Program[], library: Program[]): Map<string, string> {
+  const names = new Map<string, string>()
+  for (const p of [...(active ? [active] : []), ...stored, ...library]) {
+    for (const [id, exercise] of Object.entries(p.exercises)) {
+      if (!names.has(id)) names.set(id, exercise.name)
+    }
+  }
+  return names
 }
