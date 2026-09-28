@@ -194,3 +194,14 @@ Consequence: the weekly update no longer sends Profile fields. Anything the mode
 
 ## D-045 The existing meals call goes behind the preview now (FROZEN, Sep 28, 2026)
 Until Phase 10 makes meals local-first (D-032), the Phase 4 meal-parse call stays, but it opens the send preview and is written to the sent log like every other call.
+
+## D-046 Calorie and protein target (FROZEN, Sep 28, 2026)
+Computed on the phone and never sent at any privacy level. Method and sources in `docs/TARGETS-AND-PROGRESSION.md` Part 1: Mifflin-St Jeor resting energy; activity factor 1.53, 1.76 or 2.25 (FAO/WHO/UNU 2004); minus 500 kcal/day for lose goals, no change otherwise (2013 AHA/ACC/TOS); never below 1,200 kcal/day for women or 1,500 for men (same guideline); protein 1.6 g/kg, or 2.0 g/kg for lose goals (ISSN 2017). Calories rounded to 10, protein to 5 g, labeled as an estimate.
+Inputs: height, age and sex are added to the goal setter as optional fields, stored on the phone and never sent (approved by Auggie Sep 28, 2026). This is separate from O-11: the Full privacy level still does not send them. Without all three, Meals shows the protein target only.
+
+## D-047 Progression suggestion (FROZEN, Sep 28, 2026)
+The deck suggests more weight only after two consecutive sessions of an item in which every working set reached `repMax` at the same weight (ACSM 2009: increase 2 to 10% after one to two reps over target on two consecutive sessions; the threshold is Auggie's correction). Size 5% for exercises with legs, glutes, back or chest among their muscles on a barbell, machine or cable, 2.5% otherwise and when metadata is missing. Rounded to the nearest equipment step (barbell, machine, cable 2.5 kg or 5 lb; dumbbell 2 kg or 5 lb), never less than one step (nearest chosen by Auggie Sep 28, 2026). If one step exceeds 10% of the load, the chip suggests more reps instead. An item may carry `progression` { sessions, percent, step } to replace the defaults. The chip never applies itself.
+Consequence: schema v2 gains the optional item field `progression` (not overridable in `byWeek`). Frame 3b's copy becomes "Try <weight>, you hit <sets> × <reps> in your last <n> sessions."
+
+## D-048 Felt off flags (FROZEN, Sep 28, 2026)
+Each deck exercise can be marked Too easy, Too hard, or Discomfort (skipped), stored on the session entry as `feltOff`. Discomfort also marks the entry skipped. Flags are sent at Standard and Full (D-044) as item id and flag only.

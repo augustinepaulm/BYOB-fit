@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.9 · Date: Monday, Sep 28, 2026 (v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.10 · Date: Monday, Sep 28, 2026 (v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -80,7 +80,7 @@ Stores outside the program file (unchanged from v1.2):
 
 ```
 Session   { id, date, dayId, programWeek, startedAt, endedAt, swapped, entries: Entry[] }
-Entry     { itemId, exerciseId (as performed), sets: SetLog[], checked, note }
+Entry     { itemId, exerciseId (as performed), sets: SetLog[], checked, note, feltOff?: easy|hard|discomfort (D-048) }
 SetLog    { n, side?: L|R, weight, reps, seconds, distanceM, minutes, rpe, raw }
 Profile   { fields: { [label]: value }, updatedAt }
 MealDay   { date, lines[], parsed?: { kcal, proteinG, items[] }, parsedAt }
@@ -90,7 +90,7 @@ Settings  { apiKey, model, lastExportAt, rules, mealBaseline, storagePersisted, 
             reviewBannerDismissedFor?: programId[] }
 Goals     { items: [{ rank, type: lose_weight|lose_fat|build_muscle|get_stronger|improve_cardio|general,
             target?: { amount, unit: lb|kg|percent|km|min, exerciseId? } }], timeframeWeeks: 4|8|12|16,
-            startDate, currentStats?: { weight?, weightUnit?, bodyFatPct? }, updatedAt }
+            startDate, currentStats?: { weight?, weightUnit?, bodyFatPct?, heightCm?, age?, sex?: male|female, activity?: sitting|active|very_active (D-046) }, updatedAt }
 SentLog   { id, at, kind: review|update|meals, privacyLevel, payloadSummary, payload }   (Phase 9)
 ```
 
@@ -187,8 +187,15 @@ Phase 8: merged Sep 28, 2026 (d5b2478) before chat verification finished. Verifi
 9.5 Privacy level screen (5e) reached from Settings
 9.6 Validation errors name the key (D-043 rule 4)
 
-### Phase 10: Daily loop in 1b (gate: a full session on the phone in the new deck; week-against-week in Log; a meal day parsed locally)
-Frames 3a to 3p. Needs O-9 (calorie formula and floor) and O-10 (progression rule format) resolved first.
+Phase 9: merged Sep 28, 2026 (6858dcf).
+
+Phase 10 is split in two so each merge stays reviewable: 10A the training loop, 10B meals and targets.
+
+### Phase 10A: Training loop in 1b (gate: a full session on Auggie's iPhone in the new deck; a progression chip seen; week-against-week in Log)
+Frames 3a to 3m. Progression suggestion (D-047), felt off flags (D-048), dictation hint, demo slot, Log week-against-week, Week future weeks and swaps.
+
+### Phase 10B: Meals and targets (gate: a meal day parsed on the phone with the calorie target shown)
+Frames 3n to 3p, goal setter stats fields (D-046), local-first parsing (D-032). Its contract comes after 10A merges.
 
 ### Phase 11: Settings, privacy and polish (gate: every frame, light and dark, on an iPhone and an Android phone)
 Frames 5b to 5j, 7a to 7e, all `-dark` frames. Cross-device check. Two corrections to frame 5c: add the Appearance row under Units (D-039), and show the stored model name, default `claude-sonnet-5` (D-005), not the frame's `claude-sonnet-4-5`.
@@ -208,8 +215,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-045 | 3e9686fba3a6b4c477e0ca2d69bd6f49 |
-| docs/PLAN.md | This file, v1.9 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-048 | 3a5ac7dda568a6c3dd6d5f5d6b2b0368 |
+| docs/PLAN.md | This file, v1.10 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -222,14 +229,16 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-07.md | Executor prompt, Phase 7 | ef28bdd992bcfb5f2a56196556ffb55f |
 | docs/EXEC-07.1.md | Executor prompt, small change 7.1 | 0833be451879134705a7f37a0db19eb2 |
 | docs/EXEC-08.md | Executor prompt, Phase 8 | 12d5247c42d150f20a1105a335415365 |
-| docs/EXEC-09.md | Executor prompt, Phase 9 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-09.md | Executor prompt, Phase 9 | f51e5a90dfd6ec7539c2cf5df539bfd5 |
+| docs/EXEC-10A.md | Executor prompt, Phase 10A | recorded in chat at delivery (it checks this file's hash) |
+| docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
 | public/templates/starter-4day-upper-lower.json | Starter program, intermediate | 9c530c1784051b4c2e19cd66a206184c |
 | public/templates/starter-5day-split.json | Starter program, experienced | 1d6934c21f157f6733a5527bb14d4f55 |
 | design/BYOB-fit_Design.html | Claude Design export v1, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
 | design/BYOB-fit_v2_design.dc.html | Claude Design canvas v2, 124 frames (62 light, 62 dark), placeholder data. Reference only: it loads `./support.js`, which is not included, so it does not render on its own; read its markup | 9a9efdfa60041f89fd173b2992215554 |
-| docs/program.schema.json | Program file contract, schema v2, frozen Sep 27, overrides closed Sep 28 | e3ae437fd83a49e9a21ac2a39d38966b |
+| docs/program.schema.json | Program file contract, schema v2, frozen Sep 27, overrides closed Sep 28, progression field Sep 28 | 05f7ae141dfa800c24e46588845ad5da |
 | public/sample-program.json | Generic sample program (schemaVersion 1, valid under v2) | 8416d1974b9746f2172f8b73c493a0f9 |
 
 Sequence for every delivered file: download → copy into repo → `md5` against the recorded value → `git add` → commit. Not saved until the hash check passes in the repo.
@@ -252,9 +261,9 @@ O-5 Resolved in Phase 4: reprogramming rules are a Settings text field the user 
 O-6 Demo media: source (made in-house, licensed, or openly licensed), licence terms compatible with an MIT repo, format and size per clip. Blocks filling the demo slot, not building it
 O-7 Legal review before promoting the app to strangers: whether a no-server app counts as collecting consumer health data under Washington's My Health My Data Act, and the wording of the privacy page. Not blocking any build phase
 O-8 Resolved Sep 28, 2026 by D-037
-O-9 Calorie target formula and safe floor: to be specified with published sources before Phase 10. No number ships without a source
-O-11 Age range and sex for the Full privacy level: listed in frame 5e, collected nowhere. Decide whether to collect them (optional fields in the goal setter) or drop them from Full; until then Full sends current weight only (D-044)
-O-10 Progression rule format for the chip in frame 3b (for example "+2.5 kg when every set hits the top of the rep range"): structure and where it lives in the schema, before Phase 10
+O-9 Resolved Sep 28, 2026 by D-046
+O-11 Resolved Sep 28, 2026: dropped from Full; Full sends current weight only (D-044). Height, age and sex are collected on the phone for the calorie target only (D-046)
+O-10 Resolved Sep 28, 2026 by D-047
 
 ## 12. Visual tokens (D-034)
 
