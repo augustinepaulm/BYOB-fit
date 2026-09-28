@@ -210,7 +210,15 @@ export function SettingsScreen() {
       </div>
 
       <div className="section-label">Rules and baseline</div>
-      <div className="form-card">
+      <div className="card--rows">
+        <button type="button" className="setting-row" onClick={() => navigate('/settings/foods')}>
+          <span>Baseline foods</span>
+          <span className="setting-row__hint">
+            {(settings.mealFoods ?? []).length} {(settings.mealFoods ?? []).length === 1 ? 'food' : 'foods'}
+          </span>
+        </button>
+      </div>
+      <div className="form-card" style={{ marginTop: 12 }}>
         <label className="field-label" htmlFor="rules">
           Reprogramming rules
         </label>
@@ -222,12 +230,12 @@ export function SettingsScreen() {
           onBlur={(event) => void update({ rules: event.target.value })}
         />
         <label className="field-label" htmlFor="baseline">
-          Meal baseline
+          Notes sent with lines that need AI
         </label>
         <textarea
           id="baseline"
           className="textarea"
-          placeholder="What DFS means: your default full day of food."
+          placeholder="Context for the model, like portions or how you usually cook."
           defaultValue={settings.mealBaseline ?? ''}
           onBlur={(event) => void update({ mealBaseline: event.target.value })}
         />

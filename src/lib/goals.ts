@@ -2,7 +2,7 @@
 // them. The wording follows frames 1h and 5a.
 
 import type { LoadUnit } from '../types/program.ts'
-import type { GoalType, Goals } from '../types/stores.ts'
+import type { Activity, GoalType, Goals } from '../types/stores.ts'
 
 export const MAX_GOALS = 3
 export const TIMEFRAMES = [4, 8, 12, 16] as const
@@ -199,4 +199,56 @@ export function statsFromInput(
   }
   if (bodyFat.trim() !== '' && Number.isFinite(f) && f > 0 && f < 100) stats.bodyFatPct = f
   return Object.keys(stats).length ? stats : undefined
+}
+
+/** Height, age, sex and activity while editing (5a, EXEC-10B task 8). */
+export interface ProfileDraft {
+  heightCm: string
+  feet: string
+  inches: string
+  age: string
+  sex?: 'male' | 'female'
+  activity?: Activity
+}
+
+const INCH_CM = 2.54
+
+function positive(text: string): number | undefined {
+  if (text.trim() === '') return undefined
+  const n = Number(text.trim().replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/** Stored stats to the form: height in cm, or ft and in when the display unit is lb. */
+export function profileDraft(stats: Goals['currentStats'], unit: LoadUnit): ProfileDraft {
+  const draft: ProfileDraft = { heightCm: '', feet: '', inches: '', age: stats?.age !== undefined ? String(stats.age) : '', sex: stats?.sex, activity: stats?.activity }
+  if (stats?.heightCm !== undefined) {
+    if (unit === 'lb') {
+      const total = Math.round(stats.heightCm / INCH_CM)
+      draft.feet = String(Math.floor(total / 12))
+      draft.inches = String(total % 12)
+    } else {
+      draft.heightCm = String(stats.heightCm)
+    }
+  }
+  return draft
+}
+
+/** The form to stored fields; blank or invalid entries are left out. */
+export function profileFromInput(draft: ProfileDraft, unit: LoadUnit): NonNullable<Goals['currentStats']> {
+  const out: NonNullable<Goals['currentStats']> = {}
+  if (unit === 'lb') {
+    const ft = draft.feet.trim() === '' ? 0 : positive(draft.feet)
+    const inch = draft.inches.trim() === '' ? 0 : Number(draft.inches.trim().replace(',', '.'))
+    const total = (ft ?? NaN) * 12 + inch
+    if (Number.isFinite(total) && inch >= 0 && total > 0) out.heightCm = Math.round(total * INCH_CM * 10) / 10
+  } else {
+    const cm = positive(draft.heightCm)
+    if (cm !== undefined) out.heightCm = cm
+  }
+  const age = positive(draft.age)
+  if (age !== undefined) out.age = Math.round(age)
+  if (draft.sex) out.sex = draft.sex
+  if (draft.activity) out.activity = draft.activity
+  return out
 }

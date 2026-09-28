@@ -6,6 +6,7 @@ import { RequireProgram } from './program/RequireProgram.tsx'
 import { BuildScreen } from './screens/BuildScreen.tsx'
 import { DeckScreen } from './screens/DeckScreen.tsx'
 import { ImportScreen } from './screens/ImportScreen.tsx'
+import { FoodsScreen } from './screens/FoodsScreen.tsx'
 import { GoalScreen } from './screens/GoalScreen.tsx'
 import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
 import { MealsScreen } from './screens/MealsScreen.tsx'
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="/review" element={<ReviewScreen />} />
               <Route path="/settings/privacy" element={<PrivacyLevelScreen />} />
               <Route path="/settings/sent-log" element={<SentLogScreen />} />
+              <Route path="/settings/foods" element={<FoodsScreen />} />
             </Route>
           </Route>
         </Routes>

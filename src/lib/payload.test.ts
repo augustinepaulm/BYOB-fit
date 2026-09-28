@@ -106,11 +106,22 @@ describe('buildPayload (D-044)', () => {
   })
 
   it('meals sends the lines and the baseline only', () => {
-    const { message, summary } = buildPayload('meals', 'full', true, { ...data, mealLines: ['DFS', 'ADD apple'], mealBaseline: 'Oats\nChicken' })
-    expect(JSON.parse(message)).toEqual({ baseline: 'Oats\nChicken', lines: ['DFS', 'ADD apple'] })
+    const { message, summary } = buildPayload('meals', 'full', true, {
+      ...data,
+      mealLines: ["Dinner at a friend's, pasta"],
+      mealFoods: [{ name: 'breakfast', kcal: 480, proteinG: 30 }, { name: 'apple', kcal: 95 }],
+      mealBaseline: 'Oats\nChicken',
+    })
+    // D-049 rule 3: only the unmatched lines, the foods and the notes.
+    expect(JSON.parse(message)).toEqual({
+      baseline: 'Oats\nChicken',
+      foods: [{ name: 'breakfast', kcal: 480, proteinG: 30 }, { name: 'apple', kcal: 95 }],
+      lines: ["Dinner at a friend's, pasta"],
+    })
     expect(summary).toEqual([
-      { label: 'Meal lines', value: '2 lines' },
-      { label: 'Your baseline', value: '2 lines' },
+      { label: 'Meal lines', value: '1 line' },
+      { label: 'Your foods', value: '2 foods' },
+      { label: 'Notes', value: '2 lines' },
     ])
   })
 
@@ -123,5 +134,23 @@ describe('buildPayload (D-044)', () => {
       { label: 'Your training rules', value: '2 lines' },
     ])
     expect(joinSummary(summary)).toContain('Program: 4 training days, 35 exercises · Logged: 1 set from 1 session')
+  })
+
+  it('never sends height, age, sex or activity, at any level or kind (D-046)', () => {
+    const withBody = {
+      ...data,
+      goals: { ...goals, currentStats: { weight: 82, weightUnit: 'kg' as const, heightCm: 180, age: 40, sex: 'male' as const, activity: 'active' as const } },
+      mealLines: ['x'],
+    }
+    for (const level of ['minimal', 'standard', 'full'] as const) {
+      for (const kind of ['review', 'update', 'meals'] as const) {
+        for (const notes of [false, true]) {
+          const { message } = buildPayload(kind, level, notes, withBody)
+          for (const key of ['heightCm', 'age', 'sex', 'activity']) {
+            expect(message).not.toContain(`"${key}"`)
+          }
+        }
+      }
+    }
   })
 })

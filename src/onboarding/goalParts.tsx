@@ -1,6 +1,6 @@
 // Goal components shared by onboarding (1f to 1h) and the goal setter (5a).
 
-import { useRef, useState, type PointerEvent } from 'react'
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 
 import {
   GOAL_TYPES,
@@ -14,9 +14,11 @@ import {
   timeframeLine,
   toggleGoal,
   type GoalDraft,
+  type ProfileDraft,
   type Timeframe,
 } from '../lib/goals.ts'
 import type { LoadUnit } from '../types/program.ts'
+import type { Activity } from '../types/stores.ts'
 import {
   ChevronDown,
   ChoiceRow,
@@ -296,10 +298,12 @@ export function CurrentStats({
   stats,
   onChange,
   unit,
+  children,
 }: {
   stats: StatsDraft
   onChange: (stats: StatsDraft) => void
   unit: LoadUnit
+  children?: ReactNode
 }) {
   return (
     <div className="ob-stats">
@@ -338,10 +342,83 @@ export function CurrentStats({
           </div>
         </div>
       </div>
+      {children}
       <div className="ob-lock">
         <LockIcon />
         <span>Stored on this phone. Never sent to AI unless you allow it.</span>
       </div>
     </div>
+  )
+}
+
+const ACTIVITIES: { value: Activity; title: string; sub: string }[] = [
+  { value: 'sitting', title: 'Mostly sitting', sub: 'Desk work and little exercise' },
+  { value: 'active', title: 'Active most days', sub: 'About an hour of moderate exercise' },
+  { value: 'very_active', title: 'Very active', sub: 'Hard training or physical work most days' },
+]
+
+/** Height, age, sex and activity for the calorie formula (5a, D-046): optional, never sent. */
+export function ProfileStats({
+  draft,
+  onChange,
+  unit,
+}: {
+  draft: ProfileDraft
+  onChange: (draft: ProfileDraft) => void
+  unit: LoadUnit
+}) {
+  const field = (id: string, label: string, key: 'heightCm' | 'feet' | 'inches' | 'age', suffix: string, inputMode: 'decimal' | 'numeric' = 'decimal') => (
+    <div className="ob-stats__cell">
+      <label className="ob-stats__label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="ob-field">
+        <input id={id} aria-label={key === 'inches' ? 'Height, inches' : undefined} inputMode={inputMode} placeholder="Optional" value={draft[key]} onChange={(event) => onChange({ ...draft, [key]: event.target.value })} />
+        <span className="ob-field__unit">{suffix}</span>
+      </div>
+    </div>
+  )
+  return (
+    <>
+      <div className="ob-stats__row" style={{ marginTop: 12 }}>
+        {unit === 'lb' ? (
+          <>
+            {field('stat-feet', 'Height', 'feet', 'ft', 'numeric')}
+            {field('stat-inches', '\u00a0', 'inches', 'in')}
+          </>
+        ) : (
+          field('stat-height', 'Height', 'heightCm', 'cm')
+        )}
+        {field('stat-age', 'Age', 'age', 'yrs', 'numeric')}
+      </div>
+      <div className="ob-stats__label" style={{ marginTop: 14 }}>
+        Sex, for the calorie formula
+      </div>
+      <Segmented
+        label="Sex, for the calorie formula"
+        options={[
+          { value: 'male', label: 'Male' },
+          { value: 'female', label: 'Female' },
+        ]}
+        value={draft.sex}
+        onChange={(sex) => onChange({ ...draft, sex: draft.sex === sex ? undefined : sex })}
+      />
+      <div className="ob-stats__label" style={{ marginTop: 14 }}>
+        Activity
+      </div>
+      <div role="radiogroup" aria-label="Activity">
+        {ACTIVITIES.map((a) => (
+          <ChoiceRow
+            key={a.value}
+            compact
+            title={a.title}
+            sub={a.sub}
+            on={draft.activity === a.value}
+            onClick={() => onChange({ ...draft, activity: draft.activity === a.value ? undefined : a.value })}
+          />
+        ))}
+      </div>
+      <div style={{ height: 12 }} />
+    </>
   )
 }

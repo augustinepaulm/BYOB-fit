@@ -6,6 +6,8 @@ import {
   goalSummary,
   goalsValid,
   moveGoal,
+  profileDraft,
+  profileFromInput,
   timeframeEnd,
   timeframeLine,
   toGoals,
@@ -108,5 +110,26 @@ describe('ordering and storage', () => {
       { rank: 3, type: 'get_stronger', target: { amount: 10, unit: 'lb', exerciseId: 'bb-bench' } },
     ])
     expect(fromGoals(stored)).toEqual(drafts)
+  })
+})
+
+describe('height, age, sex and activity (5a, EXEC-10B task 8)', () => {
+  const blank = { heightCm: '', feet: '', inches: '', age: '' }
+  it('all optional: a blank form stores nothing', () => {
+    expect(profileFromInput(blank, 'kg')).toEqual({})
+    expect(profileFromInput(blank, 'lb')).toEqual({})
+  })
+  it('stores cm, age, sex and activity', () => {
+    expect(profileFromInput({ ...blank, heightCm: '180', age: '40', sex: 'male', activity: 'active' }, 'kg')).toEqual({ heightCm: 180, age: 40, sex: 'male', activity: 'active' })
+  })
+  it('ft and in convert to cm, and back', () => {
+    const stats = profileFromInput({ ...blank, feet: '5', inches: '11' }, 'lb')
+    expect(stats).toEqual({ heightCm: 180.3 })
+    expect(profileDraft(stats, 'lb')).toMatchObject({ feet: '5', inches: '11', heightCm: '' })
+    expect(profileDraft({ heightCm: 180 }, 'kg')).toMatchObject({ heightCm: '180' })
+  })
+  it('invalid entries are left out', () => {
+    expect(profileFromInput({ ...blank, heightCm: 'tall', age: '-3' }, 'kg')).toEqual({})
+    expect(profileFromInput({ ...blank, feet: 'x', inches: '4' }, 'lb')).toEqual({})
   })
 })
