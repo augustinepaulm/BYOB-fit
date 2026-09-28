@@ -2,21 +2,25 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.4 · Date: Monday, Sep 14, 2026 (v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.5 · Date: Sunday, Sep 27, 2026 (v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
 ## 1. Purpose and scope
 
-An open-source, home-screen workout app for one user (Auggie) that: shows the day's session as a grouped checklist; runs it as a deck of exercise tiles with per-set logging and last-week targets; accepts typed or dictated entries; keeps a meal log in the DFS-plus-delta convention; holds a profile and goal; and, once a week, asks a model the user supplies a key for to write next week's program from the logs. All data stays on the phone except the weekly model call.
+An open-source, home-screen workout app that: shows the day's session as a grouped checklist; runs it as a deck of exercise tiles with per-set logging, last-week targets and visual demos; accepts typed or dictated entries; keeps a meal log against a calorie target calculated on the phone; holds structured goals; lets the user build or edit a program in the app; and, when the user asks, has a model the user supplies a key for review the program or propose an update, showing exactly what will be sent first. All data stays on the phone except what the user sends through that preview.
 
-Out of scope for v1: other users, accounts, app stores, animations, external exercise datasets, in-app microphone, relay servers. See DECISIONS.md D-018 to D-021.
+v1.5 scope change (D-036): other people may use the app, including people new to training and not comfortable with technology. Built to be picked up without editing JSON. Promotion to strangers waits on O-7.
 
-Success test for v1 (STATED goal, MODELED test): Auggie logs a full week of v10 sessions in the app on his phone, with no paper or FitDay fallback, and the weekly reprogramming call returns a proposal he would act on.
+Out of scope: accounts, a server, app stores, meal plans, health-app or wearable sync, in-app microphone, social features. See DECISIONS.md D-019 to D-021.
+
+Success test for v1 (STATED goal, MODELED test): Auggie logs a full week of v10 sessions in the app on his phone, with no paper or FitDay fallback, and the weekly reprogramming call returns a proposal he would act on. Met or not, it stays the v1 record.
+
+Success test for v2 (MODELED): a person who has never seen the app installs it, completes onboarding with a starter program, logs two weeks without help, and never edits a file.
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · two model jobs · six screens · Today-to-deck with per-set logging and last-week defaults · keyboard dictation plus parser · kg display, Sunday week · sections not flat lists.
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists.
 
 ## 3. Inputs (private, never committed)
 
@@ -31,31 +35,37 @@ The pasted v11 document also carries measured, stated and modeled health context
 
 ## 4. Screens
 
-| Screen | Content | Model call |
+Source of truth for layout and copy: `design/BYOB-fit_v2_design.dc.html` (frame ids below). Tabs: Today, Week, Log, Meals, Profile.
+
+| Area | Frames | Model call |
 |---|---|---|
-| Today | Date, day name, sections with items, expected duration, Start. Swap-week banner if today is a swapped day | No |
-| Deck (from Start) | Active tile, next tile, third dim tile; header with section, N of M, progress bar, rest timer; Done advances; End session summary | No |
-| Week | Seven day cards, done state, swap action, program week number of 12 | No |
-| Exercise Log | Per exercise: history of sets by date, best set, simple trend | No |
-| Profile / Goal | Fields Auggie chooses to enter (goal statement, targets, week number, dates); no computed health claims | No |
-| Meals | One entry per day in DFS-plus-delta lines; parsed kcal and protein shown after the model call; day and week totals | Yes (parse) |
-| Settings | API key, model string, export JSON, import program JSON, reset | Yes (test call) |
+| Onboarding, 8 steps | 1a to 1l | No (step 7 only stores a key and tests it) |
+| Builder: template path, swap picker, exercise detail, forms path, retire | 2a to 2j | No |
+| Today · Deck (all tile types and states) · session summary | 3a to 3g | No |
+| Log list and week-against-week detail | 3h, 3i | No |
+| Week current and future, read-only future day, swap days | 3j to 3m | No |
+| Meals: target, local parse, Needs AI, floor, manual entry | 3n to 3p | Only for unmatched lines, after the preview |
+| AI: suggestion banner, review, update sheet, update result, states, send preview | 4a to 4i | Yes, each after the preview |
+| Goal setter, Profile, Settings, privacy level, reset, export, sent log, privacy page, safety notice | 5a to 5j | Key test only |
+| Empty, loading, error and offline states | 7a to 7e | n/a |
+| Dark mode for every frame above | `<id>-dark` | n/a |
 
-Reprogramming lives under Week: "Build next week" runs the model, shows a diff, waits for approval (D-016).
+The v1 screens in `design/BYOB-fit_Design.html` stay in force for each screen until the phase that rebuilds it.
 
-## 5. Data model (FROZEN at Gate 2, Sep 13, 2026; byWeek wording re-frozen Sep 14, D-023)
+## 5. Data model (FROZEN at Gate 2, Sep 13, 2026; byWeek wording re-frozen Sep 14, D-023; schema v2 and new stores frozen Sep 27, D-035)
 
 The machine-readable contract is `docs/program.schema.json` (JSON Schema 2020-12). The import screen validates every program file against it; a file that fails does not load. Summary:
 
 ```
-Program   { schemaVersion: 1, id, name, version, weekStartsOn: "sunday", programWeeks, startDate,
+Program   { schemaVersion: 1 | 2, id, name, version, weekStartsOn: "sunday", programWeeks, startDate,
             notes, exercises: { [id]: Exercise }, days: Day[7] }
-Exercise  { name, howTo, tags[] }
+Exercise  { name, howTo, tags[], muscles?[], equipment?, level?, demo? }        (v2 fields optional)
 Day       { id, order (0 = Sunday), name, focus, durationMin, swappableWith?, rest?, sections: Section[] }
 Section   { id, kind: warmup|main|block|abs|cardio|cooldown|daily, title, items: Item[] }
 Item      { id, exerciseId, type: load_reps|bodyweight_reps|timed_hold|distance|cardio_block|check,
             perSide?, sets?, repMin?, repMax?, holdSec?, distanceM?, minutes?, tempo?, restSec?, rpe?,
-            unit?: kg|lb, index?, logged?, cue?, notes?, alternateExerciseId?, byWeek?: { [week]: partial Item } }
+            unit?: kg|lb, index?, logged?, cue?, notes?, alternateExerciseId?, byWeek?: { [week]: partial Item },
+            retiredFrom? (v2, date; not an overridable field) }
 ```
 
 Rules frozen with it:
@@ -74,12 +84,21 @@ Entry     { itemId, exerciseId (as performed), sets: SetLog[], checked, note }
 SetLog    { n, side?: L|R, weight, reps, seconds, distanceM, minutes, rpe, raw }
 Profile   { fields: { [label]: value }, updatedAt }
 MealDay   { date, lines[], parsed?: { kcal, proteinG, items[] }, parsedAt }
-Settings  { apiKey, model, lastExportAt }
+Settings  { apiKey, model, lastExportAt, rules, mealBaseline, storagePersisted, storageEstimate,
+            units: kg|lb, privacyLevel: minimal|standard|full (default minimal),
+            onboarding?: { completedAt?, followsProgram?, experience?: new|experienced, safetyAckAt? },
+            reviewBannerDismissedFor?: programId[] }
+Goals     { items: [{ rank, type: lose_weight|lose_fat|build_muscle|get_stronger|improve_cardio|general,
+            target?: { amount, unit: lb|kg|percent|km|min, exerciseId? } }], timeframeWeeks: 4|8|12|16,
+            startDate, currentStats?: { weight?, weightUnit?, bodyFatPct? }, updatedAt }
+SentLog   { id, at, kind: review|update|meals, privacyLevel, payloadSummary, payload }   (Phase 9)
 ```
+
+v1.5 storage rules: IndexedDB version 3 adds `goals` (one record, key `me`) and `sentLog` (keyPath `id`, index `at`), and rewrites every stored program's `schemaVersion` to 2 on upgrade. Export envelope version 2 adds `goals` and `sentLog`; import reads versions 1 and 2 (version 1 files restore with empty goals and sent log); any other version is refused. `currentStats` and the API key never leave the phone except that `currentStats` is included in the user's own export file.
 
 Parser grammar (D-011): `<number> (for|x|by|×) <number>` → weight, reps · `<number> (s|sec|seconds)` → seconds · `<number> (m|meters|metres)` → distance · `<number> (min|minutes)` → minutes · `same` → copy last week's set · `bodyweight` or `bw` → weight 0 · spoken numbers ("twenty two point five") normalised before matching. Unparseable input stays in `raw`, row flagged, never silently zeroed.
 
-Seed and sample: `seed/program.json` is v11, 7 days, 222 items, 115 exercises, 5 index lifts, 2 alternates, 10 items with `byWeek`, drafted how-to text per exercise, gitignored. `public/sample-program.json` is a generic 3-day program, 41 items, 24 exercises, committed for forks.
+Seed and sample (unchanged in v1.5): `seed/program.json` is v11, 7 days, 222 items, 115 exercises, 5 index lifts, 2 alternates, 10 items with `byWeek`, drafted how-to text per exercise, gitignored. `public/sample-program.json` is a generic 3-day program, 41 items, 24 exercises, committed for forks.
 
 ## 6. Phases and numbered tasks
 
@@ -126,26 +145,58 @@ Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this c
 5.3 Storage persistence request; document behaviour observed on device (see O-2)
 5.4 README for the open-source audience: what it is, BYO key, how to import your own program
 
-### Phase 6: Retrospective
-6.1 Write failures and fixes into the project-execution-protocol skill
+### Phase 6: Foundation (gate: app unchanged in behaviour, 1b colours in light and dark, schema v2 and database v3 live, contracts and design committed)
+6.1 Commit PLAN v1.5, DECISIONS D-025 to D-036, schema v2, design briefs v2 and v2.1, the v2 design canvas; md5 against section 8
+6.2 1b colour tokens, light and dark (section 12); colours only, no layout changes
+6.3 Program types and importer for schema v2; version 1 files upgrade in memory
+6.4 IndexedDB version 3: `goals`, `sentLog`, stored programs rewritten to schemaVersion 2
+6.5 Export envelope version 2, reading 1 and 2
+6.6 Settings fields from section 5 (stored only; no new UI)
+6.7 `npm run verify` also prints md5 for `design/`
+
+### Phase 7: Onboarding and goals (gate: a new install reaches Today through onboarding with a starter program)
+Frames 1a to 1l and 5a. Starter templates and the exercise library behind them (O-8). Import stays reachable.
+
+### Phase 8: Builder (gate: a program built and edited in the app, an item retired with history intact)
+Frames 2a to 2j.
+
+### Phase 9: AI flows (gate: one review applied line by line and one update approved, both through the preview, both in the sent log)
+Frames 4a to 4i, 5e, 5h. Privacy levels enforced in every prompt builder.
+
+### Phase 10: Daily loop in 1b (gate: a full session on the phone in the new deck; week-against-week in Log; a meal day parsed locally)
+Frames 3a to 3p. Needs O-9 (calorie formula and floor) and O-10 (progression rule format) resolved first.
+
+### Phase 11: Settings, privacy and polish (gate: every frame, light and dark, on an iPhone and an Android phone)
+Frames 5b to 5j, 7a to 7e, all `-dark` frames. Cross-device check.
+
+### Phase 12: Retrospective
+12.1 Write failures and fixes into the project-execution-protocol skill
 
 ## 7. Effort (MODELED)
 
-Method: one focused weekend per phase for 2 to 5, half a weekend for 0, 1 and 6; assumes Claude Code executes and Auggie directs; assumes no store, no accounts. Estimate: 5 to 6 weekends to the Phase 5 gate. Risks that extend it: parser edge cases from dictation, iOS PWA quirks found only on device, design iteration in Phase 1.
+v1.4 estimate: 5 to 6 weekends to the Phase 5 gate. Actual: two working sessions (git history: Phases 2 to 4 merged between 20:00 and 22:26 on Sep 13; Phase 5 on Sep 27). The estimate was about 3 times too high, so confidence in the next one is low.
+
+v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 size. Phase 6: 1 session. Phases 7 to 11: 1 to 2 sessions each. Total 6 to 11 sessions; 2 to 5 calendar weeks at the pace so far. Outside the code timeline: demo media (O-6), legal review (O-7), starter template review (O-8).
 
 ## 8. Integrity table
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-024 | 671b6dbcf369ebb7763261b18f1b75ab |
-| docs/PLAN.md | This file, v1.4 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-036 | a1bb1ee2a865bbc5784b5d378e1932d4 |
+| docs/PLAN.md | This file, v1.5 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
+| docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
+| docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
 | docs/EXEC-01.md | Executor prompt, scaffold | 359389c78a7097dcfbc7162902c618b2 |
-| design/BYOB-fit_Design.html | Claude Design export, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
-| docs/program.schema.json | Program file contract, Gate 2, wording re-frozen Sep 14 | 99ca7724a761ea782fa106d12b6f15e5 |
 | docs/EXEC-02.md | Executor prompt, Phase 2 | da3fa48a359e09cce1487cb8241ddd13 |
-| docs/EXEC-03.md | Executor prompt, Phase 3 | recorded in chat at delivery |
-| public/sample-program.json | Generic sample program | 8416d1974b9746f2172f8b73c493a0f9 |
+| docs/EXEC-03.md | Executor prompt, Phase 3 | 08119055aa3cc751f502340309ffed1a |
+| docs/EXEC-04.md | Executor prompt, Phase 4 | 459cb6850b6909aef8dd0dc80619da5f |
+| docs/EXEC-05.md | Executor prompt, Phase 5 | f3f96142b65b443e256dd7af0374c49f |
+| docs/EXEC-06.md | Executor prompt, Phase 6 | recorded in chat at delivery (it checks this file's hash) |
+| design/BYOB-fit_Design.html | Claude Design export v1, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
+| design/BYOB-fit_v2_design.dc.html | Claude Design canvas v2, 124 frames (62 light, 62 dark), placeholder data. Reference only: it loads `./support.js`, which is not included, so it does not render on its own; read its markup | 9a9efdfa60041f89fd173b2992215554 |
+| docs/program.schema.json | Program file contract, schema v2, frozen Sep 27 | 8fc9d9917735ff00c3d69f9e4221d9f8 |
+| public/sample-program.json | Generic sample program (schemaVersion 1, valid under v2) | 8416d1974b9746f2172f8b73c493a0f9 |
 
 Sequence for every delivered file: download → copy into repo → `md5` against the recorded value → `git add` → commit. Not saved until the hash check passes in the repo.
 
@@ -155,12 +206,42 @@ Served-bytes vs fresh local build for anything deployed. Visual acceptance on Au
 
 ## 10. Backlog (parked, named, not blocking)
 
-B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Exercise animations or a licensed demo library (D-018) · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user
+B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b
 
 ## 11. Open items
 
 O-1 Resolved Sep 12, 2026: BYOB-fit, BYOB expanding to Build Your Own Body; logo and marketing use that expansion
-O-2 (unchanged) iOS storage eviction for home-screen PWAs: hypothesis that installed apps are exempt from Safari's storage clearing; not verified; export (D-017) is the mitigation either way; Phase 5.3 records observed behaviour
+O-2 Rewritten Sep 27, 2026: Phase 5 records the result of `navigator.storage.persist()` on the device; it does not observe whether iOS actually keeps the data. Hypothesis unchanged and unverified: installed home-screen apps are exempt from Safari's storage clearing. Export (D-017) plus the monthly backup reminder (frame 5d) is the mitigation either way. Close only with an observation on Auggie's iPhone after at least 7 days without opening the app
 O-3 Exercise how-to text: drafted by Claude in the v11 seed (115 exercises); Auggie edits in the seed file; not blocking
-O-4 Profile fields: which fields Auggie wants (DEFAULT: goal statement, program week and dates, weekly targets he chooses to enter; nothing computed by the app)
-O-5 Reprogramming rules the model must follow: to be supplied by Auggie as plain text before Phase 4 (the v10 handoff's standing rules are the starting point)
+O-4 Resolved for goals by D-030; Profile keeps free label/value fields for anything else
+O-5 Resolved in Phase 4: reprogramming rules are a Settings text field the user writes
+O-6 Demo media: source (made in-house, licensed, or openly licensed), licence terms compatible with an MIT repo, format and size per clip. Blocks filling the demo slot, not building it
+O-7 Legal review before promoting the app to strangers: whether a no-server app counts as collecting consumer health data under Washington's My Health My Data Act, and the wording of the privacy page. Not blocking any build phase
+O-8 Starter templates (3-day full body, 4-day upper/lower, 5-day split) and the exercises they use, with muscles, equipment and level: DEFAULT, Claude drafts, Auggie approves before Phase 7
+O-9 Calorie target formula and safe floor: to be specified with published sources before Phase 10. No number ships without a source
+O-10 Progression rule format for the chip in frame 3b (for example "+2.5 kg when every set hits the top of the rep range"): structure and where it lives in the schema, before Phase 10
+
+## 12. Visual tokens (D-034)
+
+Extracted Sep 27, 2026 from `design/BYOB-fit_v2_design.dc.html`. Dark values for ground, ink, secondary, muted, hairline, accent, done and End are stated on the canvas's dark-mode board; every other pairing was matched by frequency of use across the 62 light and 62 dark frames and is marked (paired).
+
+| Role | Light | Dark |
+|---|---|---|
+| Ground | #f5f2ec | #171512 |
+| Raised surface | #fbfaf7 | #1e1b17 (paired) |
+| Subtle fill | #ebe5da | #24211c (paired) |
+| Ink, primary text | #1b1a17 | #ede8df |
+| Secondary text | #5f5a50 | #b3ab9e |
+| Muted text | #8f897d | #8a8276 |
+| Placeholder, faint icon | #bdb3a3 | #5a5348 (paired) |
+| Hairline | #ddd5c8 | #36312a |
+| Field and control border | #cfc6b7 | #4a443b (paired) |
+| Idle chip | #e4ddd0 | #2a2620 (paired) |
+| Accent | #1f3a5f | #8fb0d9 |
+| Text on filled accent | read from frame 1a | #101a26 |
+| Accent soft fill (banners) | #e2e7ee | #22303f (paired) |
+| Done, success | #2e7d4f | #5bb887 |
+| End, danger | #b0413a | #e07868 |
+| Warning | #a8641c | #e0a560 (paired) |
+| Warning text on warning fill | #7a4a0f | #f1c98a (paired) |
+| Warning fill | #f1e3c8 | #3a2c14 (paired) |
