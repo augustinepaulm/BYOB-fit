@@ -158,8 +158,11 @@ export function ExercisePicker({
   draft,
   onPick,
   onBack,
+  allowCreate = true,
 }: {
   title: string
+  /** False where a new exercise could not be kept, e.g. a session-only swap. */
+  allowCreate?: boolean
   current?: LibraryEntry
   library: LibraryEntry[]
   beginnerDefault: boolean
@@ -234,9 +237,11 @@ export function ExercisePicker({
             No exercises match. Turn a filter off, or create one.
           </div>
         )}
-        <button type="button" className="ob-add" onClick={() => setCreating(true)}>
-          <span>+</span>Create an exercise
-        </button>
+        {allowCreate && (
+          <button type="button" className="ob-add" onClick={() => setCreating(true)}>
+            <span>+</span>Create an exercise
+          </button>
+        )}
       </div>
       <Dock>
         <PrimaryButton disabled={!chosen} onClick={() => chosen && onPick(chosen)}>

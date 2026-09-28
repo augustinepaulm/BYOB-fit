@@ -5,6 +5,7 @@ import starter3 from '../../public/templates/starter-3day-fullbody.json'
 import starter4 from '../../public/templates/starter-4day-upper-lower.json'
 import starter5 from '../../public/templates/starter-5day-split.json'
 import type { Day, Item, Program } from '../types/program.ts'
+import { importProgram } from './importProgram.ts'
 import type { Session } from '../types/stores.ts'
 import {
   blankProgram,
@@ -310,5 +311,22 @@ describe('round trip with an alternate exercise', () => {
     item.alternateExerciseId = 'incline-db-press'
     expect(roundTrip(copy)).toBe(JSON.stringify(copy))
     expect(JSON.stringify(sample)).not.toContain('alternateExerciseId')
+  })
+})
+
+describe('progression is carried through untouched (D-047)', () => {
+  it('a program whose items carry progression round-trips byte-identical', () => {
+    const copy = structuredClone(sample) as unknown as Program
+    const main = copy.days.find((d) => d.id === 'mon')!.sections.find((s) => s.kind === 'main')!
+    main.items[0].progression = { sessions: 3, percent: 2, step: 1 }
+    main.items[1].progression = { step: 2.5 }
+    expect(roundTrip(copy)).toBe(JSON.stringify(copy))
+    expect(importProgram(copy).ok).toBe(true)
+  })
+
+  it('changing an item type in the builder keeps progression', async () => {
+    const { withType } = await import('./builder.ts')
+    const item: Item = { id: 'x', exerciseId: 'e', type: 'load_reps', sets: 3, progression: { sessions: 3 } }
+    expect(withType(item, 'bodyweight_reps').progression).toEqual({ sessions: 3 })
   })
 })

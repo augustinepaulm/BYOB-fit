@@ -1,69 +1,21 @@
+// Today, frame 3a in the 1b layout (EXEC-10A task 5).
+
 import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { ReviewBanner } from '../ai/parts.tsx'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, isLogged, resolveItem } from '../lib/program.ts'
-import {
-  buildDeck,
-  findEntry,
-  isSetConfirmed,
-  restDayState,
-  summarise,
-} from '../lib/session.ts'
+import { buildDeck, findEntry, isSetConfirmed, restDayState, summarise } from '../lib/session.ts'
+import { PrimaryButton, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
 import type { Program, Section } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
-import { ReviewBanner } from '../ai/parts.tsx'
-import { CheckIcon, RestIcon, SwapIcon } from '../ui/icons.tsx'
+import { CheckIcon, SwapIcon } from '../ui/icons.tsx'
 
-function ItemRow({
-  name,
-  cue,
-  index,
-  prescription,
-  big,
-  check,
-}: {
-  name: string
-  cue?: string
-  index?: boolean
-  prescription: string
-  big: boolean
-  check?: { on: boolean; onToggle: () => void }
-}) {
-  const body = (
-    <>
-      <div className="row__name">
-        <span>{name}</span>
-        {index && <span className="index-tag">index</span>}
-        {cue && <span className="row__cue">{cue}</span>}
-      </div>
-      {prescription && <span className="row__prescription">{prescription}</span>}
-      {check && (
-        <span className={check.on ? 'row__check row__check--on' : 'row__check'}>
-          <CheckIcon size={16} />
-        </span>
-      )}
-    </>
-  )
-  if (!check) {
-    return <div className={big ? 'row row--main' : 'row'}>{body}</div>
-  }
-  return (
-    <button
-      type="button"
-      className={`row row--checkable${big ? ' row--main' : ''}`}
-      aria-pressed={check.on}
-      onClick={check.onToggle}
-    >
-      {body}
-    </button>
-  )
-}
-
-function SectionCard({
+function SectionList({
   section,
   program,
   week,
@@ -82,39 +34,51 @@ function SectionCard({
 }) {
   const items = section.items.filter((item) => isActiveOn(item, date))
   if (items.length === 0) return null
-  const big = section.kind === 'main'
+  const main = section.kind === 'main' || section.kind === 'block'
   return (
-    <>
-      <div className="section-label">{section.title}</div>
-      <div className="card">
-        {items.map((item) => {
-          const resolved = resolveItem(item, week)
-          const exerciseId = resolved.exerciseId ?? ''
-          const exercise = program.exercises[exerciseId]
-          const logged = isLogged(section.kind, resolved)
-          const entry = findEntry(session, item.id)
+    <div className="tl-section">
+      <SectionHead aside={String(items.length)}>{section.title}</SectionHead>
+      {items.map((item) => {
+        const resolved = resolveItem(item, week)
+        const exerciseId = resolved.exerciseId ?? ''
+        const name = program.exercises[exerciseId]?.name ?? exerciseId
+        const entry = findEntry(session, item.id)
+        const checkable = onToggle && !isLogged(section.kind, resolved)
+        const body = (
+          <>
+            <span className="tl-row__name">
+              {name}
+              {resolved.index && <span className="tl-tag">index</span>}
+              {checkable && entry?.checked && (
+                <span className="tl-row__mark">
+                  <CheckIcon size={16} />
+                </span>
+              )}
+              {resolved.cue && <span className="tl-row__cue">{resolved.cue}</span>}
+            </span>
+            <span className="tl-row__value">{prescriptionText(resolved)}</span>
+          </>
+        )
+        if (checkable) {
           return (
-            <ItemRow
-              key={resolved.id}
-              name={exercise?.name ?? exerciseId}
-              cue={resolved.cue}
-              index={resolved.index}
-              prescription={prescriptionText(resolved)}
-              big={big}
-              check={
-                onToggle && !logged
-                  ? {
-                      on: entry?.checked === true,
-                      onToggle: () =>
-                        onToggle(item.id, exerciseId, entry?.checked !== true),
-                    }
-                  : undefined
-              }
-            />
+            <button
+              type="button"
+              key={item.id}
+              className={main ? 'tl-row tl-row--main' : 'tl-row'}
+              aria-pressed={entry?.checked === true}
+              onClick={() => onToggle(item.id, exerciseId, entry?.checked !== true)}
+            >
+              {body}
+            </button>
           )
-        })}
-      </div>
-    </>
+        }
+        return (
+          <div key={item.id} className={main ? 'tl-row tl-row--main' : 'tl-row'}>
+            {body}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -127,80 +91,58 @@ export function TodayScreen() {
   const swapped = Boolean(scheduled && day && scheduled.id !== day.id)
 
   const target = useMemo(
-    () =>
-      day
-        ? { date: toISODate(today), dayId: day.id, programWeek: week, swapped }
-        : null,
+    () => (day ? { date: toISODate(today), dayId: day.id, programWeek: week, swapped } : null),
     [day, today, week, swapped],
   )
   const api = useSession(target)
 
-  const deck = useMemo(
-    () => (day && program ? buildDeck(day, week, today) : []),
-    [day, program, week, today],
-  )
+  const deck = useMemo(() => (day && program ? buildDeck(day, week, today) : []), [day, program, week, today])
 
   if (!program || !day) return null
 
   const session = api.session ?? undefined
-  const meta = `${formatLongDate(today)} · Week ${week} of ${program.programWeeks}`
   const finished = Boolean(session?.endedAt)
+  const head = (title: string, sub: string) => (
+    <div className="tl-head">
+      <div className="tl-head__meta">
+        <span>{formatLongDate(today)}</span>
+        <span>
+          Week {week} of {program.programWeeks}
+        </span>
+      </div>
+      <h1 className="tl-head__title">{title}</h1>
+      {sub && <div className="tl-head__sub">{sub}</div>}
+    </div>
+  )
 
   if (day.rest) {
-    const hasItems = deck.length > 0
     const restDone = restDayState(session, deck) === 'done'
     return (
-      <div className="page">
-        <div className="page-head">
-          <div className="page-head__meta">{meta}</div>
-          <h1 className="page-title">Rest day</h1>
-        </div>
+      <div className="tl">
+        {head('Rest day', deck.length ? "Recovery counts as training. Today's daily items:" : 'Recovery counts as training. Daily items live on your next session.')}
         <ReviewBanner program={program} />
-        {hasItems ? (
-          <>
-            <p className="muted-line" style={{ marginBottom: 4 }}>
-              Recovery counts as training. Today&apos;s daily items:
-            </p>
-            {day.sections.map((section) => (
-              <SectionCard
-                key={section.id}
-                section={section}
-                program={program}
-                week={week}
-                date={today}
-                session={session}
-                onToggle={(itemId, exerciseId, next) =>
-                  void api.setChecked(itemId, exerciseId, next)
-                }
-              />
-            ))}
-            {restDone && (
-              <div className="action-dock">
-                <div className="btn-done-today">
-                  <CheckIcon size={20} />
-                  Done today
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="empty">
-            <div className="empty__ring">
-              <RestIcon />
-            </div>
-            <div className="empty__title">Nothing scheduled</div>
-            <div className="empty__body">
-              Recovery counts as training. Daily items live on your next session.
+        {day.sections.map((section) => (
+          <SectionList
+            key={section.id}
+            section={section}
+            program={program}
+            week={week}
+            date={today}
+            session={session}
+            onToggle={(itemId, exerciseId, next) => void api.setChecked(itemId, exerciseId, next)}
+          />
+        ))}
+        {restDone && (
+          <div className="tl-dock">
+            <div className="tl-done">
+              <CheckIcon size={20} />
+              Done today
             </div>
           </div>
         )}
       </div>
     )
   }
-
-  const aside = [day.focus, day.durationMin ? `about ${day.durationMin} min` : null]
-    .filter(Boolean)
-    .join(' · ')
 
   // Resume points at the first item with nothing recorded against it.
   const nextUp = deck.find((deckItem) => {
@@ -210,6 +152,9 @@ export function TodayScreen() {
   })
   const started = session !== undefined && session.entries.length > 0
   const summary = summarise(session, deck)
+  const sub = [day.durationMin ? `About ${day.durationMin} min` : null, `${deck.length} ${deck.length === 1 ? 'item' : 'items'}`]
+    .filter(Boolean)
+    .join(' · ')
 
   async function enterDeck() {
     await api.start()
@@ -217,60 +162,38 @@ export function TodayScreen() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div className="page-head__meta">{meta}</div>
-        <div className="page-head__row">
-          <h1 className="page-title">{day.name}</h1>
-          {aside && <span className="page-head__aside">{aside}</span>}
-        </div>
-      </div>
-
+    <div className="tl" style={{ paddingBottom: 8 }}>
+      {head(day.focus ?? day.name, sub)}
       <ReviewBanner program={program} />
-
       {swapped && (
         <div className="banner">
           <SwapIcon />
           <span>Swapped: this is {day.name}&apos;s session</span>
         </div>
       )}
-
       {day.sections.map((section) => (
-        <SectionCard
-          key={section.id}
-          section={section}
-          program={program}
-          week={week}
-          date={today}
-          session={session}
-        />
+        <SectionList key={section.id} section={section} program={program} week={week} date={today} session={session} />
       ))}
-
       {finished && (
-        <div className="done-line">
+        <div className="tl-line">
           <span>
             {summary.setsConfirmed} sets
-            {summary.volumeByUnit.map(
-              ({ unit, volume }) => ` · ${volume.toLocaleString('en-US')} ${unit}`,
-            )}
+            {summary.volumeByUnit.map(({ unit, volume }) => ` · ${volume.toLocaleString('en-US')} ${unit}`)}
             {summary.durationMin !== null ? ` · ${summary.durationMin} min` : ''}
           </span>
           <Link to="/log">View log</Link>
         </div>
       )}
-
-      <div className="action-dock">
+      <div className="tl-dock">
         {finished ? (
-          <div className="btn-done-today">
+          <div className="tl-done">
             <CheckIcon size={20} />
             Done today
           </div>
         ) : (
-          <button type="button" className="btn-primary" onClick={() => void enterDeck()}>
-            {started && nextUp
-              ? `Resume · ${nextUp.section.title}, ${nextUp.position} of ${deck.length}`
-              : 'Start'}
-          </button>
+          <PrimaryButton onClick={() => void enterDeck()}>
+            {started && nextUp ? `Resume · ${nextUp.section.title}, ${nextUp.position} of ${deck.length}` : 'Start session'}
+          </PrimaryButton>
         )}
       </div>
     </div>

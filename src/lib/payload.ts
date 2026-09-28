@@ -145,8 +145,12 @@ export function buildPayload(
     const experience = data.settings?.onboarding?.experience ?? null
     message.experience = experience
     summary.push({ label: 'Experience level', value: experience === 'new' ? 'New' : experience === 'experienced' ? 'Experienced' : 'Not set' })
-    // "Felt off" flags arrive with the Phase 10 deck; none exist yet.
-    summary.push({ label: 'Felt off', value: 'None yet' })
+    // D-048: item id and flag only, from the sessions being sent.
+    const feltOff = sessions.flatMap((session) =>
+      session.entries.filter((e) => e.feltOff).map((e) => ({ itemId: e.itemId, flag: e.feltOff })),
+    )
+    message.feltOff = feltOff
+    summary.push({ label: 'Felt off', value: feltOff.length ? String(feltOff.length) : 'None' })
   }
   if (level === 'full') {
     const stats = data.goals?.currentStats

@@ -22,7 +22,13 @@ export interface Entry {
   sets: SetLog[]
   checked?: boolean
   note?: string
+  /** D-048: how the exercise felt. Discomfort also marks the entry skipped. */
+  feltOff?: FeltOff
+  /** The rest of the exercise was skipped today (set with Discomfort). */
+  skipped?: boolean
 }
+
+export type FeltOff = 'easy' | 'hard' | 'discomfort'
 
 export interface Session {
   id: string

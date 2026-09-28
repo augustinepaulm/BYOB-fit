@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getSessionByDateAndDay, saveSession } from '../db/index.ts'
 import { sessionIdFor } from '../lib/session.ts'
-import type { Entry, Session, SetLog } from '../types/stores.ts'
+import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 
 export interface SessionTarget {
   date: string
@@ -30,6 +30,8 @@ export interface SessionApi {
   ) => Promise<void>
   setNote: (itemId: string, exerciseId: string, note: string) => Promise<void>
   chooseExercise: (itemId: string, exerciseId: string) => Promise<void>
+  /** D-048: store how an exercise felt; Discomfort also marks it skipped. */
+  setFeltOff: (itemId: string, exerciseId: string, flag: FeltOff | null) => Promise<void>
   finish: () => Promise<void>
   reload: () => Promise<void>
 }
@@ -191,6 +193,23 @@ export function useSession(target: SessionTarget | null): SessionApi {
     [ensure, commit],
   )
 
+  const setFeltOff = useCallback(
+    async (itemId: string, exerciseId: string, flag: FeltOff | null) => {
+      const current = await ensure()
+      await commit(
+        withEntry(current, itemId, exerciseId, (entry) => {
+          const next: Entry = { ...entry }
+          delete next.feltOff
+          delete next.skipped
+          if (flag) next.feltOff = flag
+          if (flag === 'discomfort') next.skipped = true
+          return next
+        }),
+      )
+    },
+    [ensure, commit],
+  )
+
   const finish = useCallback(async () => {
     const current = await ensure()
     await commit({ ...current, endedAt: new Date().toISOString() })
@@ -204,6 +223,7 @@ export function useSession(target: SessionTarget | null): SessionApi {
     setChecked,
     setNote,
     chooseExercise,
+    setFeltOff,
     finish,
     reload,
   }

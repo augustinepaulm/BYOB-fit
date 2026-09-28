@@ -21,7 +21,8 @@ const sessions: Session[] = [
     programWeek: 4,
     endedAt: '2026-09-28T10:00:00Z',
     entries: [
-      { itemId: 's006', exerciseId: 'bench-press', sets: [{ n: 1, weight: 60, reps: 5 }, { n: 2, raw: 'sore' }], note: 'Shoulder felt tight' },
+      { itemId: 's006', exerciseId: 'bench-press', sets: [{ n: 1, weight: 60, reps: 5 }, { n: 2, raw: 'sore' }], note: 'Shoulder felt tight', feltOff: 'hard' },
+      { itemId: 's007', exerciseId: 'incline-db-press', sets: [], feltOff: 'discomfort', skipped: true },
     ],
   },
 ]
@@ -47,6 +48,9 @@ describe('buildPayload (D-044)', () => {
     expect(sent.logged[0].entries[0].note).toBeUndefined()
     expect(message).not.toContain('currentStats')
     expect(message).not.toContain('bodyFatPct')
+    // D-048: no felt-off flags at Minimal, anywhere in the message.
+    expect(message).not.toContain('feltOff')
+    expect(message).not.toContain('discomfort')
     expect(sent.goal).toEqual({ items: goals.items, timeframeWeeks: 12, startDate: '2026-09-27' })
     // Confirmed sets only; the flagged raw row is not sent.
     expect(sent.logged[0].entries[0].sets).toEqual([{ n: 1, weight: 60, reps: 5 }])
@@ -54,16 +58,23 @@ describe('buildPayload (D-044)', () => {
 
   it('Standard adds experience, nothing else', () => {
     const { message, summary } = buildPayload('update', 'standard', true, data)
-    expect(keysOf(message)).toEqual(['experience', 'goal', 'logged', 'program', 'rules', 'startedDayIds', 'task', 'week'])
+    expect(keysOf(message)).toEqual(['experience', 'feltOff', 'goal', 'logged', 'program', 'rules', 'startedDayIds', 'task', 'week'])
     expect(JSON.parse(message).experience).toBe('new')
     expect(JSON.parse(message).program.notes).toBeUndefined()
     expect(summary.map((l) => l.label)).toContain('Experience level')
+    // D-048: item id and flag only.
+    expect(JSON.parse(message).feltOff).toEqual([
+      { itemId: 's006', flag: 'hard' },
+      { itemId: 's007', flag: 'discomfort' },
+    ])
+    expect(summary.find((l) => l.label === 'Felt off')?.value).toBe('2')
   })
 
   it('Full adds current weight; notes only when switched on', () => {
     const off = buildPayload('update', 'full', false, data)
-    expect(keysOf(off.message)).toEqual(['currentWeight', 'experience', 'goal', 'logged', 'program', 'rules', 'startedDayIds', 'task', 'week'])
+    expect(keysOf(off.message)).toEqual(['currentWeight', 'experience', 'feltOff', 'goal', 'logged', 'program', 'rules', 'startedDayIds', 'task', 'week'])
     expect(JSON.parse(off.message).currentWeight).toEqual({ value: 82, unit: 'kg' })
+    expect(JSON.parse(off.message).feltOff).toHaveLength(2)
     expect(off.message).not.toContain('Private program notes')
     expect(off.message).not.toContain('Shoulder felt tight')
     expect(off.message).not.toContain('bodyFatPct')
