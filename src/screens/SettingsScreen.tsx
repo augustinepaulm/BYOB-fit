@@ -6,9 +6,10 @@ import { DEFAULT_MODEL, testKey } from '../lib/anthropic.ts'
 import {
   buildBackup,
   deliverBackup,
+  parseBackup,
   restoreBackup,
-  validateBackup,
 } from '../lib/backup.ts'
+import { recordStoragePersistence } from '../lib/storage.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import { Dialog } from '../ui/Dialog.tsx'
@@ -19,7 +20,7 @@ type Status = { kind: 'ok' | 'error'; text: string } | null
 export function SettingsScreen() {
   const navigate = useNavigate()
   const { refresh } = useProgram()
-  const { settings, loading, update } = useSettings()
+  const { settings, loading, update, reload } = useSettings()
   const [keyDraft, setKeyDraft] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [testStatus, setTestStatus] = useState<Status>(null)
@@ -65,17 +66,8 @@ export function SettingsScreen() {
     if (!file) return
     setDataStatus(null)
     const text = await file.text()
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch (error) {
-      setDataStatus({
-        kind: 'error',
-        text: `That file is not valid JSON (${(error as Error).message}).`,
-      })
-      return
-    }
-    const result = validateBackup(parsed)
+    // The envelope and schemaVersion are checked before any store is touched.
+    const result = parseBackup(text)
     if (!result.ok) {
       setDataStatus({ kind: 'error', text: result.errors.join(' · ') })
       return
@@ -87,10 +79,12 @@ export function SettingsScreen() {
   async function doImport() {
     setConfirm(null)
     if (!pendingImport) return
-    const result = validateBackup(JSON.parse(pendingImport))
+    const result = parseBackup(pendingImport)
     setPendingImport(null)
     if (!result.ok) return
     await restoreBackup(result.backup)
+    await recordStoragePersistence()
+    await reload()
     await refresh()
     setDataStatus({ kind: 'ok', text: 'Data replaced from the export.' })
   }
@@ -223,6 +217,13 @@ export function SettingsScreen() {
         >
           <span>{dataStatus.text}</span>
         </div>
+      )}
+
+      {settings.storagePersisted !== undefined && (
+        <p className="muted-line" style={{ marginTop: 16 }}>
+          Offline storage:{' '}
+          {settings.storagePersisted ? 'Persistent' : 'Not guaranteed by this browser'}
+        </p>
       )}
 
       <p className="muted-line" style={{ marginTop: 16, marginBottom: 24 }}>

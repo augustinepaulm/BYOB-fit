@@ -1,6 +1,7 @@
 import { HashRouter, Route, Routes } from 'react-router-dom'
 
 import { ProgramProvider } from './program/ProgramProvider.tsx'
+import { AppNotices } from './pwa/AppNotices.tsx'
 import { RequireProgram } from './program/RequireProgram.tsx'
 import { BuildScreen } from './screens/BuildScreen.tsx'
 import { DeckScreen } from './screens/DeckScreen.tsx'
@@ -18,6 +19,7 @@ export default function App() {
   return (
     <HashRouter>
       <ProgramProvider>
+        <AppNotices />
         <Routes>
           <Route element={<PlainLayout />}>
             <Route path="/import" element={<ImportScreen />} />

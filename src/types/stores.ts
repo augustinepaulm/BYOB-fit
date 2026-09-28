@@ -67,6 +67,14 @@ export interface Settings {
   /** Plain-text description of the DFS baseline, sent with meal parsing. */
   mealBaseline?: string
   lastExportAt?: string
+  /**
+   * Result of navigator.storage.persist() on the first program import (EXEC-05
+   * task 5); false when the API is missing. Absent until that import. Belongs
+   * to this device, so it is left out of exports and ignored on restore.
+   */
+  storagePersisted?: boolean
+  /** navigator.storage.estimate() at the same moment, where supported. */
+  storageEstimate?: { usage?: number; quota?: number; at: string }
 }
 
 /** One reprogramming round trip, kept whether or not it was approved (D-016). */

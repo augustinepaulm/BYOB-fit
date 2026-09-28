@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Placeholder icon (EXEC-05 task 2): one bold glyph on the dark-mode
+       background token. Full-bleed square, glyph inside the maskable safe zone. -->
+  <rect width="512" height="512" fill="#101214"/>
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="central"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-weight="800" font-size="288" fill="#5aa2e8">B</text>
+</svg>
