@@ -50,7 +50,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #171512;
     --text: #ede8df;
     --muted: #8a8276;
@@ -87,6 +87,46 @@
     --scrim: #17151200;
     --secondary: #b3ab9e;
   }
+}
+
+/* Appearance: Dark (D-039). The same declarations as the block above;
+   a unit test keeps the two identical. */
+:root[data-theme="dark"] {
+  --bg: #171512;
+  --text: #ede8df;
+  --muted: #8a8276;
+  --card: #24211c;
+  --hairline: #36312a;
+  --surface: #1e1b17;
+  --border: #4a443b;
+  --field-border: #4a443b;
+  --accent: #8fb0d9;
+  --accent-fg: #101a26;
+  --accent-soft-border: #36312a;
+  --dashed: #4a443b;
+  --tabbar-bg: #171512;
+  --tabbar-border: #36312a;
+  --tab-inactive: #8a8276;
+  --chip-idle: #2a2620;
+  --icon-muted: #5a5348;
+  --ok: #5bb887;
+  --ok-fg: #101a26;
+  --field-confirmed-bg: #22303f;
+  --field-future-bg: #24211c;
+  --placeholder: #5a5348;
+  --warn: #e0a560;
+  --danger: #e07868;
+  --banner-bg: #22303f;
+  --banner-border: #36312a;
+  --banner-text: #8fb0d9;
+  --diff-changed-bg: #24211c;
+  --diff-changed-tag: #24211c;
+  --diff-added-bg: #22303f;
+  --diff-added-tag: #22303f;
+  --diff-removed-bg: #3a2c14;
+  --diff-removed-tag: #3a2c14;
+  --scrim: #17151200;
+  --secondary: #b3ab9e;
 }
 
 * {

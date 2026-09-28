@@ -10,6 +10,9 @@ import {
   restoreBackup,
 } from '../lib/backup.ts'
 import { recordStoragePersistence } from '../lib/storage.ts'
+import { Segmented } from '../onboarding/ui.tsx'
+import { applyAppearance } from '../settings/appearance.ts'
+import { appearanceOf, unitsOf } from '../settings/defaults.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import { Dialog } from '../ui/Dialog.tsx'
@@ -103,6 +106,43 @@ export function SettingsScreen() {
           <ChevronLeftIcon />
         </button>
         <div className="sub-head__title">Settings</div>
+      </div>
+
+      <div className="section-label">General</div>
+      <div className="form-card">
+        <div className="field-label" id="units-label">
+          Units
+        </div>
+        <Segmented
+          label="Units"
+          options={[
+            { value: 'kg', label: 'kg' },
+            { value: 'lb', label: 'lb' },
+          ]}
+          value={unitsOf(settings)}
+          // D-040: the setting only; no program, item or logged set changes.
+          onChange={(units) => void update({ units })}
+        />
+        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.45, color: 'var(--muted)' }}>
+          Applies to new programs and goals. Your current program keeps its units.
+        </div>
+
+        <div className="field-label" id="appearance-label" style={{ marginTop: 16 }}>
+          Appearance
+        </div>
+        <Segmented
+          label="Appearance"
+          options={[
+            { value: 'system', label: 'System' },
+            { value: 'light', label: 'Light' },
+            { value: 'dark', label: 'Dark' },
+          ]}
+          value={appearanceOf(settings)}
+          onChange={(appearance) => {
+            applyAppearance(appearance)
+            void update({ appearance })
+          }}
+        />
       </div>
 
       <div className="section-label">Model</div>
