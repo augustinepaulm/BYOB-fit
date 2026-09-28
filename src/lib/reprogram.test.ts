@@ -123,6 +123,36 @@ describe('validateProposal', () => {
     expect(result.errors.join(' ')).toContain('no "exercise" object was supplied')
   })
 
+  it('rejects an override whose fields carry an unknown key (D-038)', () => {
+    const result = validateProposal(
+      {
+        ...good,
+        overrides: [
+          { itemId: 'i1', fields: { sets: 5, targetWeight: 80 }, reason: 'r' },
+        ],
+      },
+      baseProgram(),
+      7,
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors.join(' ')).toContain('/overrides/0/fields')
+  })
+
+  it('accepts an override whose fields are all known item fields', () => {
+    const result = validateProposal(
+      {
+        ...good,
+        overrides: [
+          { itemId: 'i1', fields: { sets: 5, repMin: 5, repMax: 6, restSec: 150 }, reason: 'r' },
+        ],
+      },
+      baseProgram(),
+      7,
+    )
+    expect(result.ok).toBe(true)
+  })
+
   it('rejects an added item that carries retiredFrom (D-028)', () => {
     const result = validateProposal(
       {

@@ -35,6 +35,12 @@ const files = readdirSync('docs')
   .sort()
 files.push('public/sample-program.json')
 files.push(
+  ...readdirSync('public/templates')
+    .map((name) => join('public/templates', name))
+    .filter((path) => statSync(path).isFile())
+    .sort(),
+)
+files.push(
   ...readdirSync('design')
     .map((name) => join('design', name))
     .filter((path) => statSync(path).isFile())

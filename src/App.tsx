@@ -6,8 +6,10 @@ import { RequireProgram } from './program/RequireProgram.tsx'
 import { BuildScreen } from './screens/BuildScreen.tsx'
 import { DeckScreen } from './screens/DeckScreen.tsx'
 import { ImportScreen } from './screens/ImportScreen.tsx'
+import { GoalScreen } from './screens/GoalScreen.tsx'
 import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
 import { MealsScreen } from './screens/MealsScreen.tsx'
+import { OnboardingScreen } from './screens/OnboardingScreen.tsx'
 import { ProfileScreen } from './screens/ProfileScreen.tsx'
 import { SettingsScreen } from './screens/SettingsScreen.tsx'
 import { TodayScreen } from './screens/TodayScreen.tsx'
@@ -23,6 +25,7 @@ export default function App() {
         <Routes>
           <Route element={<PlainLayout />}>
             <Route path="/import" element={<ImportScreen />} />
+            <Route path="/welcome" element={<OnboardingScreen />} />
           </Route>
           <Route element={<RequireProgram />}>
             <Route element={<TabbedLayout />}>
@@ -37,6 +40,7 @@ export default function App() {
               <Route path="/deck" element={<DeckScreen />} />
               <Route path="/build" element={<BuildScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
+              <Route path="/goal" element={<GoalScreen />} />
             </Route>
           </Route>
         </Routes>

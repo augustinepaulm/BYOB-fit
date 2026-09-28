@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getProfile, saveProfile } from '../db/index.ts'
+import { getGoals, getProfile, saveProfile } from '../db/index.ts'
+import { fromGoals, goalSummary } from '../lib/goals.ts'
+import { useProgram } from '../program/useProgram.ts'
 import { GearIcon } from '../ui/icons.tsx'
 
 interface Row {
@@ -22,7 +24,9 @@ function rowsFrom(fields: Record<string, string>): Row[] {
 /** Only what the user typed; the app computes nothing here (PLAN section 4). */
 export function ProfileScreen() {
   const navigate = useNavigate()
+  const { program } = useProgram()
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [goal, setGoal] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true
@@ -33,6 +37,20 @@ export function ProfileScreen() {
       live = false
     }
   }, [])
+
+  // The Goal row (EXEC-07 task 6) reads its summary from the goals store.
+  useEffect(() => {
+    let live = true
+    void getGoals().then((goals) => {
+      if (live && goals)
+        setGoal(
+          goalSummary(fromGoals(goals), goals.timeframeWeeks, (id) => program?.exercises[id]?.name),
+        )
+    })
+    return () => {
+      live = false
+    }
+  }, [program])
 
   async function persist(next: Row[]) {
     setRows(next)
@@ -57,6 +75,18 @@ export function ProfileScreen() {
           onClick={() => navigate('/settings')}
         >
           <GearIcon />
+        </button>
+      </div>
+
+      <div className="card--rows" style={{ marginBottom: 14 }}>
+        <button type="button" className="setting-row" onClick={() => navigate('/goal')}>
+          <span>Goal</span>
+          <span
+            className="setting-row__hint"
+            style={{ flex: '0 1 auto', minWidth: 0, textAlign: 'right' }}
+          >
+            {goal ?? 'Set a goal'}
+          </span>
         </button>
       </div>
 

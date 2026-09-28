@@ -21,7 +21,12 @@ const SCHEMA_ID = 'https://github.com/augustinepaulm/BYOB-fit/program.schema.jso
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 addFormats(ajv)
 ajv.addSchema(schema as object, SCHEMA_ID)
-const validateItemFields = ajv.compile({ $ref: `${SCHEMA_ID}#/$defs/itemFields` })
+// D-038: an override carries itemFields properties only, the same closed shape
+// the schema gives byWeek overrides.
+const validateItemFields = ajv.compile({
+  $ref: `${SCHEMA_ID}#/$defs/itemFields`,
+  unevaluatedProperties: false,
+})
 const validateItem = ajv.compile({ $ref: `${SCHEMA_ID}#/$defs/item` })
 
 export interface Override {
