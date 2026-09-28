@@ -266,6 +266,10 @@ export function validateProposal(
       errors.push(...ajvErrors(`${at}/item`, validateItem.errors))
       return
     }
+    // D-028: retirement is the user's edit, never part of a new item.
+    if (Object.prototype.hasOwnProperty.call(addition.item, 'retiredFrom')) {
+      errors.push(`${at}/item/retiredFrom: a new item cannot arrive retired`)
+    }
     if (knownItemIds.has(addition.item.id)) {
       errors.push(`${at}/item/id: "${addition.item.id}" is already used`)
     }

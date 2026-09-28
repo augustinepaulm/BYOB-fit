@@ -1,20 +1,27 @@
 // Export and import of everything on the device (D-017, EXEC-04 task 8,
-// EXEC-05 task 6). The API key is deliberately never written to an export.
+// EXEC-05 task 6, EXEC-06 task 8). The API key is deliberately never written
+// to an export.
 
 import { readAllStores, replaceAllStores } from '../db/index.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  Goals,
   MealDay,
   Profile,
   Reprogram,
+  SentLogEntry,
   Session,
   Settings,
   WeekPlan,
 } from '../types/stores.ts'
+import { upgradeProgram } from './program.ts'
 import { withoutDeviceStorage } from './storage.ts'
 
-/** The only envelope version this build reads and writes. */
-export const BACKUP_SCHEMA_VERSION = 1
+/** The envelope version this build writes (PLAN v1.5 section 5). */
+export const BACKUP_SCHEMA_VERSION = 2
+
+/** Every envelope version this build reads. Anything else is refused. */
+const READABLE_VERSIONS = [1, 2]
 
 export interface BackupFile {
   app: 'BYOB-fit'
@@ -29,19 +36,27 @@ export interface BackupFile {
   settings: Settings | null
   reprograms: Reprogram[]
   meta: Record<string, string>
+  goals: Goals | null
+  sentLog: SentLogEntry[]
 }
 
-export async function buildBackup(): Promise<BackupFile> {
-  const data = await readAllStores()
+type StoreData = Awaited<ReturnType<typeof readAllStores>>
+
+/** Build the envelope from store contents. Pure, so it can be tested. */
+export function backupFromData(data: StoreData, now = new Date()): BackupFile {
   const settings = data.settings ? withoutDeviceStorage(data.settings) : null
   if (settings) delete settings.apiKey
   return {
     app: 'BYOB-fit',
     schemaVersion: BACKUP_SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
+    exportedAt: now.toISOString(),
     ...data,
     settings,
   }
+}
+
+export async function buildBackup(): Promise<BackupFile> {
+  return backupFromData(await readAllStores())
 }
 
 export type BackupResult =
@@ -53,8 +68,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Check the envelope before anything touches a store. An unknown or missing
- * schemaVersion is refused outright rather than guessed at.
+ * Check the envelope before anything touches a store. Versions 1 and 2 are
+ * read; a version 1 file comes back as version 2 with no goals and an empty
+ * sent log. An unknown or missing schemaVersion is refused, never guessed at.
  */
 export function validateBackup(value: unknown): BackupResult {
   if (!isObject(value)) {
@@ -63,25 +79,26 @@ export function validateBackup(value: unknown): BackupResult {
   if (value.app !== 'BYOB-fit') {
     return {
       ok: false,
-      errors: ['/app: must be "BYOB-fit" — this is not a BYOB-fit export'],
+      errors: ['/app: must be "BYOB-fit". This is not a BYOB-fit export'],
     }
   }
   if (value.schemaVersion === undefined) {
     return {
       ok: false,
       errors: [
-        '/schemaVersion: missing — this export was not written by this version of BYOB-fit, so nothing was imported',
+        '/schemaVersion: missing. This export was not written by a version of BYOB-fit this build can read, so nothing was imported',
       ],
     }
   }
-  if (value.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+  if (!READABLE_VERSIONS.includes(value.schemaVersion as number)) {
     return {
       ok: false,
       errors: [
-        `/schemaVersion: this build reads version ${BACKUP_SCHEMA_VERSION}, the file says ${JSON.stringify(value.schemaVersion)} — nothing was imported`,
+        `/schemaVersion: this build reads versions ${READABLE_VERSIONS.join(' and ')}, the file says ${JSON.stringify(value.schemaVersion)}. Nothing was imported`,
       ],
     }
   }
+  const version = value.schemaVersion as 1 | 2
 
   const errors: string[] = []
   if (typeof value.exportedAt !== 'string' || Number.isNaN(Date.parse(value.exportedAt))) {
@@ -102,6 +119,12 @@ export function validateBackup(value: unknown): BackupResult {
     }
   }
   if (!isObject(value.meta)) errors.push('/meta: must be an object')
+  if (version === 2) {
+    if (value.goals !== null && !isObject(value.goals)) {
+      errors.push('/goals: must be an object or null')
+    }
+    if (!Array.isArray(value.sentLog)) errors.push('/sentLog: must be an array')
+  }
   if (errors.length > 0) return { ok: false, errors }
 
   const backup = value as unknown as BackupFile
@@ -119,6 +142,8 @@ export function validateBackup(value: unknown): BackupResult {
       settings: backup.settings,
       reprograms: backup.reprograms,
       meta: backup.meta,
+      goals: version === 2 ? backup.goals : null,
+      sentLog: version === 2 ? backup.sentLog : [],
     },
   }
 }
@@ -139,7 +164,8 @@ export function parseBackup(text: string): BackupResult {
 
 export async function restoreBackup(backup: BackupFile): Promise<void> {
   await replaceAllStores({
-    programs: backup.programs,
+    // Stored programs are always schema version 2 (D-035).
+    programs: backup.programs.map(upgradeProgram),
     sessions: backup.sessions,
     weekPlans: backup.weekPlans,
     meals: backup.meals,
@@ -148,6 +174,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
     settings: backup.settings ? withoutDeviceStorage(backup.settings) : null,
     reprograms: backup.reprograms,
     meta: backup.meta,
+    goals: backup.goals,
+    sentLog: backup.sentLog,
   })
 }
 

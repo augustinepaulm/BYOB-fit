@@ -1,4 +1,4 @@
-// Types mirroring docs/program.schema.json (frozen at Gate 2, PLAN v1.3 section 5).
+// Types mirroring docs/program.schema.json v2 (frozen Sep 27, PLAN v1.5 section 5, D-035).
 // The schema is the contract; these types follow it and must not drift from it.
 
 export type SectionKind =
@@ -20,10 +20,43 @@ export type ItemType =
 
 export type LoadUnit = 'kg' | 'lb'
 
+export type Muscle =
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'arms'
+  | 'legs'
+  | 'glutes'
+  | 'core'
+  | 'full_body'
+  | 'cardio'
+
+export type Equipment =
+  | 'none'
+  | 'barbell'
+  | 'dumbbell'
+  | 'kettlebell'
+  | 'cable'
+  | 'machine'
+  | 'band'
+  | 'bench'
+  | 'cardio_machine'
+  | 'other'
+
+export type ExerciseLevel = 'beginner' | 'intermediate' | 'experienced'
+
 export interface Exercise {
   name: string
   howTo: string
   tags?: string[]
+  /** v2: primary muscle groups, at least one, no repeats. */
+  muscles?: Muscle[]
+  /** v2: main equipment; none = bodyweight. */
+  equipment?: Equipment
+  /** v2: lowest level the exercise suits. */
+  level?: ExerciseLevel
+  /** v2: path under public/demos/, e.g. demos/goblet-squat.webp; never a URL (D-033). */
+  demo?: string
 }
 
 /** Every property a byWeek override may carry. All optional, as in the schema. */
@@ -56,8 +89,9 @@ export interface ItemFields {
 }
 
 /**
- * Keys are program week numbers as strings. An override applies from that week
- * onward until a higher key takes over.
+ * Keys are program week numbers as strings. Overrides are cumulative (D-023):
+ * for week W, every override with key <= W applies in ascending order on top of
+ * the base item, later keys overwriting earlier ones field by field.
  */
 export type ByWeek = Record<string, ItemFields>
 
@@ -66,6 +100,12 @@ export interface Item extends ItemFields {
   exerciseId: string
   type: ItemType
   byWeek?: ByWeek
+  /**
+   * v2 (D-028): retired, not deleted. The item does not appear on days dated on
+   * or after this ISO date; its logged history stays in the Log. Not a field a
+   * byWeek override may carry.
+   */
+  retiredFrom?: string
 }
 
 export interface Section {
@@ -89,7 +129,8 @@ export interface Day {
 }
 
 export interface Program {
-  schemaVersion: 1
+  /** Import accepts 1 and 2 and stores 2 (D-035). */
+  schemaVersion: 1 | 2
   id: string
   name: string
   /** Free text, e.g. v11 */

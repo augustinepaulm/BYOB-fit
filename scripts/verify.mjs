@@ -34,6 +34,12 @@ const files = readdirSync('docs')
   .filter((path) => statSync(path).isFile())
   .sort()
 files.push('public/sample-program.json')
+files.push(
+  ...readdirSync('design')
+    .map((name) => join('design', name))
+    .filter((path) => statSync(path).isFile())
+    .sort(),
+)
 for (const path of files) {
   console.log(`${md5(path)}  ${path}`)
 }

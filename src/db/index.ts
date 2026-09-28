@@ -3,9 +3,11 @@
 
 import type { Program } from '../types/program.ts'
 import type {
+  Goals,
   MealDay,
   Profile,
   Reprogram,
+  SentLogEntry,
   Session,
   Settings,
   WeekPlan,
@@ -13,6 +15,7 @@ import type {
 import { sessionIdFor } from '../lib/session.ts'
 import {
   ACTIVE_PROGRAM_KEY,
+  GOALS_KEY,
   PROFILE_KEY,
   SETTINGS_KEY,
   getDB,
@@ -160,6 +163,30 @@ export async function listReprograms(): Promise<Reprogram[]> {
   return db.getAll('reprograms')
 }
 
+// ── Goals and sent log (PLAN v1.5 section 5; no screen uses them yet) ──
+
+export async function getGoals(): Promise<Goals | undefined> {
+  const db = await getDB()
+  return db.get('goals', GOALS_KEY)
+}
+
+export async function saveGoals(goals: Goals): Promise<void> {
+  const db = await getDB()
+  await db.put('goals', goals, GOALS_KEY)
+}
+
+/** Append only: an entry with an id already in the log is refused. */
+export async function appendSentLog(entry: SentLogEntry): Promise<void> {
+  const db = await getDB()
+  await db.add('sentLog', entry)
+}
+
+/** Every sent-log entry, oldest first. */
+export async function listSentLog(): Promise<SentLogEntry[]> {
+  const db = await getDB()
+  return db.getAllFromIndex('sentLog', 'at')
+}
+
 /** Everything the export contains, and everything Reset and Import replace. */
 export const DATA_STORES = [
   'programs',
@@ -170,6 +197,8 @@ export const DATA_STORES = [
   'settings',
   'reprograms',
   'meta',
+  'goals',
+  'sentLog',
 ] as const
 
 export async function clearAllStores(): Promise<void> {
@@ -189,6 +218,8 @@ export async function readAllStores(): Promise<{
   settings: Settings | null
   reprograms: Reprogram[]
   meta: Record<string, string>
+  goals: Goals | null
+  sentLog: SentLogEntry[]
 }> {
   const db = await getDB()
   const metaKeys = await db.getAllKeys('meta')
@@ -206,6 +237,8 @@ export async function readAllStores(): Promise<{
     settings: (await db.get('settings', SETTINGS_KEY)) ?? null,
     reprograms: await db.getAll('reprograms'),
     meta,
+    goals: (await db.get('goals', GOALS_KEY)) ?? null,
+    sentLog: await db.getAllFromIndex('sentLog', 'at'),
   }
 }
 
@@ -219,6 +252,8 @@ export async function replaceAllStores(data: {
   settings: Settings | null
   reprograms: Reprogram[]
   meta: Record<string, string>
+  goals: Goals | null
+  sentLog: SentLogEntry[]
 }): Promise<void> {
   const db = await getDB()
   const tx = db.transaction(DATA_STORES, 'readwrite')
@@ -233,5 +268,7 @@ export async function replaceAllStores(data: {
   for (const [key, value] of Object.entries(data.meta)) {
     await tx.objectStore('meta').put(value, key)
   }
+  if (data.goals) await tx.objectStore('goals').put(data.goals, GOALS_KEY)
+  for (const entry of data.sentLog) await tx.objectStore('sentLog').put(entry)
   await tx.done
 }

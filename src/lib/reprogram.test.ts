@@ -123,6 +123,35 @@ describe('validateProposal', () => {
     expect(result.errors.join(' ')).toContain('no "exercise" object was supplied')
   })
 
+  it('rejects an added item that carries retiredFrom (D-028)', () => {
+    const result = validateProposal(
+      {
+        ...good,
+        add: [
+          {
+            dayId: 'mon',
+            sectionId: 'main',
+            afterItemId: 'i2',
+            item: {
+              id: 'i3',
+              exerciseId: 'fly',
+              type: 'load_reps',
+              sets: 3,
+              repMin: 10,
+              retiredFrom: '2026-09-27',
+            },
+            reason: 'r',
+          },
+        ],
+      },
+      baseProgram(),
+      7,
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors).toContain('/add/0/item/retiredFrom: a new item cannot arrive retired')
+  })
+
   it('accepts an addition that carries its own exercise', () => {
     const result = validateProposal(
       {

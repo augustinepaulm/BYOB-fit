@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import sample from '../../public/sample-program.json'
 import type { Day, Program } from '../types/program.ts'
 import { importProgram, importProgramText } from './importProgram.ts'
 
@@ -115,5 +116,79 @@ describe('schema and reference validation', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.errors[0]).toMatch(/^\/: file is not valid JSON/)
+  })
+})
+
+describe('schema version 2 (D-035)', () => {
+  it('imports the committed version 1 sample and stores it as version 2', () => {
+    expect(sample.schemaVersion).toBe(1)
+    const result = importProgramText(JSON.stringify(sample))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.program.schemaVersion).toBe(2)
+    expect(result.program.days).toHaveLength(7)
+  })
+
+  it('imports a version 2 file using every new field', () => {
+    const program = programWith('2026-08-09')
+    program.schemaVersion = 2
+    program.exercises.squat = {
+      name: 'Back squat',
+      howTo: 'Squat down, stand up.',
+      muscles: ['legs', 'glutes'],
+      equipment: 'barbell',
+      level: 'intermediate',
+      demo: 'demos/back-squat.webp',
+    }
+    program.days[1].sections = [
+      {
+        id: 's1',
+        kind: 'main',
+        title: 'Main',
+        items: [
+          { id: 'i1', exerciseId: 'squat', type: 'load_reps', retiredFrom: '2026-09-20' },
+        ],
+      },
+    ]
+    const result = importProgram(program)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.program.schemaVersion).toBe(2)
+    expect(result.program.exercises.squat.demo).toBe('demos/back-squat.webp')
+    expect(result.program.days[1].sections[0].items[0].retiredFrom).toBe('2026-09-20')
+  })
+
+  it('rejects a demo that is an https URL', () => {
+    const program = programWith('2026-08-09')
+    program.exercises.squat.demo = 'https://example.com/squat.mp4'
+    const result = importProgram(program)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors.join(' ')).toContain('/exercises/squat/demo')
+  })
+
+  it('rejects retiredFrom inside a byWeek override', () => {
+    const program = programWith('2026-08-09')
+    program.days[1].sections = [
+      {
+        id: 's1',
+        kind: 'main',
+        title: 'Main',
+        items: [
+          {
+            id: 'i1',
+            exerciseId: 'squat',
+            type: 'load_reps',
+            byWeek: { '3': { retiredFrom: '2026-09-01' } as never },
+          },
+        ],
+      },
+    ]
+    const result = importProgram(program)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors[0]).toMatch(
+      /^\/days\/1\/sections\/0\/items\/0\/byWeek\/3\/retiredFrom: /,
+    )
   })
 })

@@ -97,7 +97,10 @@ export function DeckScreen() {
   )
   const api = useSession(target)
 
-  const deck = useMemo(() => (day ? buildDeck(day, week) : []), [day, week])
+  const deck = useMemo(
+    () => (day ? buildDeck(day, week, today) : []),
+    [day, week, today],
+  )
 
   // Where the user has navigated to with Done or Back. Null until they move.
   const [position, setPosition] = useState<number | null>(null)
