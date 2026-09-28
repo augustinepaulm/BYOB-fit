@@ -82,3 +82,57 @@ export function weeksSpanned(points: { date: string }[]): number {
   const last = new Date(points[points.length - 1].date).getTime()
   return Math.max(1, Math.ceil((last - first) / (7 * 86_400_000)) || 1)
 }
+
+// ── Week against week (frame 3i) ──
+
+/** Program weeks in which an exercise has confirmed sets, newest first. */
+export function weeksWithExercise(sessions: Session[], exerciseId: string): number[] {
+  const weeks = new Set<number>()
+  for (const session of sessions) {
+    if (session.entries.some((e) => e.exerciseId === exerciseId && e.sets.some(isSetConfirmed))) {
+      weeks.add(session.programWeek)
+    }
+  }
+  return [...weeks].sort((a, b) => b - a)
+}
+
+/** An exercise's confirmed sets in one program week, in session and set order. */
+export function setsInWeek(sessions: Session[], exerciseId: string, week: number): SetLog[] {
+  return [...sessions]
+    .filter((s) => s.programWeek === week)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((s) => s.entries.filter((e) => e.exerciseId === exerciseId).flatMap((e) => e.sets.filter(isSetConfirmed)))
+}
+
+/** Defaults: the latest week with this exercise, and the one before it. */
+export function defaultWeeks(weeks: number[]): { from: number | null; to: number | null } {
+  return { to: weeks[0] ?? null, from: weeks[1] ?? null }
+}
+
+function trim(n: number): string {
+  return String(Math.round(n * 100) / 100)
+}
+
+/**
+ * The change between two weeks' best sets, e.g. "+2.5 kg on the best set,
+ * same reps". Weighted sets compare weight, then reps.
+ */
+export function bestSetChange(from: SetLog | undefined, to: SetLog | undefined, unit: string): string | null {
+  if (!from || !to) return null
+  if (from.weight !== undefined && to.weight !== undefined) {
+    const dw = to.weight - from.weight
+    const weight = dw > 0 ? `+${trim(dw)} ${unit}` : dw < 0 ? `−${trim(-dw)} ${unit}` : 'Same weight'
+    const dr = (to.reps ?? 0) - (from.reps ?? 0)
+    const reps = dr === 0 ? 'same reps' : dr > 0 ? `${dr} more ${dr === 1 ? 'rep' : 'reps'}` : `${-dr} fewer ${dr === -1 ? 'rep' : 'reps'}`
+    return `${weight} on the best set, ${reps}`
+  }
+  for (const [key, label] of [['seconds', 's'], ['distanceM', 'm'], ['reps', 'reps'], ['minutes', 'min']] as const) {
+    const a = from[key]
+    const b = to[key]
+    if (a !== undefined && b !== undefined) {
+      const d = b - a
+      return d === 0 ? 'Same as the week before' : `${d > 0 ? '+' : '−'}${trim(Math.abs(d))} ${label} on the best set`
+    }
+  }
+  return null
+}

@@ -106,6 +106,20 @@ export interface Item extends ItemFields {
    * byWeek override may carry.
    */
   retiredFrom?: string
+  /**
+   * Replaces the default progression rule for this item (D-047). Not a byWeek
+   * field; the builder carries it through untouched.
+   */
+  progression?: Progression
+}
+
+export interface Progression {
+  /** Consecutive sessions at the top of the rep range, 1 to 6. */
+  sessions?: number
+  /** Load increase in percent, above 0 and at most 10. */
+  percent?: number
+  /** Smallest load change, in the item's unit. */
+  step?: number
 }
 
 export interface Section {

@@ -182,7 +182,8 @@ export function summarise(
     if (deckItem.logged) {
       const confirmed = (entry?.sets ?? []).filter(isSetConfirmed)
       setsConfirmed += confirmed.length
-      if (confirmed.length === 0) skipped += 1
+      // D-048: Discomfort marks the entry skipped even with some sets done.
+      if (confirmed.length === 0 || entry?.skipped) skipped += 1
       if (deckItem.resolved.type === 'load_reps') {
         // D-012: shown as entered, kg unless the item says otherwise.
         const unit = deckItem.resolved.unit ?? 'kg'

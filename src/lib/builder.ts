@@ -367,7 +367,7 @@ export function itemErrors(item: ItemFields): FieldErrors {
 
 /** Drop fields the chosen type does not use (base item only; byWeek is never touched). */
 export function withType(item: Item, type: ItemType): Item {
-  const keep = new Set<string>(['id', 'exerciseId', 'type', 'unit', 'index', 'logged', 'cue', 'notes', 'rpe', 'alternateExerciseId', 'byWeek', 'retiredFrom', ...TYPE_FIELDS[type]])
+  const keep = new Set<string>(['id', 'exerciseId', 'type', 'unit', 'index', 'logged', 'cue', 'notes', 'rpe', 'alternateExerciseId', 'byWeek', 'retiredFrom', 'progression', ...TYPE_FIELDS[type]])
   const next = { ...item, type } as Record<string, unknown>
   for (const key of Object.keys(next)) if (!keep.has(key)) delete next[key]
   return next as unknown as Item

@@ -4,10 +4,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { listAllSessions, listPrograms } from '../db/index.ts'
 import { formatShortDay } from '../lib/dates.ts'
 import {
+  bestSetChange,
   bestSetOf,
   buildExerciseLog,
+  defaultWeeks,
+  setsInWeek,
   topSetSeries,
   weeksSpanned,
+  weeksWithExercise,
   type ExerciseSession,
 } from '../lib/log.ts'
 import { formatSetValue } from '../lib/prescription.ts'
@@ -15,7 +19,9 @@ import { parseISODate, resolveItem } from '../lib/program.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
-import { ChevronLeftIcon, ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
+import { BuilderBar } from '../builder/ui.tsx'
+import { SectionHead } from '../onboarding/ui.tsx'
+import { ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
 
 const MONTH_DAY = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -147,55 +153,80 @@ export function LogScreen() {
     })
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">Log</h1>
+    <div className="tl">
+      <div className="bd-hero">
+        <h1 className="lg-title">Log</h1>
       </div>
-      <div className="search">
-        <span style={{ color: 'var(--icon-muted)', display: 'inline-flex' }}>
+      <label className="bd-search" style={{ margin: '16px 24px 0' }}>
+        <span style={{ display: 'inline-flex', color: 'var(--muted)' }}>
           <SearchIcon />
         </span>
         <input
-          type="text"
+          type="search"
           value={query}
           placeholder="Search exercises"
           aria-label="Search exercises"
           onChange={(event) => setQuery(event.target.value)}
         />
-      </div>
-      <div className="filter-row">
+      </label>
+      <div className="bd-chips bd-chips--pad">
         <button
           type="button"
-          className={indexOnly ? 'toggle-chip toggle-chip--on' : 'toggle-chip'}
+          className={indexOnly ? 'bd-chip bd-chip--on' : 'bd-chip'}
           aria-pressed={indexOnly}
           onClick={() => setIndexOnly((on) => !on)}
         >
           Index lifts
         </button>
       </div>
-      {rows.length === 0 ? (
-        <p className="muted-line">No exercises match.</p>
-      ) : (
-        <div className="card">
-          {rows.map((row) => (
-            <Link className="log-row" to={`/log/${row.id}`} key={row.id}>
-              <div>
-                <div className="log-row__name">{row.name}</div>
-                <div className="log-row__meta">
-                  {row.best
-                    ? `best ${formatSetValue(row.best)} · last ${formatShortDay(
-                        parseISODate(row.logged[0].date),
-                      )}`
-                    : 'no sets logged yet'}
-                </div>
+      <div style={{ margin: '12px 24px 24px', borderTop: '1.5px solid var(--text)' }}>
+        {rows.length === 0 && <p className="bd-hint">No exercises match.</p>}
+        {rows.map((row) => (
+          <Link className="lg-row log-row" to={`/log/${row.id}`} key={row.id}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="lg-row__name log-row__name">{row.name}</div>
+              <div className="lg-row__sub">
+                {row.best
+                  ? `Best ${formatSetValue(row.best)} · last ${formatShortDay(parseISODate(row.logged[0].date))}`
+                  : 'No sets logged yet'}
               </div>
-              <span style={{ color: 'var(--chip-idle)', display: 'inline-flex' }}>
-                <ChevronRightIcon size={16} />
-              </span>
-            </Link>
+            </div>
+            <span style={{ color: 'var(--muted)', display: 'inline-flex' }}>
+              <ChevronRightIcon size={16} />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** The unit this exercise's items use in the program, kg when none says. */
+function unitFor(program: Program, exerciseId: string): string {
+  for (const day of program.days) {
+    for (const section of day.sections) {
+      for (const item of section.items) {
+        if (item.exerciseId === exerciseId && item.unit) return item.unit
+      }
+    }
+  }
+  return 'kg'
+}
+
+function WeekPicker({ label, value, weeks, onChange }: { label: string; value: number | null; weeks: number[]; onChange: (week: number) => void }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--secondary)', marginBottom: 4 }}>{label}</div>
+      <div className="bd-input" style={{ fontSize: 16 }}>
+        <select aria-label={label} value={value ?? ''} onChange={(event) => onChange(Number(event.target.value))}>
+          {value === null && <option value="">None</option>}
+          {[...weeks].sort((a, b) => a - b).map((w) => (
+            <option key={w} value={w}>
+              Week {w}
+            </option>
           ))}
-        </div>
-      )}
+        </select>
+      </div>
     </div>
   )
 }
@@ -207,50 +238,72 @@ export function ExerciseLogScreen() {
   const sessions = useSessions()
   const history = useMemo(() => buildExerciseLog(sessions), [sessions])
   const names = useExerciseNames(program)
+  const weeks = useMemo(() => weeksWithExercise(sessions, exerciseId), [sessions, exerciseId])
+  const [picked, setPicked] = useState<{ from: number | null; to: number | null } | null>(null)
 
   if (!program) return null
   const logged: ExerciseSession[] = history.get(exerciseId) ?? []
-  const best = bestSetOf(logged.flatMap((item) => item.sets))
   const series = topSetSeries(logged)
+  // Defaults: the latest week with this exercise, and the one before it.
+  const { from, to } = picked ?? defaultWeeks(weeks)
+  const fromSets = from !== null ? setsInWeek(sessions, exerciseId, from) : []
+  const toSets = to !== null ? setsInWeek(sessions, exerciseId, to) : []
+  const fromBest = bestSetOf(fromSets)
+  const toBest = bestSetOf(toSets)
+  const change = bestSetChange(fromBest, toBest, unitFor(program, exerciseId))
+  const count = Math.max(fromSets.length, toSets.length)
 
   return (
-    <div className="page">
-      <div className="sub-head">
-        <button type="button" aria-label="Back" onClick={() => navigate(-1)}>
-          <ChevronLeftIcon />
-        </button>
-        <div className="sub-head__title">{names.get(exerciseId) ?? exerciseId}</div>
+    <div className="tl" style={{ paddingBottom: 40 }}>
+      <BuilderBar title="Log" onBack={() => navigate(-1)} />
+      <div style={{ padding: '4px 24px 0' }}>
+        <h1 className="dk-title__name">{names.get(exerciseId) ?? exerciseId}</h1>
       </div>
 
       {logged.length === 0 ? (
-        <p className="muted-line">No sets logged yet.</p>
+        <p className="bd-hint" style={{ margin: '16px 24px 0' }}>
+          No sets logged yet.
+        </p>
       ) : (
         <>
-          <div className="log-cards">
-            <div className="log-card">
-              <div className="log-card__label">Best set</div>
-              <div className="log-card__value">
-                {best ? formatSetValue(best) : '—'}
-              </div>
+          <div className="lg-pickers">
+            <WeekPicker label="Compare" value={from} weeks={weeks} onChange={(w) => setPicked({ from: w, to })} />
+            <span className="lg-pickers__vs">vs</span>
+            <WeekPicker label="with" value={to} weeks={weeks} onChange={(w) => setPicked({ from, to: w })} />
+          </div>
+          <div style={{ margin: '16px 24px 0', borderTop: '1.5px solid var(--text)' }}>
+            <div className="lg-grid">
+              <span className="lg-grid__label">Set</span>
+              <span className="lg-grid__label">{from !== null ? `Week ${from}` : ''}</span>
+              <span className="lg-grid__label">{to !== null ? `Week ${to}` : ''}</span>
             </div>
-            <div className="log-card log-card--wide">
-              <div className="log-card__label">
-                Top-set weight, {weeksSpanned(series)} wk
+            {Array.from({ length: count }, (_, i) => (
+              <div className="lg-grid" key={i}>
+                <span className="lg-grid__label">{i + 1}</span>
+                <span style={{ color: 'var(--secondary)' }}>{fromSets[i] ? formatSetValue(fromSets[i]) : ''}</span>
+                <span style={{ fontWeight: 600 }}>{toSets[i] ? formatSetValue(toSets[i]) : ''}</span>
               </div>
-              <Sparkline points={series} />
+            ))}
+            <div className="lg-grid lg-grid--best">
+              <span className="lg-grid__label">Best</span>
+              <span>{fromBest ? formatSetValue(fromBest) : ''}</span>
+              <span>{toBest ? formatSetValue(toBest) : ''}</span>
             </div>
           </div>
+          {change && <div className="lg-change">{change}</div>}
 
-          <div className="section-label">Sessions</div>
-          <div className="card">
+          <div style={{ margin: '0 24px' }}>
+            <SectionHead aside={`${weeksSpanned(series)} ${weeksSpanned(series) === 1 ? 'week' : 'weeks'}`}>Top-set weight</SectionHead>
+            <Sparkline points={series} />
+            <SectionHead>History</SectionHead>
             {logged.map((item) => (
-              <div className="session-row" key={item.date}>
-                <span className="session-row__date">
-                  {MONTH_DAY.format(parseISODate(item.date))}
-                </span>
-                <span className="session-row__sets">
-                  {item.sets.map((set) => formatSetValue(set)).join(', ')}
-                </span>
+              <div className="tl-row" key={item.date} style={{ alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, color: 'var(--secondary)' }}>{MONTH_DAY.format(parseISODate(item.date))}</div>
+                  <div style={{ fontSize: 15, color: 'var(--secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {item.sets.map((set) => formatSetValue(set)).join(', ')}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

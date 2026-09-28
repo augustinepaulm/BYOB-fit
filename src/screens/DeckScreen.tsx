@@ -1,16 +1,20 @@
+// The deck, frames 3b to 3g in the 1b layout (EXEC-10A task 6): per-set rows
+// with last week's values, the progression chip (D-047), felt off (D-048),
+// the demo slot (D-033), the dictation hint, and a session-only swap.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { listAllSessions } from '../db/index.ts'
+import { ExercisePicker } from '../builder/ExercisePicker.tsx'
+import { Sheet } from '../builder/ui.tsx'
+import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
+import { getMeta, listAllSessions, setMeta } from '../db/index.ts'
+import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
-import {
-  formatClock,
-  formatRest,
-  formatSetValue,
-  prescriptionText,
-} from '../lib/prescription.ts'
+import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
 import { dayForDate } from '../lib/program.ts'
+import { suggestProgression, suggestionText } from '../lib/progression.ts'
 import {
   buildDeck,
   findEntry,
@@ -25,16 +29,24 @@ import {
   type DeckItem,
   type SetRow,
 } from '../lib/session.ts'
+import { ChoiceRow, TickIcon } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
-import type { ItemFields } from '../types/program.ts'
-import type { Session, SetLog } from '../types/stores.ts'
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  PlayIcon,
-} from '../ui/icons.tsx'
+import { useSettings } from '../settings/useSettings.ts'
+import type { Exercise, ItemFields } from '../types/program.ts'
+import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
+import { ChevronLeftIcon, PlayIcon } from '../ui/icons.tsx'
+
+const DEMO_SEEN = 'demoSeen'
+const HINT_COUNT = 'dictationHintCount'
+const HINT_UNTIL = 3
+
+const FELT: { value: FeltOff; title: string; sub?: string }[] = [
+  { value: 'easy', title: 'Too easy' },
+  { value: 'hard', title: 'Too hard' },
+  { value: 'discomfort', title: 'Discomfort', sub: 'Skips the rest of this exercise today' },
+]
+const FELT_WORD: Record<FeltOff, string> = { easy: 'too easy', hard: 'too hard', discomfort: 'discomfort' }
 
 function rowKey(itemId: string, row: SetRow): string {
   return `${itemId}:${row.n}:${row.side ?? ''}`
@@ -55,72 +67,68 @@ function prescriptionPrefill(resolved: ItemFields): ParsedFields {
 }
 
 function referencePrefill(set: SetLog): ParsedFields {
-  return {
-    weight: set.weight,
-    reps: set.reps,
-    seconds: set.seconds,
-    distanceM: set.distanceM,
-    minutes: set.minutes,
-  }
+  return { weight: set.weight, reps: set.reps, seconds: set.seconds, distanceM: set.distanceM, minutes: set.minutes }
 }
 
 function hasValue(fields: ParsedFields): boolean {
   return formatSetValue(fields) !== ''
 }
 
-/** Put the focused row in the top half of the viewport (task 9). */
+/** Put the focused row in the top half of the viewport. */
 function scrollIntoTopHalf(element: HTMLElement) {
   const rect = element.getBoundingClientRect()
   const top = window.scrollY + rect.top - window.innerHeight * 0.25
   window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
 }
 
+/** D-033: the bundled demo file, or the placeholder frame. */
+function DemoMedia({ exercise }: { exercise: Exercise | undefined }) {
+  const src = exercise?.demo ? `${import.meta.env.BASE_URL}${exercise.demo}` : null
+  if (src && /\.(mp4|webm)$/.test(src)) return <video src={src} autoPlay loop muted playsInline />
+  if (src) return <img src={src} alt="" />
+  return <span className="dk-demo__label">demo · looping clip</span>
+}
+
 export function DeckScreen() {
   const { program, today, week, weekPlan } = useProgram()
+  const { settings } = useSettings()
   const navigate = useNavigate()
+  const { templates } = useStarterTemplates()
+  const library = useLibrary(program, templates)
 
   const day = program ? dayForDate(program, weekPlan, today) : null
   const scheduled = program?.days.find((d) => d.order === today.getDay())
   const swapped = Boolean(scheduled && day && scheduled.id !== day.id)
+  const todayIso = toISODate(today)
+  const isNew = settings.onboarding?.experience === 'new'
 
   const target = useMemo(
-    () =>
-      day
-        ? {
-            date: toISODate(today),
-            dayId: day.id,
-            programWeek: week,
-            swapped,
-          }
-        : null,
-    [day, today, week, swapped],
+    () => (day ? { date: todayIso, dayId: day.id, programWeek: week, swapped } : null),
+    [day, todayIso, week, swapped],
   )
   const api = useSession(target)
-
-  const deck = useMemo(
-    () => (day ? buildDeck(day, week, today) : []),
-    [day, week, today],
-  )
+  const deck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
 
   // Where the user has navigated to with Done or Back. Null until they move.
   const [position, setPosition] = useState<number | null>(null)
   // Where Resume dropped them, decided once when the stored session arrives.
-  // Deriving this every render would jump the deck forward the moment a set
-  // was confirmed, because the current item would stop being "incomplete".
   const [startAt, setStartAt] = useState<number | null>(null)
   const [phase, setPhase] = useState<'deck' | 'summary'>('deck')
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [restUntil, setRestUntil] = useState<number | null>(null)
   const [holdStart, setHoldStart] = useState<Record<string, number>>({})
   const [cardioStart, setCardioStart] = useState<number | null>(null)
-  // Keyed by position, so moving to another item closes it without an effect.
-  const [howToAt, setHowToAt] = useState<number | null>(null)
+  const [demoOpen, setDemoOpen] = useState<Record<number, boolean>>({})
   const [history, setHistory] = useState<Session[]>([])
   const [now, setNow] = useState(Date.now)
+  const [sheet, setSheet] = useState<'felt' | 'swap' | null>(null)
+  const [feltChoice, setFeltChoice] = useState<FeltOff | null>(null)
+  const [seenAtLoad, setSeenAtLoad] = useState<string[] | null>(null)
+  const [hintCount, setHintCount] = useState<number | null>(null)
+  const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  // One ticker drives the rest timer, hold timers and cardio timer. All of them
-  // read Date.now(), so backgrounding the tab cannot make them drift.
+  // One ticker drives the rest, hold and cardio timers; all read Date.now().
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
@@ -128,8 +136,18 @@ export function DeckScreen() {
 
   useEffect(() => {
     let live = true
-    void listAllSessions().then((found) => {
-      if (live) setHistory(found)
+    void Promise.all([listAllSessions(), getMeta(DEMO_SEEN), getMeta(HINT_COUNT)]).then(([found, demo, hints]) => {
+      if (!live) return
+      setHistory(found)
+      let list: string[]
+      try {
+        list = demo ? (JSON.parse(demo) as string[]) : []
+      } catch {
+        list = []
+      }
+      seen.current = list
+      setSeenAtLoad(list)
+      setHintCount(Number(hints ?? 0) || 0)
     })
     return () => {
       live = false
@@ -139,33 +157,48 @@ export function DeckScreen() {
   // Resume reopens at the first item with nothing recorded against it.
   const firstIncomplete = deck.findIndex((deckItem) => {
     const recorded = findEntry(api.session ?? undefined, deckItem.item.id)
+    if (recorded?.skipped) return false
     if (deckItem.logged) return !(recorded?.sets ?? []).some(isSetConfirmed)
     return recorded?.checked !== true
   })
   if (!api.loading && startAt === null && deck.length > 0) {
-    setStartAt(
-      firstIncomplete === -1 ? Math.max(0, deck.length - 1) : firstIncomplete,
-    )
+    setStartAt(firstIncomplete === -1 ? Math.max(0, deck.length - 1) : firstIncomplete)
   }
   const at = position ?? startAt ?? 0
-  const howToOpen = howToAt === at
   const current: DeckItem | undefined = deck[at]
   const entry = findEntry(api.session ?? undefined, current?.item.id ?? '')
   const exerciseId = entry?.exerciseId ?? current?.resolved.exerciseId ?? ''
+  const exercise: Exercise | undefined = program?.exercises[exerciseId] ?? library.find((l) => l.id === exerciseId)?.exercise
   const referenceEntry = useMemo(
-    () =>
-      day ? findReferenceEntry(history, day.id, exerciseId) : undefined,
+    () => (day ? findReferenceEntry(history, day.id, exerciseId) : undefined),
     [history, day, exerciseId],
   )
+  const unit = current?.resolved.unit ?? 'kg'
+
+  // D-033: a New user sees each exercise's demo open the first time it appears.
+  const firstView = isNew && seenAtLoad !== null && Boolean(exerciseId) && !seenAtLoad.includes(exerciseId)
+  const demoExpanded = demoOpen[at] ?? firstView
+  useEffect(() => {
+    if (!firstView || seen.current.includes(exerciseId)) return
+    seen.current = [...seen.current, exerciseId]
+    void setMeta(DEMO_SEEN, JSON.stringify(seen.current))
+  }, [firstView, exerciseId])
+
+  // D-047: this item's recent entries with this exercise, newest first.
+  const suggestion = useMemo(() => {
+    if (!current) return null
+    const past: Entry[] = [...history]
+      .filter((s) => s.date < todayIso)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .flatMap((s) => s.entries.filter((e) => e.itemId === current.item.id && e.exerciseId === exerciseId))
+    return suggestProgression({ ...current.resolved, progression: current.item.progression }, exercise, past, unit)
+  }, [current, history, todayIso, exerciseId, exercise, unit])
 
   const prefillFor = useCallback(
-    (row: SetRow): { fields: ParsedFields; firstTime: boolean } => {
+    (row: SetRow): { fields: ParsedFields; firstTime: boolean; reference?: SetLog } => {
       const reference = referenceSet(referenceEntry, row)
-      if (reference) return { fields: referencePrefill(reference), firstTime: false }
-      return {
-        fields: current ? prescriptionPrefill(current.resolved) : {},
-        firstTime: true,
-      }
+      if (reference) return { fields: referencePrefill(reference), firstTime: false, reference }
+      return { fields: current ? prescriptionPrefill(current.resolved) : {}, firstTime: true }
     },
     [referenceEntry, current],
   )
@@ -175,6 +208,15 @@ export function DeckScreen() {
     if (restSec && restSec > 0) setRestUntil(Date.now() + restSec * 1000)
   }, [current])
 
+  // The dictation hint shows until three sets have been logged.
+  const countSet = useCallback(() => {
+    setHintCount((n) => {
+      const next = (n ?? 0) + 1
+      if (next <= HINT_UNTIL) void setMeta(HINT_COUNT, String(next))
+      return next
+    })
+  }, [])
+
   const commitRow = useCallback(
     async (row: SetRow, text: string) => {
       if (!current) return
@@ -183,22 +225,16 @@ export function DeckScreen() {
       const result = parseSet(text, {
         type: current.resolved.type ?? 'load_reps',
         reference,
-        // The row's own pre-fill load: this session first, then last week.
         inheritWeight: nearestWeightAbove(entry, row) ?? reference?.weight,
       })
       const base: SetLog = { n: row.n, ...(row.side ? { side: row.side } : {}) }
       if (result.ok) {
-        await api.writeSet(current.item.id, exerciseId, {
-          ...base,
-          ...result.fields,
-        })
+        await api.writeSet(current.item.id, exerciseId, { ...base, ...result.fields })
         startRest()
+        countSet()
       } else {
         // Never a silent zero: the raw text is kept and the row is flagged.
-        await api.writeSet(current.item.id, exerciseId, {
-          ...base,
-          raw: result.raw,
-        })
+        await api.writeSet(current.item.id, exerciseId, { ...base, raw: result.raw })
       }
       setDrafts((d) => {
         const next = { ...d }
@@ -206,7 +242,7 @@ export function DeckScreen() {
         return next
       })
     },
-    [api, current, entry, exerciseId, referenceEntry, startRest],
+    [api, current, entry, exerciseId, referenceEntry, startRest, countSet],
   )
 
   const confirmPrefill = useCallback(
@@ -214,14 +250,11 @@ export function DeckScreen() {
       if (!current) return
       const { fields } = prefillFor(row)
       if (!hasValue(fields)) return
-      await api.writeSet(current.item.id, exerciseId, {
-        n: row.n,
-        ...(row.side ? { side: row.side } : {}),
-        ...fields,
-      })
+      await api.writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), ...fields })
       startRest()
+      countSet()
     },
-    [api, current, exerciseId, prefillFor, startRest],
+    [api, current, exerciseId, prefillFor, startRest, countSet],
   )
 
   const advance = useCallback(
@@ -246,15 +279,16 @@ export function DeckScreen() {
       advance(from)
       return
     }
+    if (entry?.skipped) {
+      advance(from)
+      return
+    }
     for (const row of setRowsFor(current.resolved)) {
       const key = rowKey(current.item.id, row)
       const draft = drafts[key]
       const stored = findSet(entry, row)
-      if (draft !== undefined && draft.trim() !== '') {
-        await commitRow(row, draft)
-      } else if (!stored) {
-        await confirmPrefill(row)
-      }
+      if (draft !== undefined && draft.trim() !== '') await commitRow(row, draft)
+      else if (!stored) await confirmPrefill(row)
     }
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, commitRow, confirmPrefill, advance])
@@ -269,77 +303,71 @@ export function DeckScreen() {
   if (!day.rest && startAt === null) return null
 
   if (day.rest) {
-    // A rest day has no deck; its daily items are checked off on Today.
     return (
-      <div className="page">
-        <div className="page-head">
-          <h1 className="page-title">Rest day</h1>
+      <div className="tl">
+        <div className="tl-head">
+          <h1 className="tl-head__title">Rest day</h1>
+          <div className="tl-head__sub">Nothing to run today.</div>
         </div>
-        <p className="muted-line">Nothing to run today.</p>
       </div>
     )
   }
 
   const summary = summarise(api.session ?? undefined, deck)
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
+  const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
 
+  // ── 3g Session summary ──
   if (phase === 'summary') {
-    const meta = [
-      formatLongDate(today),
-      day.focus ?? day.name,
-      `Week ${week} of ${program.programWeeks}`,
-    ].join(' · ')
+    const felt = (api.session?.entries ?? []).filter((e) => e.feltOff)
+    const minutes =
+      summary.durationMin ?? Math.max(0, Math.round((now - new Date(api.session?.startedAt ?? now).getTime()) / 60000))
     return (
-      <div className="deck">
-        <div className="deck-progress">
-          <div
-            className="deck-progress__fill deck-progress__fill--done"
-            style={{ width: '100%' }}
-          />
+      <div className="tl" style={{ paddingBottom: 130 }}>
+        <div className="dk-progress dk-progress--done" style={{ marginTop: 8 }}>
+          <span style={{ width: '100%' }} />
         </div>
-        <div className="summary-head">
-          <div className="summary-head__meta">{meta}</div>
-          <h1 className="summary-head__title">Session complete</h1>
-        </div>
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-card__value">{summary.setsConfirmed}</div>
-            <div className="stat-card__label">sets completed</div>
+        <div className="bd-hero">
+          <h1 className="bd-hero__title" style={{ fontSize: 40 }}>
+            Session complete
+          </h1>
+          <div className="bd-hero__sub">
+            {formatLongDate(today)} · {day.focus ?? day.name} · week {week} of {program.programWeeks}
           </div>
-          {summary.volumeByUnit.map(({ unit, volume }) => (
-            <div className="stat-card" key={unit}>
-              <div className="stat-card__value">
-                {volume.toLocaleString('en-US')}
-              </div>
-              <div className="stat-card__label">volume, {unit}</div>
+        </div>
+        <div style={{ margin: '20px 24px 0', borderTop: '1.5px solid var(--text)' }}>
+          <div className="dk-stat">
+            <span className="dk-stat__label">Sets done</span>
+            <span className="dk-stat__value">{summary.setsConfirmed}</span>
+          </div>
+          {summary.volumeByUnit.map(({ unit: u, volume }) => (
+            <div className="dk-stat" key={u}>
+              <span className="dk-stat__label">Volume, {u}</span>
+              <span className="dk-stat__value">{volume.toLocaleString('en-US')}</span>
             </div>
           ))}
-          <div className="stat-card">
-            <div className="stat-card__value">
-              {summary.durationMin === null
-                ? `${Math.max(
-                    0,
-                    Math.round(
-                      (now - new Date(api.session?.startedAt ?? now).getTime()) /
-                        60000,
-                    ),
-                  )} min`
-                : `${summary.durationMin} min`}
-            </div>
-            <div className="stat-card__label">duration</div>
+          <div className="dk-stat">
+            <span className="dk-stat__label">Time</span>
+            <span className="dk-stat__value">{minutes} min</span>
           </div>
-          <div className="stat-card">
-            <div className="stat-card__value">{summary.skipped}</div>
-            <div className="stat-card__label">items skipped</div>
+          <div className="dk-stat">
+            <span className="dk-stat__label">Skipped</span>
+            <span className="dk-stat__value">{summary.skipped}</span>
           </div>
         </div>
+        {felt.length > 0 && (
+          <div style={{ margin: '16px 24px 0', fontSize: 15, lineHeight: 1.45 }}>
+            <span style={{ color: 'var(--secondary)' }}>Felt off:</span>{' '}
+            {felt.map((e) => `${lowerFirst(nameOf(e.exerciseId))}, ${FELT_WORD[e.feltOff!]}`).join('; ')}.
+          </div>
+        )}
         {swapped && (
           <div className="banner" style={{ marginTop: 12 }}>
             <span>Logged as {day.name}&apos;s session (days swapped)</span>
           </div>
         )}
-        <div className="summary-actions">
-          <button type="button" className="btn-finish" onClick={() => void finish()}>
+        <div className="ob-dock">
+          <button type="button" className="tl-done" onClick={() => void finish()}>
             Finish
           </button>
         </div>
@@ -349,9 +377,26 @@ export function DeckScreen() {
 
   if (!current) return null
 
+  // ── Swap for this session only (frame 2c) ──
+  if (sheet === 'swap') {
+    return (
+      <ExercisePicker
+        title={`Swap ${lowerFirst(exercise?.name ?? exerciseId)}`}
+        current={exercise ? { id: exerciseId, exercise } : undefined}
+        library={library}
+        beginnerDefault={isNew}
+        draft={program}
+        allowCreate={false}
+        onBack={() => setSheet(null)}
+        onPick={(picked) => {
+          void api.chooseExercise(current.item.id, picked.id)
+          setSheet(null)
+        }}
+      />
+    )
+  }
+
   const next = deck[at + 1]
-  const third = deck[at + 2]
-  const exercise = program.exercises[exerciseId]
   const alternateId = current.resolved.alternateExerciseId
   const onAlternate = alternateId !== undefined && exerciseId === alternateId
   const swapTo = onAlternate ? current.resolved.exerciseId : alternateId
@@ -367,6 +412,8 @@ export function DeckScreen() {
   const isCheckTile = !current.logged || current.resolved.type === 'check'
   const isCardioTile = current.logged && current.resolved.type === 'cardio_block'
   const checked = entry?.checked === true
+  const collapseDemo = () => setDemoOpen((d) => (d[at] === false ? d : { ...d, [at]: false }))
+  const steps = howToSteps(exercise?.howTo ?? '')
 
   function renderField(row: SetRow, half: boolean) {
     if (!current) return null
@@ -386,36 +433,35 @@ export function DeckScreen() {
           : flagged
             ? (stored?.raw ?? '')
             : ''
-    const className = [
-      'field',
-      confirmed && draft === undefined && !running ? 'field--confirmed' : '',
-      flagged && draft === undefined && !running ? 'field--flagged' : '',
-      (!confirmed && !flagged) || running ? 'field--active' : '',
-      half ? 'field--half' : '',
-    ]
-      .filter(Boolean)
-      .join(' ')
+    const state =
+      running || (!confirmed && !flagged) || draft !== undefined
+        ? 'dk-field--active'
+        : flagged
+          ? 'dk-field--flagged'
+          : 'dk-field--confirmed'
+    // The empty placeholder names the unit for load items ("8 reps · kg").
+    const placeholder =
+      current.resolved.type === 'load_reps' && fields.weight === undefined
+        ? [formatSetValue(fields), unit].filter(Boolean).join(' · ')
+        : formatSetValue(fields)
     return (
-      <div className={className} key={key} style={half ? { flex: 1 } : undefined}>
-        {row.side && <span className="side-label">{row.side}</span>}
+      <div className={`dk-field ${state}`} key={key} style={half ? { flex: 1 } : undefined}>
+        {row.side && <span className="dk-field__side">{row.side}</span>}
         <input
           type="text"
           value={shown}
           readOnly={running !== undefined}
-          placeholder={formatSetValue(fields)}
+          placeholder={placeholder}
           aria-label={`Set ${row.n}${row.side ? ` ${row.side}` : ''}${firstTime ? ', first time' : ''}`}
           onFocus={(event) => {
+            collapseDemo()
             const container = rowRefs.current[`${current.item.id}:${row.n}`]
             if (container) scrollIntoTopHalf(container)
             event.currentTarget.select()
           }}
-          onChange={(event) =>
-            setDrafts((d) => ({ ...d, [key]: event.target.value }))
-          }
+          onChange={(event) => setDrafts((d) => ({ ...d, [key]: event.target.value }))}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.currentTarget.blur()
-            }
+            if (event.key === 'Enter') event.currentTarget.blur()
           }}
           onBlur={() => {
             if (draft === undefined) return
@@ -430,12 +476,8 @@ export function DeckScreen() {
             void commitRow(row, draft)
           }}
         />
-        {!confirmed && !flagged && draft === undefined && hasValue(fields) && (
-          <button
-            type="button"
-            className="field__confirm"
-            onClick={() => void confirmPrefill(row)}
-          >
+        {!confirmed && !flagged && draft === undefined && hasValue(fields) && !half && (
+          <button type="button" className="dk-field__confirm" onClick={() => void confirmPrefill(row)}>
             confirm
           </button>
         )}
@@ -450,7 +492,7 @@ export function DeckScreen() {
     return (
       <button
         type="button"
-        className={startedAt ? 'hold-btn hold-btn--running' : 'hold-btn'}
+        className={startedAt ? 'dk-hold dk-hold--running' : 'dk-hold'}
         aria-label={startedAt ? 'Stop hold timer' : 'Start hold timer'}
         onClick={() => {
           if (startedAt) {
@@ -461,42 +503,55 @@ export function DeckScreen() {
               return nextHolds
             })
             void api
-              .writeSet(current.item.id, exerciseId, {
-                n: row.n,
-                ...(row.side ? { side: row.side } : {}),
-                seconds,
+              .writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), seconds })
+              .then(() => {
+                startRest()
+                countSet()
               })
-              .then(startRest)
           } else {
             setHoldStart((h) => ({ ...h, [key]: Date.now() }))
           }
         }}
       >
-        {startedAt ? <span className="hold-stop" /> : <PlayIcon />}
+        {startedAt ? <span /> : <PlayIcon />}
       </button>
     )
   }
 
-  const setNumbers = Array.from(
-    { length: Math.max(1, current.resolved.sets ?? 1) },
-    (_, i) => i + 1,
-  )
+  const setNumbers = Array.from({ length: Math.max(1, current.resolved.sets ?? 1) }, (_, i) => i + 1)
+  // The chip and the hint sit under the first row still waiting for a value.
+  const pendingN = setNumbers.find((n) => {
+    const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
+    return rows.some((row) => !isSetConfirmed(findSet(entry, row)))
+  })
+  const showHint = hintCount !== null && hintCount < HINT_UNTIL && !isCheckTile && !isCardioTile
+
+  function applySuggestion() {
+    if (!current || !suggestion || suggestion.kind !== 'weight') return
+    const fills: Record<string, string> = {}
+    for (const row of setRowsFor(current.resolved)) {
+      if (isSetConfirmed(findSet(entry, row))) continue
+      const reps = prefillFor(row).fields.reps ?? suggestion.reps
+      fills[rowKey(current.item.id, row)] = `${suggestion.to} × ${reps}`
+    }
+    setDrafts((d) => ({ ...d, ...fills }))
+  }
 
   return (
-    <div className="deck">
-      <div className="deck-head">
-        <span className="deck-head__section">
+    <div className="tl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="dk-head">
+        <span className="dk-head__section">
           {current.section.title} · {current.position} of {deck.length}
         </span>
         {restRemaining > 0 && (
-          <span className="deck-rest">
-            <span className="deck-rest__label">rest</span>
-            <span className="deck-rest__value">{formatClock(restRemaining)}</span>
+          <span className="dk-rest">
+            <span className="dk-rest__label">rest</span>
+            <span className="dk-rest__value">{formatClock(restRemaining)}</span>
           </span>
         )}
         <button
           type="button"
-          className="deck-end"
+          className="dk-end"
           onClick={() => {
             setPhase('summary')
             window.scrollTo({ top: 0 })
@@ -505,196 +560,207 @@ export function DeckScreen() {
           End
         </button>
       </div>
-      <div className="deck-progress">
-        <div
-          className="deck-progress__fill"
-          style={{ width: `${(current.position / deck.length) * 100}%` }}
-        />
+      <div className="dk-progress">
+        <span style={{ width: `${(current.position / deck.length) * 100}%` }} />
       </div>
 
-      <div className="tile">
-        <div className="tile__name">
-          <span>{exercise?.name ?? exerciseId}</span>
-          {current.resolved.index && <span className="index-tag">index</span>}
-        </div>
-        {prescription && <div className="tile__prescription">{prescription}</div>}
-        {current.resolved.cue && <div className="tile__cue">{current.resolved.cue}</div>}
+      <div className="dk-title">
+        <h1 className="dk-title__name">
+          {exercise?.name ?? exerciseId}
+          {current.resolved.index && <span className="tl-tag">index</span>}
+        </h1>
+        {prescription && <div className="dk-title__sub">{prescription}</div>}
+        {current.resolved.cue && <div className="dk-title__cue">{current.resolved.cue}</div>}
+      </div>
 
-        {swapTo && (
-          <button
-            type="button"
-            className="tile__alternate"
-            onClick={() => void api.chooseExercise(current.item.id, swapTo)}
-          >
-            Use {program.exercises[swapTo]?.name ?? swapTo} instead
-          </button>
+      <div style={{ flex: 1, paddingBottom: 24 }}>
+        {demoExpanded && (
+          <div style={{ margin: '0 24px' }}>
+            <div className="dk-demo">
+              <DemoMedia exercise={exercise} />
+              <button type="button" className="dk-demo__hide" onClick={() => setDemoOpen((d) => ({ ...d, [at]: false }))}>
+                Hide
+              </button>
+            </div>
+            {steps.map((step, i) => (
+              <div className="dk-step" key={i}>
+                <b>{i + 1}</b>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
         )}
 
-        {isCheckTile ? (
-          <div className="check-tile" style={{ marginTop: 14 }}>
-            <div style={{ flex: 1 }} />
-            <button
-              type="button"
-              className={checked ? 'check-box check-box--on' : 'check-box'}
-              aria-label={checked ? 'Checked' : 'Not checked'}
-              onClick={() =>
-                void api.setChecked(current.item.id, exerciseId, !checked)
-              }
-            >
-              <CheckIcon size={26} />
-            </button>
-          </div>
-        ) : isCardioTile ? (
-          <>
-            <div className="cardio-row">
-              <span className="cardio-timer">
-                {formatClock(cardioStart ? (now - cardioStart) / 1000 : 0)}
+        <div className="dk-body" style={demoExpanded ? { marginTop: 14 } : undefined}>
+          {!demoExpanded && (
+            <button type="button" className="dk-demo-row" onClick={() => setDemoOpen((d) => ({ ...d, [at]: true }))}>
+              <span className="bd-demo" aria-hidden="true">
+                <span>demo</span>
               </span>
+              <span className="dk-demo-row__label">Show demo and how-to</span>
+            </button>
+          )}
+
+          {entry?.skipped ? (
+            <div className="dk-check">
+              <span className="dk-check__label">Skipped today: discomfort.</span>
+            </div>
+          ) : isCheckTile ? (
+            <div className="dk-check">
+              <span className="dk-check__label">Tap when done</span>
               <button
                 type="button"
-                className={cardioStart ? 'hold-btn hold-btn--running' : 'hold-btn'}
-                aria-label={cardioStart ? 'Stop timer' : 'Start timer'}
-                onClick={() => {
-                  if (cardioStart) {
-                    const minutes = Math.max(
-                      1,
-                      Math.round((Date.now() - cardioStart) / 60000),
-                    )
-                    setCardioStart(null)
-                    setDrafts((d) => ({
-                      ...d,
-                      [rowKey(current.item.id, { n: 1 })]: String(minutes),
-                    }))
-                  } else {
-                    setCardioStart(Date.now())
-                  }
-                }}
+                className={checked ? 'dk-checkbox dk-checkbox--on' : 'dk-checkbox'}
+                aria-label={checked ? 'Checked' : 'Not checked'}
+                onClick={() => void api.setChecked(current.item.id, exerciseId, !checked)}
               >
-                {cardioStart ? <span className="hold-stop" /> : <PlayIcon />}
+                <TickIcon />
               </button>
-              <div className="cardio-minutes">
-                <span className="cardio-minutes__label">minutes</span>
-                <input
-                  type="text"
-                  aria-label="Minutes"
-                  value={
-                    drafts[rowKey(current.item.id, { n: 1 })] ??
-                    (findSet(entry, { n: 1 })?.minutes !== undefined
-                      ? String(findSet(entry, { n: 1 })?.minutes)
-                      : '')
-                  }
-                  placeholder={String(current.resolved.minutes ?? '')}
-                  onChange={(event) =>
-                    setDrafts((d) => ({
-                      ...d,
-                      [rowKey(current.item.id, { n: 1 })]: event.target.value,
-                    }))
-                  }
-                  onBlur={(event) => {
-                    const text = event.target.value
-                    if (text.trim() === '') return
-                    void commitRow({ n: 1 }, text)
-                  }}
-                />
-              </div>
             </div>
-            <textarea
-              className="note-field"
-              placeholder="Note"
-              aria-label="Session note"
-              defaultValue={entry?.note ?? ''}
-              onBlur={(event) =>
-                void api.setNote(current.item.id, exerciseId, event.target.value)
-              }
-            />
-          </>
-        ) : (
-          <div className="tile__rows">
-            {setNumbers.map((n) => {
-              const rows: SetRow[] = current.resolved.perSide
-                ? [
-                    { n, side: 'L' as const },
-                    { n, side: 'R' as const },
-                  ]
-                : [{ n }]
-              const flaggedRow = rows.find((row) =>
-                isSetFlagged(findSet(entry, row)),
-              )
+          ) : isCardioTile ? (
+            <>
+              <div className="dk-cardio">
+                <span className="dk-cardio__clock">{formatClock(cardioStart ? (now - cardioStart) / 1000 : 0)}</span>
+                <div className="dk-cardio__of">
+                  <span>of</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="Minutes"
+                    value={
+                      drafts[rowKey(current.item.id, { n: 1 })] ??
+                      (findSet(entry, { n: 1 })?.minutes !== undefined ? String(findSet(entry, { n: 1 })?.minutes) : '')
+                    }
+                    placeholder={String(current.resolved.minutes ?? '')}
+                    onChange={(event) => setDrafts((d) => ({ ...d, [rowKey(current.item.id, { n: 1 })]: event.target.value }))}
+                    onBlur={(event) => {
+                      const text = event.target.value
+                      if (text.trim() === '') return
+                      void commitRow({ n: 1 }, text)
+                    }}
+                  />
+                  <span>min</span>
+                </div>
+                <button
+                  type="button"
+                  className={cardioStart ? 'dk-hold dk-hold--running' : 'dk-hold'}
+                  aria-label={cardioStart ? 'Stop timer' : 'Start timer'}
+                  onClick={() => {
+                    if (cardioStart) {
+                      const minutes = Math.max(1, Math.round((Date.now() - cardioStart) / 60000))
+                      setCardioStart(null)
+                      setDrafts((d) => ({ ...d, [rowKey(current.item.id, { n: 1 })]: String(minutes) }))
+                    } else {
+                      setCardioStart(Date.now())
+                    }
+                  }}
+                >
+                  {cardioStart ? <span /> : <PlayIcon />}
+                </button>
+              </div>
+              <textarea
+                className="dk-note"
+                placeholder="Note"
+                aria-label="Session note"
+                defaultValue={entry?.note ?? ''}
+                onBlur={(event) => void api.setNote(current.item.id, exerciseId, event.target.value)}
+              />
+            </>
+          ) : (
+            setNumbers.map((n) => {
+              const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
+              const flaggedRow = rows.find((row) => isSetFlagged(findSet(entry, row)))
               const holdRow =
                 current.resolved.type === 'timed_hold'
-                  ? (rows.find((row) => !isSetConfirmed(findSet(entry, row))) ??
-                    rows[rows.length - 1])
+                  ? (rows.find((row) => !isSetConfirmed(findSet(entry, row))) ?? rows[rows.length - 1])
                   : null
-              const allConfirmed = rows.every((row) =>
-                isSetConfirmed(findSet(entry, row)),
-              )
+              const allConfirmed = rows.every((row) => isSetConfirmed(findSet(entry, row)))
+              // An empty last-week value is blank, never a dash.
+              const reference = prefillFor(rows[0]).reference
               return (
-                <div key={n}>
+                <div className="dk-set" key={n}>
                   <div
-                    className="set-row"
+                    className="dk-set__row"
                     ref={(element) => {
                       rowRefs.current[`${current.item.id}:${n}`] = element
                     }}
                   >
-                    <span className="set-row__n">{n}</span>
-                    <span className="set-row__ref">
-                      {formatSetValue(prefillFor(rows[0]).fields)}
-                    </span>
+                    <span className="dk-set__n">{n}</span>
+                    {!current.resolved.perSide && <span className="dk-set__ref">{reference ? formatSetValue(reference) : ''}</span>}
                     {current.resolved.perSide ? (
-                      <div className="side-pair">
-                        {rows.map((row) => renderField(row, true))}
-                      </div>
+                      <div className="dk-pair">{rows.map((row) => renderField(row, true))}</div>
                     ) : (
                       renderField(rows[0], false)
                     )}
                     {holdRow ? (
                       renderHoldButton(holdRow)
                     ) : (
-                      <span className="set-row__mark">
-                        {allConfirmed && (
-                          <span style={{ color: 'var(--ok)' }}>
-                            <CheckIcon size={24} />
-                          </span>
-                        )}
-                      </span>
+                      <span className="dk-mark">{allConfirmed && <TickIcon />}</span>
                     )}
                   </div>
-                  {flaggedRow && (
-                    <div className="flag-msg">Couldn&apos;t read this, tap to fix</div>
+                  {flaggedRow && <div className="dk-flag">Couldn&apos;t read this. Tap to fix.</div>}
+                  {n === pendingN && suggestion && (
+                    suggestion.kind === 'weight' ? (
+                      <button type="button" className="dk-chip" onClick={applySuggestion}>
+                        ↑ {suggestionText(suggestion)}
+                      </button>
+                    ) : (
+                      <div className="dk-chip dk-chip--note">{suggestionText(suggestion)}</div>
+                    )
+                  )}
+                  {n === pendingN && showHint && (
+                    <div className="dk-hint">
+                      <span>
+                        Tap the mic on your keyboard and say “
+                        {formatSetValue(prefillFor(rows[0]).fields).replace(' × ', ' for ') || '8 reps'}”
+                      </span>
+                    </div>
                   )}
                 </div>
               )
-            })}
-          </div>
-        )}
+            })
+          )}
 
-        {exercise?.howTo && (
-          <>
+          <div className="dk-tools">
             <button
               type="button"
-              className="howto"
-              aria-expanded={howToOpen}
-              onClick={() => setHowToAt((open) => (open === at ? null : at))}
+              className={entry?.feltOff ? 'dk-tool dk-tool--on' : 'dk-tool'}
+              onClick={() => {
+                setFeltChoice(entry?.feltOff ?? null)
+                setSheet('felt')
+              }}
             >
-              <span>How to perform</span>
-              <span
-                style={{
-                  color: 'var(--icon-muted)',
-                  transform: howToOpen ? 'rotate(180deg)' : undefined,
-                  display: 'inline-flex',
-                }}
-              >
-                <ChevronDownIcon />
-              </span>
+              {entry?.feltOff ? `Felt off: ${FELT_WORD[entry.feltOff]}` : 'Felt off'}
             </button>
-            {howToOpen && <div className="howto__body">{exercise.howTo}</div>}
-          </>
-        )}
+            <button type="button" className="dk-tool" onClick={() => setSheet('swap')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M7 8h10M14 4.5L17.5 8 14 11.5M17 16H7M10 12.5L6.5 16l3.5 3.5" />
+              </svg>
+              Swap
+            </button>
+            {swapTo && (
+              <button type="button" className="dk-tool" onClick={() => void api.chooseExercise(current.item.id, swapTo)}>
+                Use {nameOf(swapTo)} instead
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
-        <div className="deck-actions">
+      <div className="dk-foot">
+        {next && (
+          <div className="dk-next">
+            <span className="dk-next__name">
+              <span className="dk-next__label">Next · </span>
+              <b>{nameOf(next.resolved.exerciseId ?? '')}</b>
+            </span>
+            <span className="dk-next__label">{prescriptionText(next.resolved)}</span>
+          </div>
+        )}
+        <div className="dk-actions" style={next ? undefined : { paddingTop: 10 }}>
           <button
             type="button"
-            className="deck-back"
+            className="dk-back"
             aria-label="Previous item"
             disabled={at === 0}
             onClick={() => {
@@ -704,33 +770,43 @@ export function DeckScreen() {
           >
             <ChevronLeftIcon />
           </button>
-          <button type="button" className="deck-done" onClick={() => void done()}>
+          <button type="button" className="dk-donebtn deck-done" onClick={() => void done()}>
             Done
           </button>
         </div>
       </div>
 
-      {next && (
-        <div className="next-tile">
-          <span className="next-tile__name">
-            {program.exercises[next.resolved.exerciseId ?? '']?.name ??
-              next.resolved.exerciseId}
-          </span>
-          <span className="next-tile__prescription">
-            {[
-              prescriptionText(next.resolved),
-              next.resolved.restSec ? `rest ${formatRest(next.resolved.restSec)}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-        </div>
-      )}
-      {third && (
-        <div className="third-tile">
-          {program.exercises[third.resolved.exerciseId ?? '']?.name ??
-            third.resolved.exerciseId}
-        </div>
+      {sheet === 'felt' && (
+        <Sheet
+          title={`How did ${lowerFirst(exercise?.name ?? exerciseId)} feel?`}
+          body="Saved with today's session."
+          onClose={() => setSheet(null)}
+        >
+          <div style={{ marginTop: -8, borderTop: '1.5px solid var(--text)' }} role="radiogroup" aria-label="How did it feel?">
+            {FELT.map((f) => (
+              <ChoiceRow key={f.value} title={f.title} sub={f.sub} on={feltChoice === f.value} onClick={() => setFeltChoice(f.value)} />
+            ))}
+          </div>
+          <div className="ai-pair">
+            <button type="button" className="ob-outline" onClick={() => setSheet(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="ob-primary"
+              onClick={() => {
+                const from = deck.indexOf(current)
+                void api.setFeltOff(current.item.id, exerciseId, feltChoice).then(() => {
+                  setSheet(null)
+                  // Discomfort skips the rest of this exercise today.
+                  if (feltChoice === 'discomfort') advance(from)
+                })
+              }}
+            >
+              <span>Save</span>
+            </button>
+          </div>
+        </Sheet>
       )}
     </div>
   )
