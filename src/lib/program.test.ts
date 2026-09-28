@@ -5,10 +5,13 @@ import type { WeekPlan } from '../types/stores.ts'
 import {
   currentWeek,
   dayForDate,
+  isActiveOn,
   isLogged,
   resolveItem,
+  upgradeProgram,
   weekDates,
 } from './program.ts'
+import { buildDeck } from './session.ts'
 
 // Aug 9 2026 is a Sunday; week 6 therefore begins Sun Sep 13 2026.
 const START = '2026-08-09'
@@ -217,5 +220,80 @@ describe('section kinds cover the schema enum', () => {
       { id: 's2', kind: 'main', title: 'Main', items: [] },
     ]
     expect(sections.map((s) => isLogged(s.kind, {}))).toEqual([false, true])
+  })
+})
+
+describe('isActiveOn (D-028)', () => {
+  const item: Item = {
+    id: 'i1',
+    exerciseId: 'squat',
+    type: 'load_reps',
+    retiredFrom: '2026-10-07',
+  }
+
+  it('is active the day before retiredFrom', () => {
+    expect(isActiveOn(item, new Date(2026, 9, 6, 23, 59))).toBe(true)
+  })
+
+  it('is inactive on the retiredFrom date', () => {
+    expect(isActiveOn(item, new Date(2026, 9, 7, 0, 0))).toBe(false)
+  })
+
+  it('is inactive the day after retiredFrom', () => {
+    expect(isActiveOn(item, new Date(2026, 9, 8, 12, 0))).toBe(false)
+  })
+
+  it('is always active without retiredFrom', () => {
+    const live: Item = { ...item, retiredFrom: undefined }
+    expect(isActiveOn(live, new Date(2030, 0, 1))).toBe(true)
+  })
+
+  it('leaves retired items out of the deck from that date', () => {
+    const day: Day = {
+      id: 'wed',
+      order: 3,
+      name: 'Wednesday',
+      sections: [
+        {
+          id: 's1',
+          kind: 'main',
+          title: 'Main',
+          items: [item, { id: 'i2', exerciseId: 'bench', type: 'load_reps' }],
+        },
+      ],
+    }
+    const ids = (date: Date) => buildDeck(day, 1, date).map((d) => d.item.id)
+    expect(ids(new Date(2026, 9, 6))).toEqual(['i1', 'i2'])
+    expect(ids(new Date(2026, 9, 7))).toEqual(['i2'])
+    expect(buildDeck(day, 1, new Date(2026, 9, 7))[0].position).toBe(1)
+  })
+})
+
+describe('upgradeProgram (database version 3, D-035)', () => {
+  const v1 = {
+    schemaVersion: 1,
+    id: 'p',
+    name: 'P',
+    weekStartsOn: 'sunday',
+    programWeeks: 8,
+    startDate: '2026-08-09',
+    exercises: {},
+    days: [],
+  } as Program
+
+  it('restamps a version 1 program as version 2 and keeps everything else', () => {
+    const next = upgradeProgram(v1)
+    expect(next.schemaVersion).toBe(2)
+    expect({ ...next, schemaVersion: 1 }).toEqual(v1)
+  })
+
+  it('does not change its input', () => {
+    upgradeProgram(v1)
+    expect(v1.schemaVersion).toBe(1)
+  })
+
+  it('leaves a version 2 program as it is', () => {
+    const v2 = upgradeProgram(v1)
+    expect(upgradeProgram(v2)).toEqual(v2)
   })
 })

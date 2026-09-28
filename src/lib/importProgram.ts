@@ -7,7 +7,7 @@ import addFormats from 'ajv-formats'
 
 import schema from '../../docs/program.schema.json'
 import type { ItemFields, Program } from '../types/program.ts'
-import { parseISODate } from './program.ts'
+import { parseISODate, upgradeProgram } from './program.ts'
 
 export type ImportResult =
   | { ok: true; program: Program }
@@ -94,15 +94,46 @@ function referenceErrors(program: Program): string[] {
   return errors
 }
 
-/** Validate an unknown JSON value against the schema and its own references. */
+/**
+ * retiredFrom belongs to the item, not to a week (D-028, PLAN v1.5 section 5).
+ * The schema's itemFields does not close its property list, so an override
+ * carrying it would otherwise pass; it is refused here.
+ */
+function byWeekRetiredErrors(program: Program): string[] {
+  const errors: string[] = []
+  program.days.forEach((day, di) => {
+    day.sections.forEach((section, si) => {
+      section.items.forEach((item, ii) => {
+        for (const [week, override] of Object.entries(item.byWeek ?? {})) {
+          if (Object.prototype.hasOwnProperty.call(override, 'retiredFrom')) {
+            errors.push(
+              `/days/${di}/sections/${si}/items/${ii}/byWeek/${week}/retiredFrom: retirement is set on the item, not in a byWeek override`,
+            )
+          }
+        }
+      })
+    })
+  })
+  return errors
+}
+
+/**
+ * Validate an unknown JSON value against the schema and its own references.
+ * Version 1 and 2 files are accepted; the program returned is always version 2
+ * (D-035), so that is what gets stored.
+ */
 export function importProgram(value: unknown): ImportResult {
   if (!validate(value)) {
     const errors = (validate.errors ?? []).map(formatError)
     return { ok: false, errors: errors.length ? errors : ['File is not a valid program.'] }
   }
-  const errors = [...startDateErrors(value), ...referenceErrors(value)]
+  const errors = [
+    ...startDateErrors(value),
+    ...referenceErrors(value),
+    ...byWeekRetiredErrors(value),
+  ]
   if (errors.length) return { ok: false, errors }
-  return { ok: true, program: value }
+  return { ok: true, program: upgradeProgram(value) }
 }
 
 /** Parse text as JSON, then validate it. */

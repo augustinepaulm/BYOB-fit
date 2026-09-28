@@ -2,7 +2,7 @@
 
 import type { Day, Item, ItemFields, Section } from '../types/program.ts'
 import type { Entry, Session, SetLog } from '../types/stores.ts'
-import { isLogged, resolveItem } from './program.ts'
+import { isActiveOn, isLogged, resolveItem } from './program.ts'
 
 export interface DeckItem {
   /** 1-based position across the whole session, for "item N of M". */
@@ -13,11 +13,15 @@ export interface DeckItem {
   logged: boolean
 }
 
-/** Every item of a day, in section order, resolved for the program week. */
-export function buildDeck(day: Day, week: number): DeckItem[] {
+/**
+ * Every item of a day active on `date`, in section order, resolved for the
+ * program week. Items retired on or before the date are left out (D-028).
+ */
+export function buildDeck(day: Day, week: number, date: Date): DeckItem[] {
   const deck: DeckItem[] = []
   for (const section of day.sections) {
     for (const item of section.items) {
+      if (!isActiveOn(item, date)) continue
       const resolved = resolveItem(item, week)
       deck.push({
         position: deck.length + 1,

@@ -3,21 +3,25 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 
+import { upgradeProgram } from '../lib/program.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  Goals,
   MealDay,
   Profile,
   Reprogram,
+  SentLogEntry,
   Session,
   Settings,
   WeekPlan,
 } from '../types/stores.ts'
 
 export const DB_NAME = 'byob-fit'
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 /** The single record keys for the one-row stores. */
 export const PROFILE_KEY = 'me'
+export const GOALS_KEY = 'me'
 export const SETTINGS_KEY = 'app'
 export const ACTIVE_PROGRAM_KEY = 'activeProgramId'
 
@@ -34,6 +38,8 @@ export interface ByobDB extends DBSchema {
   settings: { key: string; value: Settings }
   reprograms: { key: string; value: Reprogram; indexes: { week: number } }
   meta: { key: string; value: string }
+  goals: { key: string; value: Goals }
+  sentLog: { key: string; value: SentLogEntry; indexes: { at: string } }
 }
 
 let dbPromise: Promise<IDBPDatabase<ByobDB>> | null = null
@@ -41,7 +47,7 @@ let dbPromise: Promise<IDBPDatabase<ByobDB>> | null = null
 export function getDB(): Promise<IDBPDatabase<ByobDB>> {
   if (!dbPromise) {
     dbPromise = openDB<ByobDB>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('programs', { keyPath: 'id' })
 
@@ -62,6 +68,20 @@ export function getDB(): Promise<IDBPDatabase<ByobDB>> {
             keyPath: 'id',
           })
           reprograms.createIndex('week', 'week')
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore('goals')
+          const sentLog = db.createObjectStore('sentLog', { keyPath: 'id' })
+          sentLog.createIndex('at', 'at')
+          // Every stored program becomes schema version 2 (D-035). The upgrade
+          // transaction stays open while these requests are pending.
+          void (async () => {
+            let cursor = await transaction.objectStore('programs').openCursor()
+            while (cursor) {
+              await cursor.update(upgradeProgram(cursor.value))
+              cursor = await cursor.continue()
+            }
+          })()
         }
       },
     })

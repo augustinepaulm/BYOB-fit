@@ -1,4 +1,4 @@
-// Pure program logic. The rules here are the ones frozen in PLAN v1.3 section 5;
+// Pure program logic. The rules here are the ones frozen in PLAN v1.5 section 5;
 // nothing in this file touches storage, the DOM, or the clock.
 
 import type {
@@ -9,6 +9,7 @@ import type {
   SectionKind,
 } from '../types/program.ts'
 import type { WeekPlan } from '../types/stores.ts'
+import { toISODate } from './dates.ts'
 
 const MS_PER_DAY = 86_400_000
 
@@ -35,6 +36,23 @@ export function currentWeek(program: Program, today: Date): number {
   if (week < 1) return 1
   if (week > program.programWeeks) return program.programWeeks
   return week
+}
+
+/**
+ * Schema version 2 is a superset of version 1 (D-035), so upgrading only
+ * restamps the version. Returns a new object; the input is not changed.
+ */
+export function upgradeProgram(program: Program): Program {
+  return { ...program, schemaVersion: 2 }
+}
+
+/**
+ * Whether an item appears on a date (D-028): false once the date reaches the
+ * item's retiredFrom. Compares calendar dates, so the time of day never matters.
+ */
+export function isActiveOn(item: Item, date: Date): boolean {
+  if (!item.retiredFrom) return true
+  return toISODate(date) < item.retiredFrom
 }
 
 /**

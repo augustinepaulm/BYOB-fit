@@ -1,4 +1,6 @@
-// Stores outside the program file, per PLAN v1.3 section 5.
+// Stores outside the program file, per PLAN v1.5 section 5.
+
+import type { LoadUnit } from './program.ts'
 
 export interface SetLog {
   n: number
@@ -75,6 +77,60 @@ export interface Settings {
   storagePersisted?: boolean
   /** navigator.storage.estimate() at the same moment, where supported. */
   storageEstimate?: { usage?: number; quota?: number; at: string }
+  /** Display unit (D-012 as amended). Missing reads as kg; see unitsOf. */
+  units?: LoadUnit
+  /** What a model call may carry (D-031). Missing reads as minimal; see privacyLevelOf. */
+  privacyLevel?: PrivacyLevel
+  onboarding?: {
+    completedAt?: string
+    followsProgram?: boolean
+    experience?: 'new' | 'experienced'
+    safetyAckAt?: string
+  }
+  /** Program ids whose review suggestion banner the user has dismissed. */
+  reviewBannerDismissedFor?: string[]
+}
+
+export type PrivacyLevel = 'minimal' | 'standard' | 'full'
+
+export type GoalType =
+  | 'lose_weight'
+  | 'lose_fat'
+  | 'build_muscle'
+  | 'get_stronger'
+  | 'improve_cardio'
+  | 'general'
+
+/** Structured goals (D-030), one record keyed "me". */
+export interface Goals {
+  items: {
+    rank: number
+    type: GoalType
+    target?: {
+      amount: number
+      unit: 'lb' | 'kg' | 'percent' | 'km' | 'min'
+      exerciseId?: string
+    }
+  }[]
+  timeframeWeeks: 4 | 8 | 12 | 16
+  /** ISO date, YYYY-MM-DD. */
+  startDate: string
+  /** Stored on the phone; never sent to the model (D-030). */
+  currentStats?: { weight?: number; weightUnit?: LoadUnit; bodyFatPct?: number }
+  updatedAt: string
+}
+
+/** One model call as sent, read-only once written (D-031). PLAN calls it SentLog. */
+export interface SentLogEntry {
+  id: string
+  /** ISO date-time of the call. */
+  at: string
+  kind: 'review' | 'update' | 'meals'
+  privacyLevel: PrivacyLevel
+  /** One-line description of what was sent, for the list view. */
+  payloadSummary: string
+  /** Exactly what was sent, as JSON. */
+  payload: unknown
 }
 
 /** One reprogramming round trip, kept whether or not it was approved (D-016). */

@@ -1,41 +1,43 @@
-/* Tokens taken from design/BYOB-fit_Design.html. Light values come from the
-   1a/1c/1d/1g/1i/1m/1n boards, dark values from 1o/1p. */
+/* Colour tokens: 1b "ink and paper" (D-034), values from PLAN v1.5 section 12.
+   Light "text on filled accent" is read from frame 1a of
+   design/BYOB-fit_v2_design.dc.html. */
 
 :root {
-  --bg: #f6f7f8;
-  --text: #17191c;
-  --muted: #7a828c;
-  --card: #f0f6fd;
-  --hairline: #eef0f2;
-  --surface: #ffffff;
-  --border: #dfe2e6;
-  --field-border: #e2e5e9;
-  --accent: #2f7cd6;
+  --bg: #f5f2ec;
+  --text: #1b1a17;
+  --muted: #8f897d;
+  --card: #ebe5da;
+  --hairline: #ddd5c8;
+  --surface: #fbfaf7;
+  --border: #cfc6b7;
+  --field-border: #cfc6b7;
+  --accent: #1f3a5f;
   --accent-fg: #ffffff;
-  --accent-soft-border: #c9dcf3;
-  --dashed: #b9cde8;
-  --tabbar-bg: #ffffff;
-  --tabbar-border: #e8eaed;
-  --tab-inactive: #8a919b;
-  --chip-idle: #c6ccd3;
-  --icon-muted: #aab0b8;
-  --ok: #2c9464;
+  --accent-soft-border: #ddd5c8;
+  --dashed: #cfc6b7;
+  --tabbar-bg: #f5f2ec;
+  --tabbar-border: #ddd5c8;
+  --tab-inactive: #8f897d;
+  --chip-idle: #e4ddd0;
+  --icon-muted: #bdb3a3;
+  --ok: #2e7d4f;
   --ok-fg: #ffffff;
-  --field-confirmed-bg: #dcebfa;
-  --field-future-bg: #f3f4f6;
-  --placeholder: #9aa2ac;
-  --warn: #d98b2b;
-  --danger: #c24b3f;
-  --banner-bg: #eef4fc;
-  --banner-border: #d5e4f7;
-  --banner-text: #2a5c9c;
-  --diff-changed-bg: #eef8f2;
-  --diff-changed-tag: #d8efe2;
-  --diff-added-bg: #eef4fc;
-  --diff-added-tag: #dbe8f8;
-  --diff-removed-bg: #fbeee0;
-  --diff-removed-tag: #f4ddd9;
-  --scrim: #f6f7f800;
+  --field-confirmed-bg: #e2e7ee;
+  --field-future-bg: #ebe5da;
+  --placeholder: #bdb3a3;
+  --warn: #a8641c;
+  --danger: #b0413a;
+  --banner-bg: #e2e7ee;
+  --banner-border: #ddd5c8;
+  --banner-text: #1f3a5f;
+  --diff-changed-bg: #ebe5da;
+  --diff-changed-tag: #ebe5da;
+  --diff-added-bg: #e2e7ee;
+  --diff-added-tag: #e2e7ee;
+  --diff-removed-bg: #f1e3c8;
+  --diff-removed-tag: #f1e3c8;
+  --scrim: #f5f2ec00;
+  --secondary: #5f5a50;
 
   --r-card: 14px;
   --r-banner: 12px;
@@ -49,39 +51,41 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #101214;
-    --text: #eceef0;
-    --muted: #8a919b;
-    --card: #191f27;
-    --hairline: #262a2f;
-    --surface: #15181c;
-    --border: #33383e;
-    --field-border: #262a2f;
-    --accent: #5aa2e8;
-    --accent-fg: #0c1523;
-    --accent-soft-border: #33383e;
-    --dashed: #33383e;
-    --tabbar-bg: #15181c;
-    --tabbar-border: #262a2f;
-    --tab-inactive: #6b727c;
-    --chip-idle: #5c636c;
-    --icon-muted: #5c636c;
-    --ok: #34b37a;
-    --ok-fg: #07130c;
-    --field-confirmed-bg: #16283c;
-    --field-future-bg: #22262b;
-    --placeholder: #8a919b;
+    --bg: #171512;
+    --text: #ede8df;
+    --muted: #8a8276;
+    --card: #24211c;
+    --hairline: #36312a;
+    --surface: #1e1b17;
+    --border: #4a443b;
+    --field-border: #4a443b;
+    --accent: #8fb0d9;
+    --accent-fg: #101a26;
+    --accent-soft-border: #36312a;
+    --dashed: #4a443b;
+    --tabbar-bg: #171512;
+    --tabbar-border: #36312a;
+    --tab-inactive: #8a8276;
+    --chip-idle: #2a2620;
+    --icon-muted: #5a5348;
+    --ok: #5bb887;
+    --ok-fg: #101a26;
+    --field-confirmed-bg: #22303f;
+    --field-future-bg: #24211c;
+    --placeholder: #5a5348;
+    --warn: #e0a560;
     --danger: #e07868;
-    --banner-bg: #16283c;
-    --banner-border: #33383e;
-    --banner-text: #9cc4ec;
-    --diff-changed-bg: #17241d;
-    --diff-changed-tag: #1e3a2c;
-    --diff-added-bg: #16283c;
-    --diff-added-tag: #1d3550;
-    --diff-removed-bg: #2a1a16;
-    --diff-removed-tag: #3a231d;
-    --scrim: #10121400;
+    --banner-bg: #22303f;
+    --banner-border: #36312a;
+    --banner-text: #8fb0d9;
+    --diff-changed-bg: #24211c;
+    --diff-changed-tag: #24211c;
+    --diff-added-bg: #22303f;
+    --diff-added-tag: #22303f;
+    --diff-removed-bg: #3a2c14;
+    --diff-removed-tag: #3a2c14;
+    --scrim: #17151200;
+    --secondary: #b3ab9e;
   }
 }
 

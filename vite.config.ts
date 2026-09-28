@@ -18,9 +18,9 @@ export default defineConfig({
         name: 'BYOB-fit',
         short_name: 'BYOB-fit',
         description: 'Build Your Own Body: a bring-your-own-model workout PWA',
-        // Dark-mode --bg from design/BYOB-fit_Design.html (src/index.css).
-        theme_color: '#101214',
-        background_color: '#101214',
+        // Dark Ground, PLAN v1.5 section 12 (D-034).
+        theme_color: '#171512',
+        background_color: '#171512',
         display: 'standalone',
         start_url: '/BYOB-fit/',
         scope: '/BYOB-fit/',

@@ -203,7 +203,7 @@ export function WeekScreen() {
               <StateMark
                 state={
                   day.rest
-                    ? restDayState(byDayId.get(day.id), buildDeck(day, week))
+                    ? restDayState(byDayId.get(day.id), buildDeck(day, week, date))
                     : sessionState(byDayId.get(day.id))
                 }
               />

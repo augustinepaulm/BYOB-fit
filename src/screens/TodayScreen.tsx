@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { prescriptionText } from '../lib/prescription.ts'
-import { dayForDate, isLogged, resolveItem } from '../lib/program.ts'
+import { dayForDate, isActiveOn, isLogged, resolveItem } from '../lib/program.ts'
 import {
   buildDeck,
   findEntry,
@@ -66,23 +66,27 @@ function SectionCard({
   section,
   program,
   week,
+  date,
   session,
   onToggle,
 }: {
   section: Section
   program: Program
   week: number
+  /** Items retired on or before this date are not listed (D-028). */
+  date: Date
   session?: Session
   /** Present only where the screen owns the check-off (rest days). */
   onToggle?: (itemId: string, exerciseId: string, next: boolean) => void
 }) {
-  if (section.items.length === 0) return null
+  const items = section.items.filter((item) => isActiveOn(item, date))
+  if (items.length === 0) return null
   const big = section.kind === 'main'
   return (
     <>
       <div className="section-label">{section.title}</div>
       <div className="card">
-        {section.items.map((item) => {
+        {items.map((item) => {
           const resolved = resolveItem(item, week)
           const exerciseId = resolved.exerciseId ?? ''
           const exercise = program.exercises[exerciseId]
@@ -131,8 +135,8 @@ export function TodayScreen() {
   const api = useSession(target)
 
   const deck = useMemo(
-    () => (day && program ? buildDeck(day, week) : []),
-    [day, program, week],
+    () => (day && program ? buildDeck(day, week, today) : []),
+    [day, program, week, today],
   )
 
   if (!program || !day) return null
@@ -142,7 +146,7 @@ export function TodayScreen() {
   const finished = Boolean(session?.endedAt)
 
   if (day.rest) {
-    const hasItems = day.sections.some((section) => section.items.length > 0)
+    const hasItems = deck.length > 0
     const restDone = restDayState(session, deck) === 'done'
     return (
       <div className="page">
@@ -161,6 +165,7 @@ export function TodayScreen() {
                 section={section}
                 program={program}
                 week={week}
+                date={today}
                 session={session}
                 onToggle={(itemId, exerciseId, next) =>
                   void api.setChecked(itemId, exerciseId, next)
@@ -232,6 +237,7 @@ export function TodayScreen() {
           section={section}
           program={program}
           week={week}
+          date={today}
           session={session}
         />
       ))}
