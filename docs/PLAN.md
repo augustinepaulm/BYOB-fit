@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.7 · Date: Monday, Sep 28, 2026 (v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.8 · Date: Monday, Sep 28, 2026 (v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -167,8 +167,14 @@ Phase-7 limit: "Build it with forms" (frame 1d) is hidden until Phase 8 builds t
 ### Small change 7.1 after Phase 7 (gate: Units and Appearance in Settings, verified on Auggie's iPhone in all three appearances)
 Settings gains Units (D-040) and Appearance (D-039); the not-advice banner leaves onboarding (D-041). Executor prompt EXEC-07.1.
 
-### Phase 8: Builder (gate: a program built and edited in the app, an item retired with history intact)
-Frames 2a to 2j.
+Phase 7 and small change 7.1: shipped Sep 28, 2026 (merges ac6247f and 877618f); served bytes verified for Phase 7; device checks reported done by Auggie.
+
+### Phase 8: Builder (gate: on Auggie's iPhone, a program built with forms, the current program edited, an item with history retired and still in Log)
+Frames 2a to 2j, rules in D-042.
+8.1 Builder screens 2e to 2j (forms path) and 2a to 2d (starter path, swap picker, exercise detail)
+8.2 Entry points: onboarding step 4 "Build it with forms" (Phase 7 limit ends) and frame 2a after choosing a starter; Profile "Edit program" and "Start a new program"
+8.3 Draft persistence, id generation, history checks, retire and swap rules (D-042)
+8.4 Exercise library and custom exercises (D-042 rule 7)
 
 ### Phase 9: AI flows (gate: one review applied line by line and one update approved, both through the preview, both in the sent log)
 Frames 4a to 4i, 5e, 5h. Privacy levels enforced in every prompt builder.
@@ -194,8 +200,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-041 | d4e388a2f76f35888a579531e382994c |
-| docs/PLAN.md | This file, v1.7 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-042 | 1035cf68d7b7cd3ad1e2792ab3b10096 |
+| docs/PLAN.md | This file, v1.8 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -206,7 +212,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-05.md | Executor prompt, Phase 5 | f3f96142b65b443e256dd7af0374c49f |
 | docs/EXEC-06.md | Executor prompt, Phase 6 | 1baffd43cd4fcbf7f75659434f82c35e |
 | docs/EXEC-07.md | Executor prompt, Phase 7 | ef28bdd992bcfb5f2a56196556ffb55f |
-| docs/EXEC-07.1.md | Executor prompt, small change 7.1 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-07.1.md | Executor prompt, small change 7.1 | 0833be451879134705a7f37a0db19eb2 |
+| docs/EXEC-08.md | Executor prompt, Phase 8 | recorded in chat at delivery (it checks this file's hash) |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
 | public/templates/starter-4day-upper-lower.json | Starter program, intermediate | 9c530c1784051b4c2e19cd66a206184c |
