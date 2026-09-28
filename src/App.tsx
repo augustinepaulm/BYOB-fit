@@ -10,6 +10,7 @@ import { GoalScreen } from './screens/GoalScreen.tsx'
 import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
 import { MealsScreen } from './screens/MealsScreen.tsx'
 import { OnboardingScreen } from './screens/OnboardingScreen.tsx'
+import { EditProgramScreen, NewProgramScreen } from './screens/ProgramScreens.tsx'
 import { ProfileScreen } from './screens/ProfileScreen.tsx'
 import { SettingsScreen } from './screens/SettingsScreen.tsx'
 import { TodayScreen } from './screens/TodayScreen.tsx'
@@ -41,6 +42,8 @@ export default function App() {
               <Route path="/build" element={<BuildScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
               <Route path="/goal" element={<GoalScreen />} />
+              <Route path="/program/edit" element={<EditProgramScreen />} />
+              <Route path="/program/new" element={<NewProgramScreen />} />
             </Route>
           </Route>
         </Routes>

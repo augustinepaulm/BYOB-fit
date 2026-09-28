@@ -27,6 +27,7 @@ import {
 import { importProgramText } from '../lib/importProgram.ts'
 import {
   STARTER_TEMPLATES,
+  applyUnit,
   loadRepsExercises,
   longestSessionMin,
   prepareTemplate,
@@ -36,6 +37,8 @@ import {
   type Experience,
 } from '../lib/onboarding.ts'
 import { recordStoragePersistence } from '../lib/storage.ts'
+import { BuilderEntry } from '../builder/BuilderEntry.tsx'
+import { StarterReview } from '../builder/StarterReview.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import {
   CurrentStats,
@@ -59,16 +62,17 @@ import {
 import type { LoadUnit, Program } from '../types/program.ts'
 import type { PrivacyLevel } from '../types/stores.ts'
 
-type Step = '1a' | '1b' | '1c' | '1d' | '1e' | '1f' | '1g' | '1h' | '1i' | '1j' | '1k' | '1l'
+type Step = '1a' | '1b' | '1c' | '1d' | 'forms' | '1e' | '2a' | '1f' | '1g' | '1h' | '1i' | '1j' | '1k' | '1l'
 
 const STEP_NUMBER: Record<Step, number> = {
-  '1a': 1, '1b': 2, '1c': 3, '1d': 4, '1e': 4, '1f': 5,
+  '1a': 1, '1b': 2, '1c': 3, '1d': 4, forms: 4, '1e': 4, '2a': 4, '1f': 5,
   '1g': 5, '1h': 5, '1i': 6, '1j': 7, '1k': 7, '1l': 8,
 }
 
 type ProgramChoice =
-  | { kind: 'template'; file: string }
+  | { kind: 'template'; file: string; program: Program }
   | { kind: 'import'; program: Program }
+  | { kind: 'built'; program: Program }
   | null
 
 interface Answers {
@@ -149,12 +153,7 @@ export function OnboardingScreen() {
     }
   }, [])
 
-  const chosenProgram = useMemo<Program | null>(() => {
-    const choice = answers.program
-    if (!choice) return null
-    if (choice.kind === 'import') return choice.program
-    return templates?.find((t) => t.file === choice.file)?.program ?? null
-  }, [answers.program, templates])
+  const chosenProgram = answers.program?.program ?? null
 
   const exercises = useMemo(
     () => (chosenProgram ? loadRepsExercises(chosenProgram) : []),
@@ -202,7 +201,10 @@ export function OnboardingScreen() {
         saved =
           answers.program.kind === 'template'
             ? prepareTemplate(chosenProgram, now, units, existing)
-            : { ...chosenProgram, id: uniqueProgramId(chosenProgram.id, existing) }
+            : answers.program.kind === 'built'
+              ? // Built in step 4 before units were chosen: loads take the chosen unit.
+                { ...applyUnit(chosenProgram, units), id: uniqueProgramId(chosenProgram.id, existing) }
+              : { ...chosenProgram, id: uniqueProgramId(chosenProgram.id, existing) }
         await saveProgram(saved)
         stage.name = 'active program'
         await setActiveProgram(saved.id)
@@ -362,6 +364,14 @@ export function OnboardingScreen() {
       <div className="ob">
         <StepNav step={n} onBack={back} onSkip={skipProgram} />
         <StepHead step={n} title="How do you want to add your program?" lede="You can edit it any time after." />
+        <div className="ob-list" role="radiogroup" aria-label="How do you want to add your program?">
+          <ChoiceRow
+            title="Build it with forms"
+            sub="Add your days and exercises step by step. Works for any program."
+            on
+            onClick={() => go('forms')}
+          />
+        </div>
         <div className="ob-import">
           <label className="ob-link">
             Or import a program file
@@ -380,7 +390,55 @@ export function OnboardingScreen() {
             </div>
           )}
         </div>
+        <Dock>
+          <PrimaryButton onClick={() => go('forms')}>Continue</PrimaryButton>
+        </Dock>
       </div>
+    )
+  }
+
+  // ── Build it with forms (2e to 2j) ──
+  if (step === 'forms') {
+    return (
+      <BuilderEntry
+        mode="new"
+        editing={null}
+        today={today}
+        currentWeek={1}
+        unit={units}
+        beginnerDefault={answers.experience === 'new'}
+        onSave={async (program) => {
+          set({ program: { kind: 'built', program } })
+          // Back from step 5 returns to 1d, not to an emptied builder.
+          setPath((p) => [...p.slice(0, -1), '1f'])
+          window.scrollTo({ top: 0 })
+        }}
+        onExit={back}
+        onDiscarded={back}
+      />
+    )
+  }
+
+  // ── 2a and 2b: the chosen starter program ──
+  if (step === '2a') {
+    const file = answers.templateFile ?? suggestedTemplate(answers.experience)
+    const loaded = templates?.find((t) => t.file === file)
+    if (!loaded) return null
+    const kept = answers.program?.kind === 'template' && answers.program.file === file ? answers.program.program : loaded.program
+    return (
+      <StarterReview
+        key={file}
+        template={kept}
+        level={loaded.level}
+        templates={templates}
+        beginnerDefault={answers.experience === 'new'}
+        unit={units}
+        onBack={back}
+        onUse={(program) => {
+          set({ program: { kind: 'template', file, program } })
+          go('1f')
+        }}
+      />
     )
   }
 
@@ -427,8 +485,8 @@ export function OnboardingScreen() {
           <PrimaryButton
             disabled={!templates}
             onClick={() => {
-              set({ program: { kind: 'template', file: selected }, templateFile: selected })
-              go('1f')
+              set({ templateFile: selected })
+              go('2a')
             }}
           >
             Use this program

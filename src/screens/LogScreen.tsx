@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { listAllSessions } from '../db/index.ts'
+import { listAllSessions, listPrograms } from '../db/index.ts'
 import { formatShortDay } from '../lib/dates.ts'
 import {
   bestSetOf,
@@ -50,6 +50,32 @@ function useSessions(): Session[] {
   return sessions
 }
 
+/**
+ * Exercise names from every stored program, the active one first, so history
+ * from an earlier program still reads by name (D-042 rule 6).
+ */
+function useExerciseNames(program: Program | null): Map<string, string> {
+  const [stored, setStored] = useState<Program[]>([])
+  useEffect(() => {
+    let live = true
+    void listPrograms().then((found) => {
+      if (live) setStored(found)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  return useMemo(() => {
+    const names = new Map<string, string>()
+    for (const p of program ? [program, ...stored] : stored) {
+      for (const [id, exercise] of Object.entries(p.exercises)) {
+        if (!names.has(id)) names.set(id, exercise.name)
+      }
+    }
+    return names
+  }, [program, stored])
+}
+
 function Sparkline({ points }: { points: { date: string; value: number }[] }) {
   if (points.length === 0) return null
   const values = points.map((point) => point.value)
@@ -90,6 +116,7 @@ export function LogScreen() {
   const [indexOnly, setIndexOnly] = useState(false)
 
   const history = useMemo(() => buildExerciseLog(sessions), [sessions])
+  const names = useExerciseNames(program)
   const indexIds = useMemo(
     () => (program ? indexExerciseIds(program, week) : new Set<string>()),
     [program, week],
@@ -97,11 +124,13 @@ export function LogScreen() {
 
   if (!program) return null
 
-  const rows = Object.entries(program.exercises)
-    .map(([id, exercise]) => {
+  // The active program's exercises, plus any logged under an earlier program.
+  const ids = new Set([...Object.keys(program.exercises), ...history.keys()])
+  const rows = [...ids]
+    .map((id) => {
       const logged = history.get(id) ?? []
       const best = bestSetOf(logged.flatMap((item) => item.sets))
-      return { id, name: exercise.name, logged, best }
+      return { id, name: names.get(id) ?? id, logged, best }
     })
     .filter((row) => (indexOnly ? indexIds.has(row.id) : true))
     .filter((row) =>
@@ -177,9 +206,9 @@ export function ExerciseLogScreen() {
   const navigate = useNavigate()
   const sessions = useSessions()
   const history = useMemo(() => buildExerciseLog(sessions), [sessions])
+  const names = useExerciseNames(program)
 
   if (!program) return null
-  const exercise = program.exercises[exerciseId]
   const logged: ExerciseSession[] = history.get(exerciseId) ?? []
   const best = bestSetOf(logged.flatMap((item) => item.sets))
   const series = topSetSeries(logged)
@@ -190,7 +219,7 @@ export function ExerciseLogScreen() {
         <button type="button" aria-label="Back" onClick={() => navigate(-1)}>
           <ChevronLeftIcon />
         </button>
-        <div className="sub-head__title">{exercise?.name ?? exerciseId}</div>
+        <div className="sub-head__title">{names.get(exerciseId) ?? exerciseId}</div>
       </div>
 
       {logged.length === 0 ? (

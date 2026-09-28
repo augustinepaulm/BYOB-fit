@@ -57,6 +57,23 @@ export async function getActiveProgram(): Promise<Program | undefined> {
   return getProgram(id)
 }
 
+// ── Key-value meta ──
+
+export async function getMeta(key: string): Promise<string | undefined> {
+  const db = await getDB()
+  return db.get('meta', key)
+}
+
+export async function setMeta(key: string, value: string): Promise<void> {
+  const db = await getDB()
+  await db.put('meta', value, key)
+}
+
+export async function deleteMeta(key: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('meta', key)
+}
+
 // ── Week plans ──
 
 export async function getWeekPlan(
