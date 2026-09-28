@@ -34,7 +34,8 @@ export default defineConfig({
       workbox: {
         // The app shell: hashed JS and CSS (cache-first via precache), the
         // HTML, and the icons. The manifest is added by the plugin.
-        globPatterns: ['**/*.{js,css,html,png,svg}'],
+        // Starter programs are precached so onboarding works offline (EXEC-07).
+        globPatterns: ['**/*.{js,css,html,png,svg}', 'templates/*.json'],
         // The sample program is never precached; it is network-first below.
         globIgnores: ['**/sample-program.json'],
         cleanupOutdatedCaches: true,

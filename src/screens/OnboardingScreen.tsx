@@ -1,0 +1,715 @@
+// First run, frames 1a to 1l (EXEC-07 task 5, D-029, D-030, D-031, D-037).
+// Every answer lives in wizard state and survives Back; nothing is stored
+// until Go to Today on the summary step.
+
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+
+import {
+  getSettings,
+  listPrograms,
+  saveGoals,
+  saveProgram,
+  saveSettings,
+  setActiveProgram,
+} from '../db/index.ts'
+import { DEFAULT_MODEL, testKey } from '../lib/anthropic.ts'
+import { toISODate } from '../lib/dates.ts'
+import {
+  goalSummary,
+  goalsValid,
+  statsFromInput,
+  toGoals,
+  unitFromGoals,
+  type GoalDraft,
+  type Timeframe,
+} from '../lib/goals.ts'
+import { importProgramText } from '../lib/importProgram.ts'
+import {
+  STARTER_TEMPLATES,
+  loadRepsExercises,
+  longestSessionMin,
+  prepareTemplate,
+  suggestedTemplate,
+  trainingDays,
+  uniqueProgramId,
+  type Experience,
+} from '../lib/onboarding.ts'
+import { recordStoragePersistence } from '../lib/storage.ts'
+import { useProgram } from '../program/useProgram.ts'
+import {
+  CurrentStats,
+  GoalBox,
+  GoalPicker,
+  GoalRanking,
+  GoalTargets,
+  TimeframePicker,
+  type StatsDraft,
+} from '../onboarding/goalParts.tsx'
+import {
+  ChoiceRow,
+  Dock,
+  LockIcon,
+  PrimaryButton,
+  SectionHead,
+  Segmented,
+  StepHead,
+  StepNav,
+} from '../onboarding/ui.tsx'
+import type { LoadUnit, Program } from '../types/program.ts'
+import type { PrivacyLevel } from '../types/stores.ts'
+
+type Step = '1a' | '1b' | '1c' | '1d' | '1e' | '1f' | '1g' | '1h' | '1i' | '1j' | '1k' | '1l'
+
+const STEP_NUMBER: Record<Step, number> = {
+  '1a': 1, '1b': 2, '1c': 3, '1d': 4, '1e': 4, '1f': 5,
+  '1g': 5, '1h': 5, '1i': 6, '1j': 7, '1k': 7, '1l': 8,
+}
+
+type ProgramChoice =
+  | { kind: 'template'; file: string }
+  | { kind: 'import'; program: Program }
+  | null
+
+interface Answers {
+  followsProgram?: boolean
+  experience?: Experience
+  safetyAckAt?: string
+  /** undefined: not reached yet; null: skipped. */
+  program?: ProgramChoice
+  templateFile?: string
+  goals: GoalDraft[]
+  timeframeWeeks: Timeframe
+  stats: StatsDraft
+  units?: LoadUnit
+  apiKey: string
+  privacyLevel: PrivacyLevel
+}
+
+interface LoadedTemplate {
+  file: string
+  level: string
+  program: Program
+}
+
+const PRIVACY: { value: PrivacyLevel; title: string; sub: string }[] = [
+  { value: 'minimal', title: 'Minimal', sub: 'Your workouts, program and goal' },
+  { value: 'standard', title: 'Standard', sub: 'Adds experience level and "felt off" flags' },
+  { value: 'full', title: 'Full', sub: 'Adds age range, sex and current weight' },
+]
+
+export function OnboardingScreen() {
+  const navigate = useNavigate()
+  const { program: activeProgram, loading, refresh } = useProgram()
+  const [path, setPath] = useState<Step[]>(['1a'])
+  const [answers, setAnswers] = useState<Answers>({
+    goals: [],
+    timeframeWeeks: 12,
+    stats: { weight: '', bodyFat: '' },
+    apiKey: '',
+    privacyLevel: 'minimal',
+  })
+  const [templates, setTemplates] = useState<LoadedTemplate[] | null>(null)
+  const [templateError, setTemplateError] = useState<string | null>(null)
+  const [importErrors, setImportErrors] = useState<string[]>([])
+  const [keyStatus, setKeyStatus] = useState<{ ok: boolean; text: string } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [today] = useState(() => new Date())
+
+  const step = path[path.length - 1]
+  const set = (patch: Partial<Answers>) => setAnswers((a) => ({ ...a, ...patch }))
+  const go = (next: Step) => {
+    setPath((p) => [...p, next])
+    window.scrollTo({ top: 0 })
+  }
+  const back = () => {
+    setPath((p) => (p.length > 1 ? p.slice(0, -1) : p))
+    window.scrollTo({ top: 0 })
+  }
+
+  // Starter programs come from public/templates/, precached for offline use.
+  useEffect(() => {
+    let live = true
+    void Promise.all(
+      STARTER_TEMPLATES.map(async (t) => {
+        const response = await fetch(`${import.meta.env.BASE_URL}templates/${t.file}`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const result = importProgramText(await response.text())
+        if (!result.ok) throw new Error(result.errors[0])
+        return { file: t.file, level: t.level, program: result.program }
+      }),
+    ).then(
+      (loaded) => live && setTemplates(loaded),
+      (error: Error) => live && setTemplateError(error.message),
+    )
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const chosenProgram = useMemo<Program | null>(() => {
+    const choice = answers.program
+    if (!choice) return null
+    if (choice.kind === 'import') return choice.program
+    return templates?.find((t) => t.file === choice.file)?.program ?? null
+  }, [answers.program, templates])
+
+  const exercises = useMemo(
+    () => (chosenProgram ? loadRepsExercises(chosenProgram) : []),
+    [chosenProgram],
+  )
+  const exerciseName = (id: string) => exercises.find((e) => e.id === id)?.name
+  const units: LoadUnit = answers.units ?? unitFromGoals(answers.goals) ?? 'kg'
+  const summary = goalSummary(answers.goals, answers.timeframeWeeks, exerciseName)
+
+  if (loading) return null
+  // An install that already has a program never sees onboarding (PLAN 7.5).
+  if (activeProgram && !saving) return <Navigate to="/" replace />
+
+  async function onImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const result = importProgramText(await file.text())
+    if (!result.ok) {
+      setImportErrors(result.errors)
+      return
+    }
+    setImportErrors([])
+    set({ program: { kind: 'import', program: result.program } })
+    go('1f')
+  }
+
+  async function runKeyTest() {
+    setTesting(true)
+    setKeyStatus(null)
+    const result = await testKey(answers.apiKey.trim(), DEFAULT_MODEL)
+    setKeyStatus(result.ok ? { ok: true, text: 'Key works · tested just now' } : { ok: false, text: result.error })
+    setTesting(false)
+  }
+
+  async function finish() {
+    setSaveError(null)
+    setSaving(true)
+    const stage = { name: 'program' }
+    try {
+      const now = new Date()
+      let saved: Program | null = null
+      if (chosenProgram && answers.program) {
+        const existing = (await listPrograms()).map((p) => p.id)
+        saved =
+          answers.program.kind === 'template'
+            ? prepareTemplate(chosenProgram, now, units, existing)
+            : { ...chosenProgram, id: uniqueProgramId(chosenProgram.id, existing) }
+        await saveProgram(saved)
+        stage.name = 'active program'
+        await setActiveProgram(saved.id)
+      }
+      if (answers.goals.length > 0) {
+        stage.name = 'goals'
+        await saveGoals(
+          toGoals(answers.goals, {
+            timeframeWeeks: answers.timeframeWeeks,
+            startDate: toISODate(now),
+            currentStats: statsFromInput(answers.stats.weight, answers.stats.bodyFat, units),
+            now,
+          }),
+        )
+      }
+      stage.name = 'settings'
+      const current = (await getSettings()) ?? {}
+      const key = answers.apiKey.trim()
+      await saveSettings({
+        ...current,
+        units,
+        privacyLevel: answers.privacyLevel,
+        ...(key ? { apiKey: key } : {}),
+        onboarding: {
+          completedAt: now.toISOString(),
+          followsProgram: answers.followsProgram,
+          experience: answers.experience,
+          safetyAckAt: answers.safetyAckAt,
+        },
+      })
+      if (saved) void recordStoragePersistence()
+      await refresh()
+      navigate('/', { replace: true })
+    } catch (error) {
+      setSaving(false)
+      setSaveError(`Could not save the ${stage.name}: ${(error as Error).message}`)
+    }
+  }
+
+  const n = STEP_NUMBER[step]
+
+  // ── 1a Welcome ──
+  if (step === '1a') {
+    return (
+      <div className="ob">
+        <StepNav step={1} />
+        <div className="ob-hero">
+          <h1 className="ob-hero__title">Build your own body</h1>
+          <div className="ob-hero__text">
+            BYOB-fit shows today&apos;s workout as a checklist and logs every set as you go. It can
+            also track meals and, if you want, ask an AI to adjust your program.
+          </div>
+          <div className="ob-lockrow">
+            <span className="ob-lockrow__icon">
+              <LockIcon />
+            </span>
+            <div>
+              <div className="ob-lockrow__title">Your data stays on this phone.</div>
+              <div className="ob-lockrow__sub">No account, no sign-in.</div>
+            </div>
+          </div>
+        </div>
+        <Dock>
+          <PrimaryButton onClick={() => go('1b')}>Get started</PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1b Two questions ──
+  if (step === '1b') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} />
+        <StepHead step={n} title="Two quick questions" lede="Your answers decide the next steps." />
+        <div className="ob-body">
+          <div className="ob-q">Do you already follow a workout program?</div>
+          <Segmented
+            label="Do you already follow a workout program?"
+            options={[
+              { value: 'yes', label: 'Yes' },
+              { value: 'no', label: 'No' },
+            ]}
+            value={answers.followsProgram === undefined ? undefined : answers.followsProgram ? 'yes' : 'no'}
+            onChange={(v) => set({ followsProgram: v === 'yes' })}
+          />
+          <div style={{ height: 30 }} />
+          <div className="ob-q">Are you new to lifting, or experienced?</div>
+        </div>
+        <div className="ob-list ob-list--flush" role="radiogroup" aria-label="Are you new to lifting, or experienced?">
+          <ChoiceRow
+            title="New"
+            sub="Just starting, or back after a long break"
+            on={answers.experience === 'new'}
+            onClick={() => set({ experience: 'new' })}
+          />
+          <ChoiceRow
+            title="Experienced"
+            sub="You know the main lifts and have trained before"
+            on={answers.experience === 'experienced'}
+            onClick={() => set({ experience: 'experienced' })}
+          />
+        </div>
+        <Dock>
+          <PrimaryButton
+            disabled={answers.followsProgram === undefined || answers.experience === undefined}
+            onClick={() => go('1c')}
+          >
+            Continue
+          </PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1c Safety notice (D-029) ──
+  if (step === '1c') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} />
+        <div className="ob-head">
+          <div className="ob-step">Step 3 of 8</div>
+          <h1 className="ob-title">Before you start</h1>
+          <div className="ob-notice">
+            BYOB-fit is not medical advice. Check with a doctor or physiotherapist before starting a
+            new training program if you have a heart, lung, bone or joint condition, take medicine
+            for your heart or blood pressure, are pregnant, are recovering from an injury or
+            surgery, or have felt chest pain, dizziness or faintness during exercise.
+          </div>
+          <div className="ob-notice ob-notice--stop">
+            During any workout, stop if you feel chest pain, severe breathlessness, dizziness or
+            sharp pain.
+          </div>
+        </div>
+        <Dock>
+          <PrimaryButton
+            onClick={() => {
+              set({ safetyAckAt: new Date().toISOString() })
+              go(answers.followsProgram ? '1d' : '1e')
+            }}
+          >
+            I understand, continue
+          </PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  const skipProgram = () => {
+    set({ program: null })
+    go('1f')
+  }
+
+  // ── 1d Add your program (follows one). "Build it with forms" waits for Phase 8. ──
+  if (step === '1d') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} onSkip={skipProgram} />
+        <StepHead step={n} title="How do you want to add your program?" lede="You can edit it any time after." />
+        <div className="ob-import">
+          <label className="ob-link">
+            Or import a program file
+            <input type="file" accept=".json,application/json" onChange={(e) => void onImportFile(e)} />
+          </label>
+          <div className="ob-link__sub">If someone gave you a BYOB-fit .json file</div>
+          {importErrors.length > 0 && (
+            <div className="ob-errors" role="alert">
+              {importErrors.length === 1 ? '1 problem' : `${importErrors.length} problems`}, nothing was
+              loaded:
+              <ul>
+                {importErrors.map((error, i) => (
+                  <li key={i}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── 1e Pick a starter program ──
+  if (step === '1e') {
+    const suggested = suggestedTemplate(answers.experience)
+    const selected = answers.templateFile ?? suggested
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} onSkip={skipProgram} />
+        <StepHead
+          step={n}
+          title="Pick a starter program"
+          lede="You can change days, exercises and weights later."
+        />
+        <div className="ob-list" role="radiogroup" aria-label="Starter programs">
+          {templates?.map((t) => {
+            const minutes = longestSessionMin(t.program)
+            return (
+              <ChoiceRow
+                key={t.file}
+                title={t.program.name}
+                badge={t.file === suggested ? 'Suggested for you' : undefined}
+                sub={[
+                  `${trainingDays(t.program)} days a week`,
+                  minutes !== null ? `about ${minutes} min` : null,
+                  t.level,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                on={selected === t.file}
+                onClick={() => set({ templateFile: t.file })}
+              />
+            )
+          })}
+        </div>
+        {templateError && (
+          <div className="ob-pad ob-errors" role="alert">
+            Could not load the starter programs ({templateError}). Skip for now and import a program
+            later.
+          </div>
+        )}
+        <Dock>
+          <PrimaryButton
+            disabled={!templates}
+            onClick={() => {
+              set({ program: { kind: 'template', file: selected }, templateFile: selected })
+              go('1f')
+            }}
+          >
+            Use this program
+          </PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  const skipGoals = () => {
+    set({ goals: [] })
+    go('1i')
+  }
+
+  // ── 1f Choose goals ──
+  if (step === '1f') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} onSkip={skipGoals} />
+        <StepHead
+          step={n}
+          title="What do you want to work toward?"
+          lede="Pick one main goal. Add up to two more if you like."
+        />
+        <div className="ob-list">
+          <GoalPicker goals={answers.goals} unit={units} onChange={(goals) => set({ goals })} />
+        </div>
+        <Dock>
+          <PrimaryButton disabled={!goalsValid(answers.goals)} onClick={() => go('1g')}>
+            Continue
+          </PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1g Targets and timeframe ──
+  if (step === '1g') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} onSkip={skipGoals} />
+        <StepHead step={n} title="Set a target and a timeframe" />
+        <div className="ob-pad">
+          <GoalTargets goals={answers.goals} exercises={exercises} onChange={(goals) => set({ goals })} />
+          <TimeframePicker
+            heading="In how many weeks?"
+            weeks={answers.timeframeWeeks}
+            start={today}
+            showEnd
+            onChange={(timeframeWeeks) => set({ timeframeWeeks })}
+          />
+        </div>
+        <Dock>
+          <PrimaryButton onClick={() => go('1h')}>Continue</PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1h Order, summary, current stats ──
+  if (step === '1h') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} onSkip={skipGoals} />
+        <StepHead step={n} title="Put your goals in order" lede="Drag to change which comes first." />
+        <div className="ob-list" style={{ marginTop: 20 }}>
+          <GoalRanking goals={answers.goals} exerciseName={exerciseName} onChange={(goals) => set({ goals })} />
+        </div>
+        <GoalBox summary={summary} />
+        <CurrentStats stats={answers.stats} unit={units} onChange={(stats) => set({ stats })} />
+        <Dock>
+          <PrimaryButton onClick={() => go('1i')}>Continue</PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1i Units ──
+  if (step === '1i') {
+    return (
+      <div className="ob">
+        <StepNav
+          step={n}
+          onBack={back}
+          onSkip={() => {
+            set({ units })
+            go('1j')
+          }}
+        />
+        <StepHead step={n} title="Which units do you use?" lede="For weights on your sets and body weight." />
+        <div className="ob-list" role="radiogroup" aria-label="Units">
+          <ChoiceRow title="Pounds (lb)" on={units === 'lb'} onClick={() => set({ units: 'lb' })} />
+          <ChoiceRow title="Kilograms (kg)" on={units === 'kg'} onClick={() => set({ units: 'kg' })} />
+        </div>
+        <div className="ob-pad ob-note" style={{ marginTop: 14 }}>
+          You can change this in Settings.
+        </div>
+        <Dock>
+          <PrimaryButton
+            onClick={() => {
+              set({ units })
+              go('1j')
+            }}
+          >
+            Continue
+          </PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1j AI intro ──
+  if (step === '1j') {
+    return (
+      <div className="ob">
+        <StepNav step={n} onBack={back} />
+        <StepHead step={n} title="Optional: AI help with your program" lede="The app works fully without this." />
+        <div className="ob-pad">
+          <SectionHead>What it can do</SectionHead>
+          <div className="ob-bullet">Review your program against your goal</div>
+          <div className="ob-bullet">Suggest next week from what you logged</div>
+          <div className="ob-bullet">Estimate calories for meals the app doesn&apos;t know</div>
+          <div className="ob-note" style={{ marginTop: 10 }}>
+            Nothing changes until you approve it.
+          </div>
+          <SectionHead>What it costs</SectionHead>
+          <div className="ob-para">
+            You pay Anthropic directly, through your own account. You can set a spend limit there.
+            BYOB-fit charges nothing.
+          </div>
+        </div>
+        <Dock>
+          <button type="button" className="ob-outline" onClick={() => go('1k')}>
+            Set up AI
+          </button>
+          <button
+            type="button"
+            className="ob-outline"
+            onClick={() => {
+              set({ apiKey: '' })
+              go('1l')
+            }}
+          >
+            Skip, I&apos;ll do this later
+          </button>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1k Key and privacy level (D-031) ──
+  if (step === '1k') {
+    return (
+      <div className="ob">
+        <StepNav
+          step={n}
+          onBack={back}
+          onSkip={() => {
+            set({ apiKey: '' })
+            go('1l')
+          }}
+        />
+        <StepHead step={n} title="Set up in 3 steps" />
+        <div className="ob-list" style={{ marginTop: 14 }}>
+          <div className="ob-numbered">
+            <span className="ob-numbered__n">1</span>
+            <div className="ob-numbered__text">
+              Sign in or create an account at{' '}
+              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">
+                console.anthropic.com
+              </a>
+            </div>
+          </div>
+          <div className="ob-numbered">
+            <span className="ob-numbered__n">2</span>
+            <div className="ob-numbered__text">Create an API key and copy it</div>
+          </div>
+          <div className="ob-numbered">
+            <span className="ob-numbered__n">3</span>
+            <div className="ob-numbered__text">
+              Paste it here
+              <div className="ob-keyrow">
+                <div className="ob-field ob-field--key">
+                  <input
+                    aria-label="API key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="sk-ant-…"
+                    value={answers.apiKey}
+                    onChange={(event) => {
+                      set({ apiKey: event.target.value })
+                      setKeyStatus(null)
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="ob-keybtn"
+                  disabled={testing || answers.apiKey.trim() === ''}
+                  onClick={() => void runKeyTest()}
+                >
+                  {testing ? '…' : 'Test'}
+                </button>
+              </div>
+              {keyStatus && (
+                <div className={`status status--${keyStatus.ok ? 'ok' : 'error'}`} role="status">
+                  {keyStatus.text}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="ob-pad">
+          <div style={{ marginTop: 20 }} />
+          <SectionHead>What the AI can see</SectionHead>
+          <div role="radiogroup" aria-label="What the AI can see">
+            {PRIVACY.map((level) => (
+              <ChoiceRow
+                key={level.value}
+                compact
+                title={level.title}
+                sub={level.sub}
+                badge={level.value === 'minimal' ? 'Default' : undefined}
+                on={answers.privacyLevel === level.value}
+                onClick={() => set({ privacyLevel: level.value })}
+              />
+            ))}
+          </div>
+          {answers.experience === 'new' && (
+            <div className="ob-tip">
+              Tip: Standard helps the AI avoid pushing exercises that caused discomfort.
+            </div>
+          )}
+        </div>
+        <Dock>
+          <PrimaryButton onClick={() => go('1l')}>Save and continue</PrimaryButton>
+        </Dock>
+      </div>
+    )
+  }
+
+  // ── 1l Summary ──
+  const programName = chosenProgram?.name ?? 'None yet, import one next'
+  return (
+    <div className="ob">
+      <StepNav step={n} onBack={back} />
+      <StepHead
+        step={n}
+        title="You're set"
+        lede="Here is what you chose. All of it can be changed later."
+      />
+      <div className="ob-list">
+        <div className="ob-summary">
+          <span className="ob-summary__label">Program</span>
+          <span className="ob-summary__value">{programName}</span>
+        </div>
+        <div className="ob-summary">
+          <span className="ob-summary__label">Goal</span>
+          <span className="ob-summary__value">{summary ? summary.replace(/\.$/, '') : 'Not set'}</span>
+        </div>
+        <div className="ob-summary">
+          <span className="ob-summary__label">Units</span>
+          <span className="ob-summary__value">{units === 'lb' ? 'Pounds' : 'Kilograms'}</span>
+        </div>
+        <div className="ob-summary">
+          <span className="ob-summary__label">AI help</span>
+          <span className="ob-summary__value">
+            {answers.apiKey.trim() ? 'On, key saved on this phone' : 'Off, set up in Settings'}
+          </span>
+        </div>
+      </div>
+      {saveError && (
+        <div className="ob-pad ob-errors" role="alert">
+          {saveError}
+        </div>
+      )}
+      <Dock>
+        <PrimaryButton disabled={saving} onClick={() => void finish()}>
+          Go to Today
+        </PrimaryButton>
+      </Dock>
+    </div>
+  )
+}

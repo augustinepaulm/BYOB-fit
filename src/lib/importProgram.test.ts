@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import sample from '../../public/sample-program.json'
+import starter3 from '../../public/templates/starter-3day-fullbody.json'
+import starter4 from '../../public/templates/starter-4day-upper-lower.json'
+import starter5 from '../../public/templates/starter-5day-split.json'
 import type { Day, Program } from '../types/program.ts'
 import { importProgram, importProgramText } from './importProgram.ts'
 
@@ -187,8 +190,62 @@ describe('schema version 2 (D-035)', () => {
     const result = importProgram(program)
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors[0]).toMatch(
-      /^\/days\/1\/sections\/0\/items\/0\/byWeek\/3\/retiredFrom: /,
+    // Since D-038 the schema itself closes overrides, so it refuses the key first.
+    expect(result.errors).toContain(
+      '/days/1/sections/0/items/0/byWeek/3: unknown property "retiredFrom"',
     )
   })
+})
+
+describe('byWeek overrides are closed (D-038)', () => {
+  function withOverride(override: Record<string, unknown>) {
+    const program = programWith('2026-08-09')
+    program.days[1].sections = [
+      {
+        id: 's1',
+        kind: 'main',
+        title: 'Main',
+        items: [
+          {
+            id: 'i1',
+            exerciseId: 'squat',
+            type: 'load_reps',
+            byWeek: { '4': override as never },
+          },
+        ],
+      },
+    ]
+    return program
+  }
+
+  it('rejects an unknown key inside an override', () => {
+    const result = importProgram(withOverride({ sets: 4, weightKg: 60 }))
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.errors).toContain(
+      '/days/1/sections/0/items/0/byWeek/4: unknown property "weightKg"',
+    )
+  })
+
+  it('accepts known fields inside an override', () => {
+    const result = importProgram(
+      withOverride({ sets: 4, repMin: 5, repMax: 6, restSec: 150, cue: 'Brace.' }),
+    )
+    expect(result.ok).toBe(true)
+  })
+})
+
+describe('shipped programs validate', () => {
+  const files: [string, unknown][] = [
+    ['public/sample-program.json', sample],
+    ['public/templates/starter-3day-fullbody.json', starter3],
+    ['public/templates/starter-4day-upper-lower.json', starter4],
+    ['public/templates/starter-5day-split.json', starter5],
+  ]
+  for (const [file, json] of files) {
+    it(file, () => {
+      const result = importProgramText(JSON.stringify(json))
+      expect(result.ok ? [] : result.errors).toEqual([])
+    })
+  }
 })

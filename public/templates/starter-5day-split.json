@@ -1,0 +1,750 @@
+{
+  "schemaVersion": 2,
+  "id": "starter-5day-split",
+  "name": "5-day split",
+  "version": "starter-1",
+  "weekStartsOn": "sunday",
+  "programWeeks": 12,
+  "startDate": "2026-01-04",
+  "notes": "BYOB-fit starter template (experienced, full gym). Approved by the owner Sep 28, 2026 (D-037). startDate is a placeholder that onboarding replaces. Loads start empty and use the display unit the user chose.",
+  "exercises": {
+    "back-squat": {
+      "name": "Barbell back squat",
+      "howTo": "With the bar across your upper back, sit down between your hips and heels until your thighs are about level, then stand. Use a rack with safety arms.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "bb-bench": {
+      "name": "Barbell bench press",
+      "howTo": "Lie on a flat bench with your eyes under the bar. Lower the bar to your mid-chest with control, then press it back up over your shoulders. Use a spotter or safety arms.",
+      "muscles": [
+        "chest"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "bb-rdl": {
+      "name": "Barbell Romanian deadlift",
+      "howTo": "Hold the bar at your hips. Push your hips back and slide the bar down your thighs until you feel your hamstrings stretch, then stand tall.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "bb-row": {
+      "name": "Barbell row",
+      "howTo": "Hinge forward with a flat back, holding the bar at arm's length. Pull it to your lower chest, then lower under control.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "bike-easy": {
+      "name": "Easy bike or rower",
+      "howTo": "Pedal or row at a pace where you could hold a conversation. It raises your body temperature before lifting.",
+      "muscles": [
+        "cardio"
+      ],
+      "equipment": "cardio_machine",
+      "level": "beginner"
+    },
+    "cable-crunch": {
+      "name": "Cable crunch",
+      "howTo": "Kneel facing a high cable with a rope by your head. Curl your ribs towards your hips, then return slowly.",
+      "muscles": [
+        "core"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "cable-fly": {
+      "name": "Cable fly",
+      "howTo": "Stand between two cables set at chest height. With a slight bend in your elbows, bring the handles together in front of your chest, then return slowly.",
+      "muscles": [
+        "chest"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "calf-raise": {
+      "name": "Standing calf raise",
+      "howTo": "Stand on the edge of a step or machine platform. Rise onto your toes, pause, then lower your heels below the step.",
+      "muscles": [
+        "legs"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "chest-row": {
+      "name": "Chest-supported dumbbell row",
+      "howTo": "Lie face down on an incline bench. Row the dumbbells towards your hips, then lower.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "db-curl": {
+      "name": "Dumbbell curl",
+      "howTo": "Stand with dumbbells at your sides. Curl them up without swinging your body, then lower slowly.",
+      "muscles": [
+        "arms"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "deadlift": {
+      "name": "Barbell deadlift",
+      "howTo": "Stand with the bar over your mid-foot. Grip it, flatten your back, and stand up by pushing the floor away. Lower it the same way.",
+      "muscles": [
+        "back",
+        "legs",
+        "glutes"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "face-pull": {
+      "name": "Cable face pull",
+      "howTo": "Set a rope at head height. Pull it towards your forehead, pulling the ends apart, then return slowly.",
+      "muscles": [
+        "shoulders",
+        "back"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "hack-squat": {
+      "name": "Hack squat",
+      "howTo": "With your back on the pad, lower until your thighs are about level with the platform, then push back up.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "machine",
+      "level": "intermediate"
+    },
+    "hammer-curl": {
+      "name": "Hammer curl",
+      "howTo": "Curl the dumbbells with your palms facing each other, keeping your elbows still.",
+      "muscles": [
+        "arms"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "hanging-knee-raise": {
+      "name": "Hanging knee raise",
+      "howTo": "Hang from a bar or use a captain's chair. Raise your knees towards your chest without swinging, then lower slowly.",
+      "muscles": [
+        "core"
+      ],
+      "equipment": "other",
+      "level": "intermediate"
+    },
+    "hip-thrust-machine": {
+      "name": "Glute bridge or hip thrust",
+      "howTo": "With your upper back on a bench and feet flat, drive your hips up until your body is straight from shoulders to knees, then lower. Add load across your hips when bodyweight is easy.",
+      "muscles": [
+        "glutes",
+        "legs"
+      ],
+      "equipment": "bench",
+      "level": "beginner"
+    },
+    "incline-db-press": {
+      "name": "Incline dumbbell press",
+      "howTo": "On a bench set to a low incline, press the dumbbells up over your upper chest, then lower until your elbows are just below the bench.",
+      "muscles": [
+        "chest",
+        "shoulders"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "lat-pulldown": {
+      "name": "Lat pulldown",
+      "howTo": "Grip the bar a little wider than your shoulders. Pull it to your upper chest while leaning back slightly, then let it rise under control.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "lateral-raise": {
+      "name": "Dumbbell lateral raise",
+      "howTo": "With a slight bend in your elbows, raise the dumbbells out to your sides to shoulder height, then lower slowly.",
+      "muscles": [
+        "shoulders"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "leg-curl": {
+      "name": "Seated leg curl",
+      "howTo": "Set the pad just above your heels. Curl your legs down and back, then return slowly.",
+      "muscles": [
+        "legs"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "leg-extension": {
+      "name": "Leg extension",
+      "howTo": "Sit with the pad on your lower shins. Straighten your legs, pause, then lower slowly.",
+      "muscles": [
+        "legs"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "leg-press": {
+      "name": "Leg press",
+      "howTo": "Sit with your back flat on the pad and feet shoulder-width on the plate. Lower until your knees are bent to about a right angle, then push back up without locking your knees.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "machine-press": {
+      "name": "Machine chest press",
+      "howTo": "Adjust the seat so the handles are at mid-chest. Press forward until your arms are straight, then return slowly.",
+      "muscles": [
+        "chest"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "ohp": {
+      "name": "Standing barbell overhead press",
+      "howTo": "Hold the bar at your shoulders. Brace, press it overhead until your arms are straight, then lower to your shoulders.",
+      "muscles": [
+        "shoulders"
+      ],
+      "equipment": "barbell",
+      "level": "intermediate"
+    },
+    "overhead-triceps": {
+      "name": "Overhead cable triceps extension",
+      "howTo": "Face away from a cable with a rope overhead. Straighten your arms forward and up, keeping your elbows still.",
+      "muscles": [
+        "arms"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "pull-up": {
+      "name": "Pull-up or assisted pull-up",
+      "howTo": "Hang from the bar with hands just wider than your shoulders. Pull until your chin clears the bar, then lower fully. Use the assisted machine or a band if needed.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "other",
+      "level": "intermediate"
+    },
+    "rear-delt-fly": {
+      "name": "Reverse pec deck",
+      "howTo": "Face the machine and hold the handles in front of you. Open your arms out to your sides, then return slowly.",
+      "muscles": [
+        "shoulders",
+        "back"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "seated-calf": {
+      "name": "Seated calf raise",
+      "howTo": "Sit with the pad on your thighs and the balls of your feet on the platform. Raise your heels, pause, then lower fully.",
+      "muscles": [
+        "legs"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "split-squat": {
+      "name": "Dumbbell split squat",
+      "howTo": "Stand in a long stride holding dumbbells. Lower your back knee towards the floor, then push up through your front foot. Finish one side, then switch.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "triceps-pushdown": {
+      "name": "Rope triceps pushdown",
+      "howTo": "Stand at a high cable with a rope. Keep your elbows at your sides and push the rope down until your arms are straight.",
+      "muscles": [
+        "arms"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    }
+  },
+  "days": [
+    {
+      "id": "sun",
+      "order": 0,
+      "name": "Sunday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    },
+    {
+      "id": "mon",
+      "order": 1,
+      "name": "Monday",
+      "focus": "Push",
+      "durationMin": 60,
+      "sections": [
+        {
+          "id": "mon-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i001",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "mon-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i002",
+              "exerciseId": "bb-bench",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 8,
+              "restSec": 180
+            },
+            {
+              "id": "i003",
+              "exerciseId": "ohp",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 6,
+              "repMax": 8,
+              "restSec": 150
+            },
+            {
+              "id": "i004",
+              "exerciseId": "incline-db-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 10,
+              "restSec": 90
+            },
+            {
+              "id": "i005",
+              "exerciseId": "lateral-raise",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i006",
+              "exerciseId": "cable-fly",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i007",
+              "exerciseId": "overhead-triceps",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tue",
+      "order": 2,
+      "name": "Tuesday",
+      "focus": "Pull",
+      "durationMin": 55,
+      "sections": [
+        {
+          "id": "tue-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i008",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "tue-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i009",
+              "exerciseId": "deadlift",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 5,
+              "repMax": 6,
+              "restSec": 180
+            },
+            {
+              "id": "i010",
+              "exerciseId": "pull-up",
+              "type": "bodyweight_reps",
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "restSec": 120
+            },
+            {
+              "id": "i011",
+              "exerciseId": "chest-row",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i012",
+              "exerciseId": "face-pull",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i013",
+              "exerciseId": "rear-delt-fly",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i014",
+              "exerciseId": "db-curl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wed",
+      "order": 3,
+      "name": "Wednesday",
+      "focus": "Legs",
+      "durationMin": 55,
+      "sections": [
+        {
+          "id": "wed-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i015",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "wed-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i016",
+              "exerciseId": "back-squat",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 5,
+              "repMax": 8,
+              "restSec": 180
+            },
+            {
+              "id": "i017",
+              "exerciseId": "bb-rdl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 10,
+              "restSec": 120
+            },
+            {
+              "id": "i018",
+              "exerciseId": "hack-squat",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i019",
+              "exerciseId": "leg-curl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            },
+            {
+              "id": "i020",
+              "exerciseId": "calf-raise",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 10,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        },
+        {
+          "id": "wed-abs",
+          "kind": "abs",
+          "title": "Core",
+          "items": [
+            {
+              "id": "i021",
+              "exerciseId": "hanging-knee-raise",
+              "type": "bodyweight_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thu",
+      "order": 4,
+      "name": "Thursday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    },
+    {
+      "id": "fri",
+      "order": 5,
+      "name": "Friday",
+      "focus": "Upper",
+      "durationMin": 60,
+      "sections": [
+        {
+          "id": "fri-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i022",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "fri-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i023",
+              "exerciseId": "incline-db-press",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 10,
+              "restSec": 120
+            },
+            {
+              "id": "i024",
+              "exerciseId": "bb-row",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 10,
+              "restSec": 120
+            },
+            {
+              "id": "i025",
+              "exerciseId": "machine-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i026",
+              "exerciseId": "lat-pulldown",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i027",
+              "exerciseId": "lateral-raise",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i028",
+              "exerciseId": "hammer-curl",
+              "type": "load_reps",
+              "sets": 2,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            },
+            {
+              "id": "i029",
+              "exerciseId": "triceps-pushdown",
+              "type": "load_reps",
+              "sets": 2,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sat",
+      "order": 6,
+      "name": "Saturday",
+      "focus": "Lower",
+      "durationMin": 55,
+      "sections": [
+        {
+          "id": "sat-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i030",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "sat-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i031",
+              "exerciseId": "hip-thrust-machine",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 120
+            },
+            {
+              "id": "i032",
+              "exerciseId": "split-squat",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 10,
+              "restSec": 90,
+              "perSide": true
+            },
+            {
+              "id": "i033",
+              "exerciseId": "leg-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i034",
+              "exerciseId": "leg-extension",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            },
+            {
+              "id": "i035",
+              "exerciseId": "seated-calf",
+              "type": "load_reps",
+              "sets": 4,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        },
+        {
+          "id": "sat-abs",
+          "kind": "abs",
+          "title": "Core",
+          "items": [
+            {
+              "id": "i036",
+              "exerciseId": "cable-crunch",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 10,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
