@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { getMealDay, saveMealDay } from '../db/index.ts'
-import { sendMessage, stripCodeFences } from '../lib/anthropic.ts'
+import { sendAndLog } from '../ai/send.ts'
+import { usePreview } from '../ai/usePreview.tsx'
+import { stripCodeFences } from '../lib/anthropic.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import {
   mealSystemPrompt,
@@ -9,10 +11,11 @@ import {
   validateParsedMeal,
   weekTotals,
 } from '../lib/meals.ts'
+import { buildPayload, type Payload } from '../lib/payload.ts'
 import { parseISODate, weekDates } from '../lib/program.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
-import type { MealDay } from '../types/stores.ts'
+import type { MealDay, PrivacyLevel } from '../types/stores.ts'
 
 type Phase =
   | { kind: 'idle' }
@@ -21,7 +24,7 @@ type Phase =
 
 export function MealsScreen() {
   const { program, today, week } = useProgram()
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const [date, setDate] = useState(() => toISODate(today))
   const [day, setDay] = useState<MealDay | null>(null)
   const [text, setText] = useState('')
@@ -61,6 +64,16 @@ export function MealsScreen() {
     setDay(next)
   }
 
+  // D-045: the parse call opens the send preview and is written to the sent log.
+  const preview = usePreview({
+    kind: 'meals',
+    settings,
+    build: (level, includeNotes) =>
+      buildPayload('meals', level, includeNotes, { mealLines: splitLines(text), mealBaseline: settings.mealBaseline ?? '' }),
+    onLevel: (privacyLevel) => void update({ privacyLevel }),
+    onSend: (payload, level) => void send(payload, level),
+  })
+
   async function parse() {
     const lines = splitLines(text)
     if (lines.length === 0) {
@@ -68,24 +81,28 @@ export function MealsScreen() {
       return
     }
     await save({ date, lines, parsed: day?.parsed, parsedAt: day?.parsedAt })
+    preview.open()
+  }
+
+  async function send(payload: Payload, level: PrivacyLevel) {
+    const lines = splitLines(text)
     setPhase({ kind: 'loading' })
-    const result = await sendMessage(
-      {
-        apiKey: settings.apiKey ?? '',
-        model: settings.model ?? '',
-        maxTokens: 2048,
-        system: mealSystemPrompt(settings.mealBaseline ?? ''),
-        messages: [{ role: 'user', content: lines.join('\n') }],
-      },
-      60_000,
-    )
+    const result = await sendAndLog({
+      kind: 'meals',
+      level,
+      payload,
+      system: mealSystemPrompt(),
+      settings,
+      maxTokens: 2048,
+      timeoutMs: 60_000,
+    })
     if (!result.ok) {
       setPhase({ kind: 'error', text: result.error })
       return
     }
-    let payload: unknown
+    let reply: unknown
     try {
-      payload = JSON.parse(stripCodeFences(result.text))
+      reply = JSON.parse(stripCodeFences(result.text))
     } catch {
       setPhase({
         kind: 'error',
@@ -93,7 +110,7 @@ export function MealsScreen() {
       })
       return
     }
-    const checked = validateParsedMeal(payload)
+    const checked = validateParsedMeal(reply)
     if (!checked.ok) {
       setPhase({ kind: 'error', text: checked.errors.join(' · ') })
       return
@@ -110,8 +127,11 @@ export function MealsScreen() {
 
   const totals = weekTotals(weekDays)
 
+  if (preview.picking) return <>{preview.element}</>
+
   return (
     <div className="page">
+      {preview.element}
       <div className="page-head page-head--split">
         <h1 className="page-title">Meals</h1>
         <span className="page-head__aside">

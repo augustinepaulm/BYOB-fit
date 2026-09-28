@@ -13,7 +13,6 @@ import {
   saveSettings,
   setActiveProgram,
 } from '../db/index.ts'
-import { DEFAULT_MODEL, testKey } from '../lib/anthropic.ts'
 import { toISODate } from '../lib/dates.ts'
 import {
   goalSummary,
@@ -37,6 +36,7 @@ import {
   type Experience,
 } from '../lib/onboarding.ts'
 import { recordStoragePersistence } from '../lib/storage.ts'
+import { AIIntroStep, AIKeyStep } from '../onboarding/AISteps.tsx'
 import { BuilderEntry } from '../builder/BuilderEntry.tsx'
 import { StarterReview } from '../builder/StarterReview.tsx'
 import { useProgram } from '../program/useProgram.ts'
@@ -54,7 +54,6 @@ import {
   Dock,
   LockIcon,
   PrimaryButton,
-  SectionHead,
   Segmented,
   StepHead,
   StepNav,
@@ -96,12 +95,6 @@ interface LoadedTemplate {
   program: Program
 }
 
-const PRIVACY: { value: PrivacyLevel; title: string; sub: string }[] = [
-  { value: 'minimal', title: 'Minimal', sub: 'Your workouts, program and goal' },
-  { value: 'standard', title: 'Standard', sub: 'Adds experience level and "felt off" flags' },
-  { value: 'full', title: 'Full', sub: 'Adds age range, sex and current weight' },
-]
-
 export function OnboardingScreen() {
   const navigate = useNavigate()
   const { program: activeProgram, loading, refresh } = useProgram()
@@ -116,8 +109,6 @@ export function OnboardingScreen() {
   const [templates, setTemplates] = useState<LoadedTemplate[] | null>(null)
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
-  const [keyStatus, setKeyStatus] = useState<{ ok: boolean; text: string } | null>(null)
-  const [testing, setTesting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [today] = useState(() => new Date())
@@ -179,14 +170,6 @@ export function OnboardingScreen() {
     setImportErrors([])
     set({ program: { kind: 'import', program: result.program } })
     go('1f')
-  }
-
-  async function runKeyTest() {
-    setTesting(true)
-    setKeyStatus(null)
-    const result = await testKey(answers.apiKey.trim(), DEFAULT_MODEL)
-    setKeyStatus(result.ok ? { ok: true, text: 'Key works · tested just now' } : { ok: false, text: result.error })
-    setTesting(false)
   }
 
   async function finish() {
@@ -601,130 +584,35 @@ export function OnboardingScreen() {
   // ── 1j AI intro ──
   if (step === '1j') {
     return (
-      <div className="ob">
-        <StepNav step={n} onBack={back} />
-        <StepHead step={n} title="Optional: AI help with your program" lede="The app works fully without this." />
-        <div className="ob-pad">
-          <SectionHead>What it can do</SectionHead>
-          <div className="ob-bullet">Review your program against your goal</div>
-          <div className="ob-bullet">Suggest next week from what you logged</div>
-          <div className="ob-bullet">Estimate calories for meals the app doesn&apos;t know</div>
-          <div className="ob-note" style={{ marginTop: 10 }}>
-            Nothing changes until you approve it.
-          </div>
-          <SectionHead>What it costs</SectionHead>
-          <div className="ob-para">
-            You pay Anthropic directly, through your own account. You can set a spend limit there.
-            BYOB-fit charges nothing.
-          </div>
-        </div>
-        <Dock>
-          <button type="button" className="ob-outline" onClick={() => go('1k')}>
-            Set up AI
-          </button>
-          <button
-            type="button"
-            className="ob-outline"
-            onClick={() => {
-              set({ apiKey: '' })
-              go('1l')
-            }}
-          >
-            Skip, I&apos;ll do this later
-          </button>
-        </Dock>
-      </div>
+      <AIIntroStep
+        step={n}
+        onBack={back}
+        onSetUp={() => go('1k')}
+        onSkip={() => {
+          set({ apiKey: '' })
+          go('1l')
+        }}
+      />
     )
   }
 
   // ── 1k Key and privacy level (D-031) ──
   if (step === '1k') {
     return (
-      <div className="ob">
-        <StepNav
-          step={n}
-          onBack={back}
-          onSkip={() => {
-            set({ apiKey: '' })
-            go('1l')
-          }}
-        />
-        <StepHead step={n} title="Set up in 3 steps" />
-        <div className="ob-list" style={{ marginTop: 14 }}>
-          <div className="ob-numbered">
-            <span className="ob-numbered__n">1</span>
-            <div className="ob-numbered__text">
-              Sign in or create an account at{' '}
-              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">
-                console.anthropic.com
-              </a>
-            </div>
-          </div>
-          <div className="ob-numbered">
-            <span className="ob-numbered__n">2</span>
-            <div className="ob-numbered__text">Create an API key and copy it</div>
-          </div>
-          <div className="ob-numbered">
-            <span className="ob-numbered__n">3</span>
-            <div className="ob-numbered__text">
-              Paste it here
-              <div className="ob-keyrow">
-                <div className="ob-field ob-field--key">
-                  <input
-                    aria-label="API key"
-                    type="password"
-                    autoComplete="off"
-                    placeholder="sk-ant-…"
-                    value={answers.apiKey}
-                    onChange={(event) => {
-                      set({ apiKey: event.target.value })
-                      setKeyStatus(null)
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="ob-keybtn"
-                  disabled={testing || answers.apiKey.trim() === ''}
-                  onClick={() => void runKeyTest()}
-                >
-                  {testing ? '…' : 'Test'}
-                </button>
-              </div>
-              {keyStatus && (
-                <div className={`status status--${keyStatus.ok ? 'ok' : 'error'}`} role="status">
-                  {keyStatus.text}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="ob-pad">
-          <div style={{ marginTop: 20 }} />
-          <SectionHead>What the AI can see</SectionHead>
-          <div role="radiogroup" aria-label="What the AI can see">
-            {PRIVACY.map((level) => (
-              <ChoiceRow
-                key={level.value}
-                compact
-                title={level.title}
-                sub={level.sub}
-                badge={level.value === 'minimal' ? 'Default' : undefined}
-                on={answers.privacyLevel === level.value}
-                onClick={() => set({ privacyLevel: level.value })}
-              />
-            ))}
-          </div>
-          {answers.experience === 'new' && (
-            <div className="ob-tip">
-              Tip: Standard helps the AI avoid pushing exercises that caused discomfort.
-            </div>
-          )}
-        </div>
-        <Dock>
-          <PrimaryButton onClick={() => go('1l')}>Save and continue</PrimaryButton>
-        </Dock>
-      </div>
+      <AIKeyStep
+        step={n}
+        apiKey={answers.apiKey}
+        onApiKey={(apiKey) => set({ apiKey })}
+        privacyLevel={answers.privacyLevel}
+        onPrivacyLevel={(privacyLevel) => set({ privacyLevel })}
+        showTip={answers.experience === 'new'}
+        onBack={back}
+        onSkip={() => {
+          set({ apiKey: '' })
+          go('1l')
+        }}
+        onSave={() => go('1l')}
+      />
     )
   }
 

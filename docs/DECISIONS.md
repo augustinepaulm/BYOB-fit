@@ -176,3 +176,21 @@ These make D-028 buildable; each protects logged history or the user's time.
 8. Session length on day cards and in review uses the formula recorded in `docs/STARTER-PROGRAMS.md` and is labeled "about".
 9. Saving an unchanged program writes back a program whose JSON is identical to what was loaded.
 Consequence: frames 2a to 2j; onboarding step 4 shows "Build it with forms" again (the Phase 7 limit ends), and choosing a starter program in onboarding shows frame 2a before step 5.
+
+## D-043 How AI changes are applied (FROZEN, Sep 28, 2026)
+Both AI jobs return the D-025 patch shape; they differ in where changes land.
+1. Update (D-027, whole patch). For week N, a change to an item on a day not yet started this week is written as a `byWeek` override keyed N; a change to an item on a day already started is keyed N+1, so it takes effect next week (frame 4f: "Push picks them up on Monday"). Overrides carry forward under D-023. This replaces D-027's rule that changes to started days are rejected.
+2. Review (D-026, line by line). Accepted changes edit the base program, because a review changes the program itself, not one week of it.
+3. In both, a `remove` of an item with history retires it (D-042 rule 3) instead of deleting it, with `retiredFrom` the first date the change applies; a swap of an item with history follows D-042 rule 4. An `add` goes into the base program.
+4. Validation errors name the offending key and item (for example `/overrides/2/fields/foo: unknown field "foo" on item i014`).
+
+## D-044 What each privacy level sends (FROZEN, Sep 28, 2026)
+Makes D-031 exact. One function builds both the preview (frames 4h, 4i) and the request, so the preview is what is sent.
+- Minimal: the program without its top-level `notes`; confirmed sets (weights, reps, seconds, distance, minutes) with dates and ids; the structured goal (types, targets, timeframe, start date), never `currentStats`; the user's rules text.
+- Standard: Minimal plus experience level and "felt off" flags (the flags exist from Phase 10).
+- Full: Standard plus current weight from `currentStats`; and, only when the user switches on "Include notes", session notes and the program's `notes`. Age range and sex are listed in frame 5e but nothing collects them yet (O-11), so they are not sent.
+- Never, at any level: name, date of birth, body-stat history, the Profile screen's free label and value fields, the API key.
+Consequence: the weekly update no longer sends Profile fields. Anything the model needs from them goes into the rules text.
+
+## D-045 The existing meals call goes behind the preview now (FROZEN, Sep 28, 2026)
+Until Phase 10 makes meals local-first (D-032), the Phase 4 meal-parse call stays, but it opens the send preview and is written to the sent log like every other call.

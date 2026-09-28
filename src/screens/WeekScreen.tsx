@@ -19,6 +19,8 @@ import {
 import { useProgram } from '../program/useProgram.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
+import { ReviewBanner } from '../ai/parts.tsx'
+import { Sheet } from '../builder/ui.tsx'
 import { CheckIcon, ChevronRightIcon, SwapIcon } from '../ui/icons.tsx'
 
 function StateMark({ state }: { state: DayState }) {
@@ -134,6 +136,7 @@ export function WeekScreen() {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<Session[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [updateOpen, setUpdateOpen] = useState(false)
 
   const dates = useMemo(
     () => (program ? weekDates(program, week) : []),
@@ -157,8 +160,9 @@ export function WeekScreen() {
   if (!program) return null
 
   const byDayId = new Map(sessions.map((s) => [s.dayId, s]))
-  // D-016: there is nothing to reprogram from until a session is finished.
-  const canBuild = sessions.some((session) => session.endedAt)
+  // D-027: Ask AI needs at least one finished session this week.
+  const finished = sessions.filter((session) => session.endedAt).length
+  const training = program.days.filter((d) => !d.rest).length
 
   return (
     <div className="page">
@@ -178,6 +182,8 @@ export function WeekScreen() {
           Swap days
         </button>
       </div>
+
+      <ReviewBanner program={program} />
 
       <div className="day-list">
         {dates.map((date) => {
@@ -211,23 +217,42 @@ export function WeekScreen() {
           )
         })}
 
-        <button
-          type="button"
-          className="build-card"
-          disabled={!canBuild}
-          onClick={() => navigate('/build')}
-        >
+        <button type="button" className="build-card" onClick={() => setUpdateOpen(true)}>
           <div className="day-card__body">
-            <div className="build-card__title">Build next week</div>
-            <div className="build-card__body">
-              {canBuild
-                ? "Uses this week's log to propose next week's program"
-                : 'Finish a session this week to build next week'}
-            </div>
+            <div className="build-card__title">Update program</div>
+            <div className="build-card__body">Edit it yourself, or ask AI using what you've logged</div>
           </div>
           <ChevronRightIcon />
         </button>
       </div>
+
+      {updateOpen && (
+        <Sheet
+          title="Update program"
+          body={`Week ${week} of ${program.programWeeks} · ${finished} of ${training} sessions logged so far`}
+          onClose={() => setUpdateOpen(false)}
+        >
+          <div style={{ marginTop: -8, borderTop: '1.5px solid var(--text)' }}>
+            <button type="button" className="ob-row" style={{ minHeight: 72 }} onClick={() => navigate('/program/edit')}>
+              <div className="ob-row__main">
+                <div className="ob-row__title ob-row__title--on" style={{ fontSize: 18 }}>Edit it myself</div>
+                <div className="ob-row__sub">Opens the builder on your current program</div>
+              </div>
+            </button>
+            <button type="button" className="ob-row" style={{ minHeight: 72, opacity: finished ? 1 : 0.5 }} disabled={!finished} onClick={() => navigate('/build')}>
+              <div className="ob-row__main">
+                <div className="ob-row__title ob-row__title--on" style={{ fontSize: 18 }}>Ask AI</div>
+                <div className="ob-row__sub">
+                  {finished ? 'Uses what you’ve logged so far, against your goal. You see what’s sent first.' : 'Log a session first'}
+                </div>
+              </div>
+            </button>
+          </div>
+          <button type="button" className="ob-outline" onClick={() => setUpdateOpen(false)}>
+            Cancel
+          </button>
+        </Sheet>
+      )}
 
       {sheetOpen && (
         <SwapSheet

@@ -12,7 +12,8 @@ import {
 import { recordStoragePersistence } from '../lib/storage.ts'
 import { Segmented } from '../onboarding/ui.tsx'
 import { applyAppearance } from '../settings/appearance.ts'
-import { appearanceOf, unitsOf } from '../settings/defaults.ts'
+import { appearanceOf, privacyLevelOf, unitsOf } from '../settings/defaults.ts'
+import { LEVEL_LABEL } from '../lib/payload.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import { Dialog } from '../ui/Dialog.tsx'
@@ -194,6 +195,18 @@ export function SettingsScreen() {
           value={model}
           onChange={(event) => void update({ model: event.target.value })}
         />
+      </div>
+
+      <div className="section-label">Privacy</div>
+      <div className="card--rows">
+        <button type="button" className="setting-row" onClick={() => navigate('/settings/privacy')}>
+          <span>Privacy level</span>
+          <span className="setting-row__hint">{LEVEL_LABEL[privacyLevelOf(settings)]}</span>
+        </button>
+        <button type="button" className="setting-row" onClick={() => navigate('/settings/sent-log')}>
+          <span>Sent log</span>
+          <span className="setting-row__hint">read-only</span>
+        </button>
       </div>
 
       <div className="section-label">Rules and baseline</div>

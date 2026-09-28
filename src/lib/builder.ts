@@ -511,6 +511,58 @@ export function setSwappable(program: Program, dayId: string, partnerId: string 
   }
 }
 
+// ── Starter days (2b) ──
+
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+/**
+ * Training days that run the same session: same focus (a starter's "Full body
+ * A" on Monday and Friday), or the same name when a day has no focus. Weekday
+ * order.
+ */
+export function sessionGroup(program: Program, dayId: string): Day[] {
+  const day = program.days.find((d) => d.id === dayId)
+  if (!day) return []
+  const key = (d: Day) => d.focus ?? d.name
+  return program.days
+    .filter((d) => !d.rest && key(d) === key(day))
+    .sort((a, b) => a.order - b.order)
+}
+
+/** "Monday and Friday", "Monday, Wednesday and Friday". */
+export function weekdaysLabel(days: Day[]): string {
+  const names = days.map((d) => WEEKDAY_NAMES[d.order] ?? d.name)
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/**
+ * Swap an exercise across a session group: on every day of the group, items
+ * with the same exercise in the same kind of section change. Starter programs
+ * have no history, so each swap edits in place.
+ */
+export function swapInGroup(
+  program: Program,
+  dayId: string,
+  itemId: string,
+  entry: LibraryEntry,
+): Program {
+  const day = program.days.find((d) => d.id === dayId)
+  const section = day?.sections.find((s) => s.items.some((i) => i.id === itemId))
+  const item = section?.items.find((i) => i.id === itemId)
+  if (!day || !section || !item) return program
+  let next = withExercise(program, entry)
+  const none = new Set<string>()
+  for (const d of sessionGroup(program, dayId)) {
+    const matches = d.sections
+      .filter((s) => s.kind === section.kind)
+      .flatMap((s) => s.items)
+      .filter((i) => i.exerciseId === item.exerciseId)
+    for (const m of matches) next = swapExercise(next, m.id, entry.id, none, '', none)
+  }
+  return next
+}
+
 // ── Blank programs and new items ──
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
