@@ -22,7 +22,7 @@ export interface ParsedMeal {
 export function mealSystemPrompt(): string {
   return `You convert one day of food notes into calories and protein.
 
-You will be given one JSON message: { "baseline": string, "lines": string[] }. "baseline" describes the athlete's default full day; it may be empty, in which case treat a baseline marker as unknown and estimate a typical full day.
+You will be given one JSON message: { "baseline": string, "foods": [ { "name", "kcal", "proteinG"? } ], "lines": string[] }. "lines" are only the lines the phone could not match to the athlete's own foods. "foods" are those foods with their numbers; use them where a line refers to one. "baseline" is the athlete's free-text notes; it may be empty.
 
 The notes use the athlete's own shorthand. A line may be:
 - a baseline marker such as DFS, meaning the athlete's default full day (the "baseline"),

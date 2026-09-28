@@ -42,3 +42,16 @@ describe('week against week (frame 3i)', () => {
     expect(bestSetChange(undefined, b, 'kg')).toBeNull()
   })
 })
+
+describe('exerciseNames (Phase 10A fix)', () => {
+  it('names an exercise that exists only in a starter program', async () => {
+    const { exerciseNames } = await import('./log.ts')
+    const starter = (await import('../../public/templates/starter-3day-fullbody.json')).default as unknown as import('../types/program.ts').Program
+    const sample = (await import('../../public/sample-program.json')).default as unknown as import('../types/program.ts').Program
+    expect(sample.exercises['goblet-squat']).toBeUndefined()
+    const names = exerciseNames(sample, [sample], [starter])
+    expect(names.get('goblet-squat')).toBe('Goblet squat')
+    expect(names.get('bench-press')).toBe('Barbell bench press')
+    expect(names.get('nowhere')).toBeUndefined()
+  })
+})

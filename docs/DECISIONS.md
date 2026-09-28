@@ -205,3 +205,10 @@ Consequence: schema v2 gains the optional item field `progression` (not overrida
 
 ## D-048 Felt off flags (FROZEN, Sep 28, 2026)
 Each deck exercise can be marked Too easy, Too hard, or Discomfort (skipped), stored on the session entry as `feltOff`. Discomfort also marks the entry skipped. Flags are sent at Standard and Full (D-044) as item id and flag only.
+
+## D-049 Meals on the phone: baseline foods and line grammar (FROZEN, Sep 28, 2026)
+Makes D-032 and D-046 buildable.
+1. Baseline foods. Settings holds a list of the user's own foods, each with a name, kcal and optional protein in grams (`settings.mealFoods`). The existing free-text baseline stays and is sent only with lines that need the model.
+2. Line grammar, matched on the phone, case-insensitive with spaces collapsed: `<food>` or `BASE <food>` counts that food once; `ADD <food>` or `ADD <food> <n>` counts it n times; `SKIP <food>` subtracts it once. `<food>` must equal a baseline food's name. Any other line is unmatched.
+3. Unmatched lines are listed under Needs AI, with "Send these lines" (the preview shows only those lines, the foods and the free-text baseline) or "Enter kcal myself". Each line's result records its source: phone, ai or manual. Today's total excludes lines still waiting.
+4. Target details. The deficit and the 2.0 g/kg protein apply when the main goal (rank 1) is lose weight or lose body fat. Weight, height, age, sex and activity come from the goal setter's current stats; with no weight there is no target, and with weight but not all of height, age, sex and activity there is a protein target only.

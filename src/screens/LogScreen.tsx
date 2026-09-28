@@ -8,6 +8,7 @@ import {
   bestSetOf,
   buildExerciseLog,
   defaultWeeks,
+  exerciseNames,
   setsInWeek,
   topSetSeries,
   weeksSpanned,
@@ -20,6 +21,7 @@ import { useProgram } from '../program/useProgram.ts'
 import type { Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { BuilderBar } from '../builder/ui.tsx'
+import { useStarterTemplates } from '../builder/useLibrary.ts'
 import { SectionHead } from '../onboarding/ui.tsx'
 import { ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
 
@@ -57,11 +59,13 @@ function useSessions(): Session[] {
 }
 
 /**
- * Exercise names from every stored program, the active one first, so history
- * from an earlier program still reads by name (D-042 rule 6).
+ * Exercise names from every stored program, the active one first, then the
+ * starter library, so history from an earlier program or a session-only swap
+ * still reads by name (D-042 rule 6).
  */
 function useExerciseNames(program: Program | null): Map<string, string> {
   const [stored, setStored] = useState<Program[]>([])
+  const { templates } = useStarterTemplates()
   useEffect(() => {
     let live = true
     void listPrograms().then((found) => {
@@ -71,15 +75,10 @@ function useExerciseNames(program: Program | null): Map<string, string> {
       live = false
     }
   }, [])
-  return useMemo(() => {
-    const names = new Map<string, string>()
-    for (const p of program ? [program, ...stored] : stored) {
-      for (const [id, exercise] of Object.entries(p.exercises)) {
-        if (!names.has(id)) names.set(id, exercise.name)
-      }
-    }
-    return names
-  }, [program, stored])
+  return useMemo(
+    () => exerciseNames(program, stored, (templates ?? []).map((t) => t.program)),
+    [program, stored, templates],
+  )
 }
 
 function Sparkline({ points }: { points: { date: string; value: number }[] }) {

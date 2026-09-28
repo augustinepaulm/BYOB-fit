@@ -10,7 +10,10 @@ import {
   fromGoals,
   goalSummary,
   goalsValid,
+  profileDraft,
+  profileFromInput,
   statsFromInput,
+  type ProfileDraft,
   toGoals,
   type GoalDraft,
   type Timeframe,
@@ -21,6 +24,7 @@ import { unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import {
   CurrentStats,
+  ProfileStats,
   GoalBox,
   GoalPicker,
   GoalRanking,
@@ -31,6 +35,11 @@ import {
 import { BackIcon, SectionHead } from '../onboarding/ui.tsx'
 import type { Goals } from '../types/stores.ts'
 
+function withProfile(stats: Goals['currentStats'], profile: NonNullable<Goals['currentStats']>): Goals['currentStats'] {
+  const merged = { ...stats, ...profile }
+  return Object.keys(merged).length ? merged : undefined
+}
+
 export function GoalScreen() {
   const navigate = useNavigate()
   const { program, today } = useProgram()
@@ -39,6 +48,7 @@ export function GoalScreen() {
   const [goals, setGoals] = useState<GoalDraft[]>([])
   const [weeks, setWeeks] = useState<Timeframe>(12)
   const [stats, setStats] = useState<StatsDraft>({ weight: '', bodyFat: '' })
+  const [profile, setProfile] = useState<ProfileDraft | null>(null)
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -71,6 +81,7 @@ export function GoalScreen() {
   if (stored === undefined || settingsLoading) return null
 
   const unit = unitsOf(settings)
+  const profileNow = profile ?? profileDraft(stored?.currentStats, unit)
   const summary = goalSummary(goals, weeks, exerciseName)
 
   async function save() {
@@ -81,7 +92,7 @@ export function GoalScreen() {
           timeframeWeeks: weeks,
           // Editing keeps the original start; a first goal starts today.
           startDate: stored?.startDate ?? toISODate(today),
-          currentStats: statsFromInput(stats.weight, stats.bodyFat, unit),
+          currentStats: withProfile(statsFromInput(stats.weight, stats.bodyFat, unit), profileFromInput(profileNow, unit)),
           now: new Date(),
         }),
       )
@@ -134,7 +145,9 @@ export function GoalScreen() {
         />
       </div>
 
-      <CurrentStats stats={stats} unit={unit} onChange={setStats} />
+      <CurrentStats stats={stats} unit={unit} onChange={setStats}>
+        <ProfileStats draft={profileNow} unit={unit} onChange={setProfile} />
+      </CurrentStats>
 
       {error && (
         <div className="ob-pad ob-errors" role="alert">

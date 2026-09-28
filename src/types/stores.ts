@@ -52,6 +52,17 @@ export interface ParsedMealLine {
   line: string
   kcal: number
   proteinG: number
+  /** D-049 rule 3: where the numbers came from. Missing reads as 'ai'. */
+  source?: MealSource
+}
+
+export type MealSource = 'phone' | 'ai' | 'manual'
+
+/** One of the user's own foods (D-049 rule 1). */
+export interface MealFood {
+  name: string
+  kcal: number
+  proteinG?: number
 }
 
 export interface MealDay {
@@ -72,8 +83,10 @@ export interface Settings {
   model?: string
   /** Plain-text rules the reprogramming prompt must follow (PLAN O-5). */
   rules?: string
-  /** Plain-text description of the DFS baseline, sent with meal parsing. */
+  /** Free-text notes sent only with lines that need the model (D-049 rule 1). */
   mealBaseline?: string
+  /** The user's own foods, matched on the phone (D-049 rule 1). */
+  mealFoods?: MealFood[]
   lastExportAt?: string
   /**
    * Result of navigator.storage.persist() on the first program import (EXEC-05
@@ -101,6 +114,8 @@ export interface Settings {
 
 export type PrivacyLevel = 'minimal' | 'standard' | 'full'
 
+export type Activity = 'sitting' | 'active' | 'very_active'
+
 export type Appearance = 'system' | 'light' | 'dark'
 
 export type GoalType =
@@ -126,7 +141,16 @@ export interface Goals {
   /** ISO date, YYYY-MM-DD. */
   startDate: string
   /** Stored on the phone; never sent to the model (D-030). */
-  currentStats?: { weight?: number; weightUnit?: LoadUnit; bodyFatPct?: number }
+  currentStats?: {
+    weight?: number
+    weightUnit?: LoadUnit
+    bodyFatPct?: number
+    /** D-046: for the calorie formula; stored on the phone, never sent. */
+    heightCm?: number
+    age?: number
+    sex?: 'male' | 'female'
+    activity?: Activity
+  }
   updatedAt: string
 }
 

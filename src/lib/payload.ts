@@ -3,7 +3,7 @@
 // Pure: no storage, no clock.
 
 import type { Program } from '../types/program.ts'
-import type { Goals, PrivacyLevel, Session, Settings } from '../types/stores.ts'
+import type { Goals, MealFood, PrivacyLevel, Session, Settings } from '../types/stores.ts'
 import { fromGoals, goalSummary } from './goals.ts'
 import { compactSessions } from './reprogram.ts'
 
@@ -31,8 +31,9 @@ export interface PayloadData {
   week?: number
   /** Update: day ids already started this week. */
   startedDayIds?: string[]
-  /** Meals: the day's lines and the user's baseline description. */
+  /** Meals: only the lines that need the model (D-049 rule 3), the user's foods, and the free-text notes. */
   mealLines?: string[]
+  mealFoods?: MealFood[]
   mealBaseline?: string
 }
 
@@ -104,13 +105,15 @@ export function buildPayload(
 
   if (kind === 'meals') {
     const lines = data.mealLines ?? []
+    const foods = (data.mealFoods ?? []).map((f) => ({ name: f.name, kcal: f.kcal, ...(f.proteinG !== undefined ? { proteinG: f.proteinG } : {}) }))
     const baseline = data.mealBaseline?.trim() ?? ''
     return {
       summary: [
         { label: 'Meal lines', value: count(lines.length, 'line') },
-        { label: 'Your baseline', value: baseline ? count(linesOf(baseline).length, 'line') : 'Not set' },
+        { label: 'Your foods', value: foods.length ? count(foods.length, 'food') : 'None' },
+        { label: 'Notes', value: baseline ? count(linesOf(baseline).length, 'line') : 'Not set' },
       ],
-      message: JSON.stringify({ baseline, lines }, null, 2),
+      message: JSON.stringify({ baseline, foods, lines }, null, 2),
     }
   }
 
