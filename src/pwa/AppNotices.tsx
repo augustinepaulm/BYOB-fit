@@ -2,7 +2,10 @@
 // banner, the one-time offline-ready toast, and the per-load disclaimer.
 
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+
+import { showDisclaimerOn } from '../lib/notices.ts'
 
 const DISCLAIMER =
   'This app and its AI features are not medical, dietary or training advice. Verify changes with a qualified professional.'
@@ -20,6 +23,8 @@ export function AppNotices() {
 
   // In memory only: a full app load starts with the disclaimer showing again.
   const [disclaimerDismissed, setDisclaimerDismissed] = useState(false)
+  const { pathname } = useLocation()
+  const disclaimer = !disclaimerDismissed && showDisclaimerOn(pathname)
 
   // onOfflineReady fires once, when the first worker finishes precaching.
   useEffect(() => {
@@ -28,7 +33,7 @@ export function AppNotices() {
     return () => clearTimeout(timer)
   }, [offlineReady, setOfflineReady])
 
-  if (disclaimerDismissed && !needRefresh && !offlineReady) return null
+  if (!disclaimer && !needRefresh && !offlineReady) return null
 
   return (
     <div className="app-notices">
@@ -57,7 +62,7 @@ export function AppNotices() {
           <span className="banner__text">Ready to work offline</span>
         </div>
       )}
-      {!disclaimerDismissed && (
+      {disclaimer && (
         <div className="banner" role="note">
           <span className="banner__text">{DISCLAIMER}</span>
           <button

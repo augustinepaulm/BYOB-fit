@@ -87,11 +87,15 @@ export interface Settings {
     experience?: 'new' | 'experienced'
     safetyAckAt?: string
   }
+  /** System follows the phone; Light and Dark override it for this app (D-039). */
+  appearance?: Appearance
   /** Program ids whose review suggestion banner the user has dismissed. */
   reviewBannerDismissedFor?: string[]
 }
 
 export type PrivacyLevel = 'minimal' | 'standard' | 'full'
+
+export type Appearance = 'system' | 'light' | 'dark'
 
 export type GoalType =
   | 'lose_weight'

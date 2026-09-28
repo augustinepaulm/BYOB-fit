@@ -150,3 +150,16 @@ Consequence: resolves O-8. Onboarding suggests the 3-day program for New and the
 An override may carry only `itemFields` properties; any other key is rejected by the schema. The same closed shape validates the `fields` of an AI update's overrides.
 Rationale: found in Phase 6 verification. `itemFields` never closed its property list, so since Gate 2 an override, including one proposed by the model, could carry any key. The executor enforced the `retiredFrom` case in code; this closes the whole class in the contract.
 Consequence: `docs/program.schema.json` corrected without a version change, because it only rejects keys that were never part of the format. Every stored and seed program must still validate; a file that fails is reported, never silently changed.
+
+## D-039 Appearance: System, Light or Dark (FROZEN, Sep 28, 2026)
+Settings gains an Appearance control with three choices: System (the default: follow the phone, as the app has since Phase 5), Light and Dark (override the phone for this app only). The choice is stored in `settings.appearance` and mirrored in `localStorage` only so the first paint uses the right colours before IndexedDB answers; IndexedDB stays the source of truth. The browser's `theme-color` follows the colours in use.
+Rationale: stated by Auggie, Sep 28, 2026. Omitted from briefs v2.0 and v2.1 and from the design canvas; the gap was Claude's.
+Consequence: frame 5c has no Appearance row; the Phase 11 Settings rebuild places it directly under Units.
+
+## D-040 Units in Settings change what comes next, never what exists (FROZEN, Sep 28, 2026)
+Onboarding step 6 promises "You can change this in Settings"; Settings now has the Units control. Changing it sets the unit for new programs, new items, goals and body weight. The current program's items keep the unit they carry, and logged sets are never converted (D-012).
+Rationale: switching an existing program's items from lb to kg would make last week's "60" pre-fill as 60 kg. Converting a program is a separate, explicit action, not a side effect of a setting (backlog B-10).
+Consequence: the Units row carries the line "Applies to new programs and goals. Your current program keeps its units."
+
+## D-041 The not-advice banner stays off onboarding (FROZEN, Sep 28, 2026)
+The per-load disclaimer banner (Phase 5) is not shown on `/welcome`, where step 3's safety notice already covers it. Everywhere else it behaves as before.
