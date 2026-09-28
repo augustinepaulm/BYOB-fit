@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { saveProgram, setActiveProgram } from '../db/index.ts'
 import { importProgramText } from '../lib/importProgram.ts'
+import { recordStoragePersistence } from '../lib/storage.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Program } from '../types/program.ts'
 
@@ -15,6 +16,8 @@ export function ImportScreen() {
   async function activate(program: Program) {
     await saveProgram(program)
     await setActiveProgram(program.id)
+    // First successful import asks for persistent storage; never blocks.
+    void recordStoragePersistence()
     await refresh()
     navigate('/', { replace: true })
   }

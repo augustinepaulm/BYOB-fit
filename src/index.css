@@ -279,6 +279,39 @@ input[type='file'] {
   color: var(--banner-text);
 }
 
+/* App-wide notices (EXEC-05): the banner style, stacked above the screen. */
+
+.app-notices {
+  max-width: 430px;
+  margin: 0 auto;
+  padding-top: 8px;
+}
+
+.app-notices .banner {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.banner__text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.banner__action {
+  flex: none;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.banner__close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--banner-text);
+}
+
 /* ── Primary action ── */
 
 .action-dock {
