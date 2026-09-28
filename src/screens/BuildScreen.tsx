@@ -1,118 +1,197 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+// "Ask AI" from the Update program sheet (D-027, D-043 rule 1): preview, call,
+// then one whole patch to approve or discard (frame 4f), states in 4g. The
+// route is the v1 /build route; the flow is the Phase 9 update.
 
-import {
-  getProfile,
-  listSessionsBetween,
-  saveProgram,
-  saveReprogram,
-} from '../db/index.ts'
-import { sendMessage, stripCodeFences } from '../lib/anthropic.ts'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+
+import { sendAndLog } from '../ai/send.ts'
+import { AISetupFlow, OfflineBar, StatePanel } from '../ai/parts.tsx'
+import { useOnline, usePreview } from '../ai/usePreview.tsx'
+import { BuilderBar, Hero } from '../builder/ui.tsx'
+import { getGoals, listAllSessions, saveProgram, saveReprogram } from '../db/index.ts'
+import { stripCodeFences } from '../lib/anthropic.ts'
+import { findItem, itemsWithHistory } from '../lib/builder.ts'
 import { toISODate } from '../lib/dates.ts'
+import { buildPayload, type Payload } from '../lib/payload.ts'
 import { prescriptionText } from '../lib/prescription.ts'
-import { resolveItem, weekDates } from '../lib/program.ts'
-import {
-  REPROGRAM_SYSTEM_PROMPT,
-  applyProposal,
-  buildDiff,
-  buildReprogramMessage,
-  validateProposal,
-  type DiffGroup,
-  type Proposal,
-} from '../lib/reprogram.ts'
+import { parseISODate, weekDates } from '../lib/program.ts'
+import { REPROGRAM_SYSTEM_PROMPT, validateProposal, type Proposal } from '../lib/reprogram.ts'
+import { changeText } from '../lib/review.ts'
+import { appliesFromText, applyUpdate, dayDate, startedDays, weekFor } from '../lib/update.ts'
+import { Dock, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
-import { ChevronLeftIcon } from '../ui/icons.tsx'
+import type { Day } from '../types/program.ts'
+import type { Goals, PrivacyLevel, Session } from '../types/stores.ts'
 
 type Phase =
+  | { kind: 'ready' }
   | { kind: 'loading' }
-  | { kind: 'error'; text: string; errors?: string[] }
-  | { kind: 'proposal'; proposal: Proposal; groups: DiffGroup[]; raw: string }
+  | { kind: 'error'; title: string; body: string; errors?: string[]; settingsLink?: boolean }
+  | { kind: 'result'; proposal: Proposal; raw: string }
+
+const STARTS = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
 export function BuildScreen() {
-  const { program, week, refresh } = useProgram()
-  const { settings, loading: settingsLoading } = useSettings()
   const navigate = useNavigate()
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
+  const { search } = useLocation()
+  const { program, week, today, refresh } = useProgram()
+  const { settings, loading, update } = useSettings()
+  const online = useOnline()
+  const [goals, setGoals] = useState<Goals | null | undefined>(undefined)
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [phase, setPhase] = useState<Phase>({ kind: 'ready' })
   const [busy, setBusy] = useState(false)
-  // One request per visit: a retry that fires on its own could double-spend.
-  const sent = useRef(false)
-
-  const targetWeek = week + 1
-
-  const run = useCallback(async () => {
-    if (!program) return
-    setPhase({ kind: 'loading' })
-    const dates = weekDates(program, week)
-    const sessions = (
-      await listSessionsBetween(
-        toISODate(dates[0]),
-        toISODate(dates[dates.length - 1]),
-      )
-    ).filter((session) => session.endedAt)
-    const profile = await getProfile()
-    const message = buildReprogramMessage({
-      program,
-      sessions,
-      profile,
-      rules: settings.rules ?? '',
-      targetWeek,
-    })
-    const result = await sendMessage(
-      {
-        apiKey: settings.apiKey ?? '',
-        model: settings.model ?? '',
-        maxTokens: 8192,
-        system: REPROGRAM_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: message }],
-      },
-      180_000,
-    )
-    if (!result.ok) {
-      setPhase({ kind: 'error', text: result.error })
-      return
-    }
-    let payload: unknown
-    try {
-      payload = JSON.parse(stripCodeFences(result.text))
-    } catch {
-      setPhase({
-        kind: 'error',
-        text: 'The model did not return JSON.',
-        errors: [result.text.slice(0, 400)],
-      })
-      return
-    }
-    const checked = validateProposal(payload, program, targetWeek)
-    if (!checked.ok) {
-      setPhase({
-        kind: 'error',
-        text: 'The proposal did not match the program. Nothing was applied.',
-        errors: checked.errors,
-      })
-      return
-    }
-    setPhase({
-      kind: 'proposal',
-      proposal: checked.proposal,
-      groups: buildDiff(
-        program,
-        checked.proposal,
-        week,
-        resolveItem,
-        prescriptionText,
-      ),
-      raw: result.text,
-    })
-  }, [program, week, targetWeek, settings])
+  const todayIso = toISODate(today)
 
   useEffect(() => {
-    if (settingsLoading || !program || sent.current) return
-    sent.current = true
-    void run()
-  }, [settingsLoading, program, run])
+    let live = true
+    void Promise.all([getGoals(), listAllSessions()]).then(([g, s]) => {
+      if (!live) return
+      setGoals(g ?? null)
+      setSessions(s)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
 
-  async function record(proposal: Proposal, raw: string, approved: boolean) {
+  const thisWeek = useMemo(() => {
+    if (!program) return []
+    const dates = weekDates(program, week).map(toISODate)
+    return sessions.filter((s) => s.date >= dates[0] && s.date <= dates[6])
+  }, [program, week, sessions])
+  const finished = thisWeek.filter((s) => s.endedAt)
+  const started = useMemo(() => (program ? startedDays(program, week, thisWeek, todayIso) : new Set<string>()), [program, week, thisWeek, todayIso])
+  const ctx = useMemo(() => ({ week, started, history: itemsWithHistory(sessions) }), [week, started, sessions])
+
+  const send = useCallback(
+    async (payload: Payload, level: PrivacyLevel) => {
+      if (!program) return
+      setPhase({ kind: 'loading' })
+      const result = await sendAndLog({ kind: 'update', level, payload, system: REPROGRAM_SYSTEM_PROMPT, settings, maxTokens: 8192, timeoutMs: 180_000 })
+      if (!result.ok) {
+        setPhase({ kind: 'error', title: "Couldn't reach the model", body: 'Check your key in Settings.', errors: [result.error], settingsLink: true })
+        return
+      }
+      let reply: unknown
+      try {
+        reply = JSON.parse(stripCodeFences(result.text))
+      } catch {
+        setPhase({ kind: 'error', title: 'The update was not readable', body: 'The model did not return JSON. Nothing was applied.' })
+        return
+      }
+      const checked = validateProposal(reply, program, week)
+      if (!checked.ok) {
+        setPhase({ kind: 'error', title: 'The update did not match the program', body: 'Nothing was applied.', errors: checked.errors })
+        return
+      }
+      setPhase({ kind: 'result', proposal: checked.proposal, raw: result.text })
+    },
+    [program, settings, week],
+  )
+
+  const preview = usePreview({
+    kind: 'update',
+    settings,
+    build: (level, includeNotes) =>
+      buildPayload('update', level, includeNotes, {
+        program,
+        // D-027: the sessions logged so far this week.
+        sessions: finished,
+        goals,
+        rules: settings.rules ?? '',
+        settings,
+        week,
+        startedDayIds: [...started].sort(),
+      }),
+    onLevel: (privacyLevel) => void update({ privacyLevel }),
+    onSend: (payload, level) => void send(payload, level),
+    onCancel: () => navigate('/week'),
+  })
+
+  const { open } = preview
+  const ready = !loading && goals !== undefined && Boolean(program)
+  const hasKey = Boolean(settings.apiKey)
+  useEffect(() => {
+    if (ready && hasKey && online) open()
+    // Once per visit: a retry is the user's choice, never automatic.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, hasKey])
+
+  if (!ready || !program) return null
+  if (preview.picking) return <>{preview.element}</>
+
+  const bar = <BuilderBar title="Proposed update" onBack={() => navigate('/week')} />
+
+  if (!hasKey) {
+    if (search === '?setup') {
+      return <AISetupFlow settings={settings} onCancel={() => navigate('/week')} onSaved={(patch) => void update(patch)} />
+    }
+    return (
+      <div className="ob" style={{ paddingBottom: 40 }}>
+        {!online && <OfflineBar />}
+        {bar}
+        <StatePanel icon="?" title="Set up AI to use this" body="It takes about two minutes and you pay Anthropic directly. You can also edit the program yourself.">
+          <button type="button" className="ai-btn ai-btn--primary" onClick={() => navigate('/build?setup')}>
+            Set up AI
+          </button>
+          <button type="button" className="ai-btn" onClick={() => navigate('/program/edit')}>
+            Edit it myself
+          </button>
+        </StatePanel>
+      </div>
+    )
+  }
+
+  if (phase.kind !== 'result') {
+    return (
+      <div className="ob" style={{ paddingBottom: 40 }}>
+        {!online && <OfflineBar />}
+        {bar}
+        {phase.kind === 'loading' && (
+          <StatePanel
+            icon="spin"
+            title="Building your update"
+            body={`Using ${finished.length} logged ${finished.length === 1 ? 'session' : 'sessions'} against your goal.`}
+          />
+        )}
+        {phase.kind === 'error' && (
+          <StatePanel icon="!" title={phase.title} body={phase.body} errors={phase.errors}>
+            {phase.settingsLink && (
+              <button type="button" className="ai-btn ai-btn--primary" onClick={() => navigate('/settings')}>
+                Open Settings
+              </button>
+            )}
+            <button type="button" className="ai-btn" disabled={!online} onClick={() => preview.open()}>
+              Retry
+            </button>
+          </StatePanel>
+        )}
+        {phase.kind === 'ready' && !online && (
+          <StatePanel icon="!" title="You're offline" body="AI features need a connection. Try again once you're back online.">
+            <button type="button" className="ai-btn" onClick={() => navigate('/program/edit')}>
+              Edit it myself
+            </button>
+          </StatePanel>
+        )}
+        {phase.kind === 'ready' && online && (
+          <StatePanel icon="?" title="Nothing sent" body="Open the preview to see what would be sent.">
+            <button type="button" className="ai-btn ai-btn--primary" onClick={() => preview.open()}>
+              Review what's sent
+            </button>
+          </StatePanel>
+        )}
+        {preview.element}
+      </div>
+    )
+  }
+
+  const { proposal, raw } = phase
+  const applied = applyUpdate(program, proposal, ctx)
+
+  async function record(approved: boolean) {
     await saveReprogram({
       id: `${proposal.week}__${new Date().toISOString()}`,
       week: proposal.week,
@@ -123,157 +202,125 @@ export function BuildScreen() {
     })
   }
 
-  async function approve(proposal: Proposal, raw: string) {
-    if (!program) return
+  async function approve() {
     setBusy(true)
-    await saveProgram(applyProposal(program, proposal))
-    await record(proposal, raw, true)
+    await saveProgram(applied.program)
+    await record(true)
     await refresh()
     navigate('/week', { replace: true })
   }
 
-  async function discard(proposal: Proposal, raw: string) {
+  async function discard() {
     setBusy(true)
-    await record(proposal, raw, false)
+    await record(false)
     navigate('/week', { replace: true })
   }
 
-  if (!program) return null
+  // One group per day, in weekday order.
+  const dayOf = (itemId: string): Day | undefined => findItem(program, itemId)?.day
+  const days = [...program.days].sort((a, b) => a.order - b.order)
+  const rowsFor = (day: Day) => {
+    const rows: { mark: '~' | '−' | '+'; text: React.ReactNode; reason: string; key: string }[] = []
+    proposal.overrides.forEach((o, i) => {
+      if (dayOf(o.itemId)?.id !== day.id) return
+      const t = changeText(program, findItem(program, o.itemId)!.item, o.fields, week)
+      rows.push({
+        key: `o${i}`,
+        mark: '~',
+        reason: o.reason,
+        text: (
+          <>
+            {t.from === t.name ? <span style={{ color: 'var(--secondary)', textDecoration: 'line-through' }}>{t.name}</span> : t.name}{' '}
+            {t.from !== t.name && <span style={{ color: 'var(--secondary)', textDecoration: 'line-through' }}>{t.from}</span>} → <b>{t.to}</b>
+          </>
+        ),
+      })
+    })
+    proposal.remove.forEach((r, i) => {
+      const found = findItem(program, r.itemId)
+      if (found?.day.id !== day.id) return
+      const section = found.day.sections.find((s) => s.items.includes(found.item))
+      rows.push({
+        key: `r${i}`,
+        mark: '−',
+        reason: r.reason,
+        text: (
+          <>
+            <span style={{ textDecoration: 'line-through' }}>{program.exercises[found.item.exerciseId]?.name ?? found.item.exerciseId}</span>, {section?.title.toLowerCase()}
+          </>
+        ),
+      })
+    })
+    proposal.add.forEach((a, i) => {
+      if (a.dayId !== day.id) return
+      const section = day.sections.find((s) => s.id === a.sectionId)
+      const name = a.exercise?.name ?? program.exercises[a.item.exerciseId]?.name ?? a.item.exerciseId
+      rows.push({
+        key: `a${i}`,
+        mark: '+',
+        reason: a.reason,
+        text: (
+          <>
+            <b>
+              {name} {prescriptionText(a.item)}
+            </b>
+            , {section?.title.toLowerCase()}
+          </>
+        ),
+      })
+    })
+    return rows
+  }
 
+  const total = proposal.overrides.length + proposal.add.length + proposal.remove.length
   return (
-    <div className="page">
-      <div className="proposal-head">
-        <button type="button" aria-label="Back" onClick={() => navigate('/week')}>
-          <ChevronLeftIcon />
-        </button>
-        <div>
-          <div className="proposal-head__title">Proposal for week {targetWeek}</div>
-          <div className="proposal-head__body">
-            Changes against week {week} · nothing is applied until you approve
-          </div>
-        </div>
+    <div className="ob" style={{ paddingBottom: 130 }}>
+      {!online && <OfflineBar />}
+      {bar}
+      <Hero title={`Update for week ${proposal.week}`} sub={appliesFromText(program, proposal, ctx)} />
+      <div className="ai-counts">
+        <span>{proposal.add.length} added</span>
+        <span>{proposal.overrides.length} changed</span>
+        <span>{proposal.remove.length} removed</span>
       </div>
-
-      {phase.kind === 'loading' && (
-        <div className="state-panel" style={{ marginTop: 20 }}>
-          <div className="spinner" />
-          <div className="state-panel__title">Building week {targetWeek}</div>
-          <div className="state-panel__body">
-            Sending this week&apos;s log to your model. Usually under a minute.
-          </div>
-        </div>
-      )}
-
-      {phase.kind === 'error' && (
-        <div className="state-panel" style={{ marginTop: 20 }}>
-          <div className="state-panel__title">{phase.text}</div>
-          <div className="state-panel__body">
-            Check your key in Settings, then try again.
-          </div>
-          {phase.errors && phase.errors.length > 0 && (
-            <ul className="errors__list" style={{ textAlign: 'left' }}>
-              {phase.errors.map((error, i) => (
-                <li key={i}>{error}</li>
-              ))}
-            </ul>
-          )}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              className="btn-inline"
-              onClick={() => navigate('/settings')}
-            >
-              Open Settings
-            </button>
-            <button type="button" className="btn-inline" onClick={() => void run()}>
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {phase.kind === 'proposal' && (
-        <>
-          {phase.proposal.notes && (
-            <p className="muted-line" style={{ marginTop: 8 }}>
-              {phase.proposal.notes}
-            </p>
-          )}
-          {phase.groups.length === 0 ? (
-            <p className="muted-line" style={{ marginTop: 16 }}>
-              The model proposed no changes for week {targetWeek}.
-            </p>
-          ) : (
-            phase.groups.map((group) => (
-              <div key={group.dayId}>
-                <div className="diff-day">{group.title}</div>
-                <div className="diff-card">
-                  {group.rows.map((row, i) => (
-                    <div className={`diff-row diff-row--${row.kind}`} key={i}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="diff-row__name">
-                          {row.name}
-                          {row.perSide && (
-                            <span
-                              style={{
-                                fontWeight: 400,
-                                color: 'var(--muted)',
-                                fontSize: 13,
-                              }}
-                            >
-                              {' '}
-                              · per side
-                            </span>
-                          )}
-                        </div>
-                        {row.kind === 'changed' ? (
-                          row.fields.map((field) => (
-                            <div className="diff-row__field" key={field.label}>
-                              {field.label}: <s>{field.from}</s> → {field.to}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="diff-row__field">{row.summary}</div>
-                        )}
-                        {row.mergesExisting && (
-                          <div className="diff-row__field">
-                            merges into the week {targetWeek} override this item
-                            already has
-                          </div>
-                        )}
-                        {row.reason && (
-                          <div className="diff-row__reason">{row.reason}</div>
-                        )}
-                      </div>
-                      <span className={`diff-tag diff-tag--${row.kind}`}>
-                        {row.kind}
-                      </span>
-                    </div>
-                  ))}
+      <div className="ob-pad">
+        {total === 0 && <div className="bd-hint" style={{ marginTop: 16 }}>No changes proposed.</div>}
+        {days.map((day) => {
+          const rows = rowsFor(day)
+          if (rows.length === 0) return null
+          const from = parseISODate(dayDate(program, day.id, weekFor(day.id, ctx)))
+          return (
+            <div key={day.id} style={{ marginTop: -10 }}>
+              <SectionHead aside={`starts ${STARTS.format(from)}`}>{day.name}</SectionHead>
+              {rows.map((row) => (
+                <div className="ai-diff" key={row.key}>
+                  <div className={row.mark === '−' ? 'ai-mark ai-mark--removed' : row.mark === '+' ? 'ai-mark ai-mark--added' : 'ai-mark'}>{row.mark}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="ai-diff__text">{row.text}</div>
+                    {row.reason && <div className="ai-reason" style={{ marginTop: 4 }}>{row.reason}</div>}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-          <div className="proposal-actions">
-            <button
-              type="button"
-              className="is-secondary"
-              disabled={busy}
-              onClick={() => void discard(phase.proposal, phase.raw)}
-            >
-              Discard
-            </button>
-            <button
-              type="button"
-              className="is-primary"
-              disabled={busy}
-              onClick={() => void approve(phase.proposal, phase.raw)}
-            >
-              Approve week {targetWeek}
-            </button>
+              ))}
+            </div>
+          )
+        })}
+        {applied.skipped.length > 0 && (
+          <div className="bd-hint" style={{ marginTop: 12, color: 'var(--warn)' }}>
+            {applied.skipped.length} {applied.skipped.length === 1 ? 'change falls' : 'changes fall'} after the program ends and will be left out.
           </div>
-        </>
-      )}
+        )}
+      </div>
+      <div className="ai-whole">This is one update. It is approved or discarded as a whole. To change single lines, discard and edit it yourself.</div>
+      <Dock>
+        <div className="ai-pair">
+          <button type="button" className="ob-outline" disabled={busy} onClick={() => void discard()}>
+            Discard
+          </button>
+          <button type="button" className="ob-primary" disabled={busy} onClick={() => void approve()}>
+            <span>Approve all</span>
+          </button>
+        </div>
+      </Dock>
     </div>
   )
 }

@@ -14,22 +14,22 @@ export interface ParsedMeal {
   items: ParsedLine[]
 }
 
-export function mealSystemPrompt(baseline: string): string {
-  const described =
-    baseline.trim() === ''
-      ? 'No baseline has been described. Treat a baseline marker as an unknown and estimate a typical full day.'
-      : baseline.trim()
+/**
+ * The meals call's instructions. The user's baseline and lines arrive in the
+ * user message (D-044, D-045), so everything of theirs that is sent is in the
+ * preview.
+ */
+export function mealSystemPrompt(): string {
   return `You convert one day of food notes into calories and protein.
 
+You will be given one JSON message: { "baseline": string, "lines": string[] }. "baseline" describes the athlete's default full day; it may be empty, in which case treat a baseline marker as unknown and estimate a typical full day.
+
 The notes use the athlete's own shorthand. A line may be:
-- a baseline marker such as DFS, meaning the athlete's default full day, described below,
+- a baseline marker such as DFS, meaning the athlete's default full day (the "baseline"),
 - SWAP <meal>: <what was eaten instead>,
 - ADD <what was eaten on top>,
 - SKIP <meal>,
 - or a plain description of something eaten.
-
-The athlete's baseline is described here:
-${described}
 
 Return ONLY a JSON object, with no prose and no code fence, of exactly this shape:
 { "kcal": number, "proteinG": number, "items": [ { "line": string, "kcal": number, "proteinG": number } ] }

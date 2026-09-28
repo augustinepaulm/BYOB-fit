@@ -10,6 +10,8 @@ import { GoalScreen } from './screens/GoalScreen.tsx'
 import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
 import { MealsScreen } from './screens/MealsScreen.tsx'
 import { OnboardingScreen } from './screens/OnboardingScreen.tsx'
+import { PrivacyLevelScreen, SentLogScreen } from './screens/PrivacyScreens.tsx'
+import { ReviewScreen } from './screens/ReviewScreen.tsx'
 import { EditProgramScreen, NewProgramScreen } from './screens/ProgramScreens.tsx'
 import { ProfileScreen } from './screens/ProfileScreen.tsx'
 import { SettingsScreen } from './screens/SettingsScreen.tsx'
@@ -44,6 +46,9 @@ export default function App() {
               <Route path="/goal" element={<GoalScreen />} />
               <Route path="/program/edit" element={<EditProgramScreen />} />
               <Route path="/program/new" element={<NewProgramScreen />} />
+              <Route path="/review" element={<ReviewScreen />} />
+              <Route path="/settings/privacy" element={<PrivacyLevelScreen />} />
+              <Route path="/settings/sent-log" element={<SentLogScreen />} />
             </Route>
           </Route>
         </Routes>

@@ -15,6 +15,7 @@ import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
 import type { Program, Section } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
+import { ReviewBanner } from '../ai/parts.tsx'
 import { CheckIcon, RestIcon, SwapIcon } from '../ui/icons.tsx'
 
 function ItemRow({
@@ -154,6 +155,7 @@ export function TodayScreen() {
           <div className="page-head__meta">{meta}</div>
           <h1 className="page-title">Rest day</h1>
         </div>
+        <ReviewBanner program={program} />
         {hasItems ? (
           <>
             <p className="muted-line" style={{ marginBottom: 4 }}>
@@ -223,6 +225,8 @@ export function TodayScreen() {
           {aside && <span className="page-head__aside">{aside}</span>}
         </div>
       </div>
+
+      <ReviewBanner program={program} />
 
       {swapped && (
         <div className="banner">

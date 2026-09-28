@@ -13,7 +13,7 @@ import type {
   Program,
   Section,
 } from '../types/program.ts'
-import type { Profile, Session } from '../types/stores.ts'
+import type { Session } from '../types/stores.ts'
 import { isSetConfirmed } from './session.ts'
 
 const SCHEMA_ID = 'https://github.com/augustinepaulm/BYOB-fit/program.schema.json'
@@ -64,12 +64,23 @@ export type ProposalResult =
 
 // ── Prompts ──
 
-export const REPROGRAM_SYSTEM_PROMPT = `You write the next week of a strength-training program for one person.
+export const REPROGRAM_SYSTEM_PROMPT = `You update a strength-training program for one person, part way through a week.
 
-You will be given: the current program as JSON, the sessions logged this week, the athlete's profile fields, the athlete's own rules, and the target week number.
+You will be given one JSON message with:
+- "task": "update"
+- "week": the current program week number
+- "startedDayIds": the days already started this week
+- "rules": the athlete's own rules, as plain text
+- "goal": the athlete's structured goal (types, targets, timeframe, start date), or null
+- "experience" (only when the athlete allows it): "new" or "experienced"
+- "currentWeight" (only when the athlete allows it): { "value", "unit" }
+- "logged": the sessions logged so far this week, confirmed sets only
+- "program": the current program as JSON
+
+Changes to items on days not yet started apply this week; changes to items on a started day apply from next week. Nothing else about the athlete is sent.
 
 Return ONLY a JSON object, with no prose and no code fence, of exactly this shape:
-{ "week": <target week number>,
+{ "week": <the week number you were given>,
   "overrides": [ { "itemId": string, "fields": object, "reason": string } ],
   "add":       [ { "dayId": string, "sectionId": string, "afterItemId": string|null, "item": object, "reason": string } ],
   "remove":    [ { "itemId": string, "reason": string } ],
@@ -149,26 +160,6 @@ export function compactSessions(sessions: Session[]): CompactSession[] {
     }))
 }
 
-export function buildReprogramMessage(input: {
-  program: Program
-  sessions: Session[]
-  profile: Profile | undefined
-  rules: string
-  targetWeek: number
-}): string {
-  return JSON.stringify(
-    {
-      targetWeek: input.targetWeek,
-      rules: input.rules.trim() === '' ? 'No rules supplied.' : input.rules,
-      profile: input.profile?.fields ?? {},
-      loggedThisWeek: compactSessions(input.sessions),
-      program: input.program,
-    },
-    null,
-    2,
-  )
-}
-
 // ── Parsing and validation ──
 
 function allItems(program: Program): {
@@ -189,10 +180,24 @@ export function findItem(program: Program, itemId: string) {
   return allItems(program).find((entry) => entry.item.id === itemId)
 }
 
-function ajvErrors(prefix: string, errors: typeof validateItem.errors): string[] {
-  return (errors ?? []).map(
-    (error) => `${prefix}${error.instancePath}: ${error.message ?? 'is invalid'}`,
-  )
+/**
+ * D-043 rule 4: every error names its path, the offending key and the item,
+ * e.g. /overrides/2/fields/foo: unknown field "foo" on item i014.
+ */
+function ajvErrors(prefix: string, errors: typeof validateItem.errors, itemId: string): string[] {
+  return (errors ?? []).map((error) => {
+    const params = error.params as Record<string, unknown>
+    const unknown = params.unevaluatedProperty ?? params.additionalProperty
+    if (unknown !== undefined) {
+      return `${prefix}${error.instancePath}/${String(unknown)}: unknown field "${String(unknown)}" on item ${itemId}`
+    }
+    const missing = params.missingProperty
+    if (missing !== undefined) {
+      return `${prefix}${error.instancePath}/${String(missing)}: missing field "${String(missing)}" on item ${itemId}`
+    }
+    const key = error.instancePath.split('/').filter(Boolean).pop() ?? '(item)'
+    return `${prefix}${error.instancePath}: "${key}" ${error.message ?? 'is invalid'} on item ${itemId}`
+  })
 }
 
 export function validateProposal(
@@ -222,14 +227,14 @@ export function validateProposal(
   overrides.forEach((override, i) => {
     const at = `/overrides/${i}`
     if (!override?.itemId || !findItem(program, override.itemId)) {
-      errors.push(`${at}/itemId: no item with id "${override?.itemId}"`)
+      errors.push(`${at}/itemId: "itemId" names no item: ${override?.itemId}`)
     }
     if (typeof override?.fields !== 'object' || override.fields === null) {
-      errors.push(`${at}/fields: must be an object`)
+      errors.push(`${at}/fields: "fields" must be an object on item ${override?.itemId}`)
     } else if (Object.keys(override.fields).length === 0) {
-      errors.push(`${at}/fields: changes nothing`)
+      errors.push(`${at}/fields: "fields" changes nothing on item ${override.itemId}`)
     } else if (!validateItemFields(override.fields)) {
-      errors.push(...ajvErrors(`${at}/fields`, validateItemFields.errors))
+      errors.push(...ajvErrors(`${at}/fields`, validateItemFields.errors, String(override.itemId)))
     } else if (
       override.fields.exerciseId !== undefined &&
       !Object.prototype.hasOwnProperty.call(
@@ -238,7 +243,7 @@ export function validateProposal(
       )
     ) {
       errors.push(
-        `${at}/fields/exerciseId: no exercise with id "${override.fields.exerciseId}"`,
+        `${at}/fields/exerciseId: no exercise with id "${override.fields.exerciseId}" on item ${override.itemId}`,
       )
     }
   })
@@ -246,15 +251,16 @@ export function validateProposal(
   const knownItemIds = new Set(allItems(program).map((entry) => entry.item.id))
   additions.forEach((addition, i) => {
     const at = `/add/${i}`
+    const newItem = String(addition?.item?.id ?? '(no id)')
     const day = program.days.find((d) => d.id === addition?.dayId)
     if (!day) {
-      errors.push(`${at}/dayId: no day with id "${addition?.dayId}"`)
+      errors.push(`${at}/dayId: no day with id "${addition?.dayId}" for new item ${newItem}`)
       return
     }
     const section = day.sections.find((s) => s.id === addition.sectionId)
     if (!section) {
       errors.push(
-        `${at}/sectionId: day "${addition.dayId}" has no section "${addition.sectionId}"`,
+        `${at}/sectionId: day "${addition.dayId}" has no section "${addition.sectionId}" for new item ${newItem}`,
       )
       return
     }
@@ -264,19 +270,19 @@ export function validateProposal(
       !section.items.some((item) => item.id === addition.afterItemId)
     ) {
       errors.push(
-        `${at}/afterItemId: section "${addition.sectionId}" has no item "${addition.afterItemId}"`,
+        `${at}/afterItemId: section "${addition.sectionId}" has no item "${addition.afterItemId}" for new item ${newItem}`,
       )
     }
     if (!validateItem(addition.item)) {
-      errors.push(...ajvErrors(`${at}/item`, validateItem.errors))
+      errors.push(...ajvErrors(`${at}/item`, validateItem.errors, newItem))
       return
     }
     // D-028: retirement is the user's edit, never part of a new item.
     if (Object.prototype.hasOwnProperty.call(addition.item, 'retiredFrom')) {
-      errors.push(`${at}/item/retiredFrom: a new item cannot arrive retired`)
+      errors.push(`${at}/item/retiredFrom: "retiredFrom" is not allowed on new item ${newItem}`)
     }
     if (knownItemIds.has(addition.item.id)) {
-      errors.push(`${at}/item/id: "${addition.item.id}" is already used`)
+      errors.push(`${at}/item/id: "id" ${addition.item.id} is already used by an item`)
     }
     knownItemIds.add(addition.item.id)
     const known = Object.prototype.hasOwnProperty.call(
@@ -285,17 +291,17 @@ export function validateProposal(
     )
     if (!known && !addition.exercise) {
       errors.push(
-        `${at}/item/exerciseId: no exercise with id "${addition.item.exerciseId}", and no "exercise" object was supplied`,
+        `${at}/item/exerciseId: no exercise with id "${addition.item.exerciseId}", and no "exercise" object was supplied, for new item ${newItem}`,
       )
     }
     if (addition.exercise && typeof addition.exercise.name !== 'string') {
-      errors.push(`${at}/exercise/name: must be a string`)
+      errors.push(`${at}/exercise/name: "name" must be a string for new item ${newItem}`)
     }
   })
 
   removals.forEach((removal, i) => {
     if (!removal?.itemId || !findItem(program, removal.itemId)) {
-      errors.push(`/remove/${i}/itemId: no item with id "${removal?.itemId}"`)
+      errors.push(`/remove/${i}/itemId: "itemId" names no item: ${removal?.itemId}`)
     }
   })
 
@@ -314,6 +320,26 @@ export function validateProposal(
 
 // ── Applying ──
 
+/**
+ * Insert additions into the base program (D-043 rule 3), after their
+ * afterItemId or first in the section. Mutates `program`; callers pass a copy.
+ */
+export function addAdditions(program: Program, additions: Addition[]): void {
+  for (const addition of additions) {
+    const day = program.days.find((d) => d.id === addition.dayId)
+    const section = day?.sections.find((s) => s.id === addition.sectionId)
+    if (!section) continue
+    if (addition.exercise) {
+      program.exercises[addition.item.exerciseId] = addition.exercise
+    }
+    const at =
+      addition.afterItemId === null || addition.afterItemId === undefined
+        ? -1
+        : section.items.findIndex((item) => item.id === addition.afterItemId)
+    section.items.splice(at + 1, 0, structuredClone(addition.item))
+  }
+}
+
 /** Apply an approved proposal, returning a new program. Never mutates input. */
 export function applyProposal(program: Program, proposal: Proposal): Program {
   const next: Program = structuredClone(program)
@@ -330,19 +356,7 @@ export function applyProposal(program: Program, proposal: Proposal): Program {
     }
   }
 
-  for (const addition of proposal.add) {
-    const day = next.days.find((d) => d.id === addition.dayId)
-    const section = day?.sections.find((s) => s.id === addition.sectionId)
-    if (!section) continue
-    if (addition.exercise) {
-      next.exercises[addition.item.exerciseId] = addition.exercise
-    }
-    const at =
-      addition.afterItemId === null || addition.afterItemId === undefined
-        ? -1
-        : section.items.findIndex((item) => item.id === addition.afterItemId)
-    section.items.splice(at + 1, 0, structuredClone(addition.item))
-  }
+  addAdditions(next, proposal.add)
 
   const removing = new Set(proposal.remove.map((removal) => removal.itemId))
   for (const day of next.days) {

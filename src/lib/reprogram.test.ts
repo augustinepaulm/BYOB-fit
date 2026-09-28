@@ -78,7 +78,7 @@ describe('validateProposal', () => {
     )
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors[0]).toContain('no item with id "nope"')
+    expect(result.errors[0]).toBe('/overrides/0/itemId: "itemId" names no item: nope')
   })
 
   it('rejects fields the schema does not allow', () => {
@@ -136,7 +136,8 @@ describe('validateProposal', () => {
     )
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors.join(' ')).toContain('/overrides/0/fields')
+    // D-043 rule 4: path, key and item.
+    expect(result.errors).toContain('/overrides/0/fields/targetWeight: unknown field "targetWeight" on item i1')
   })
 
   it('accepts an override whose fields are all known item fields', () => {
@@ -179,7 +180,7 @@ describe('validateProposal', () => {
     )
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(result.errors).toContain('/add/0/item/retiredFrom: a new item cannot arrive retired')
+    expect(result.errors).toContain('/add/0/item/retiredFrom: "retiredFrom" is not allowed on new item i3')
   })
 
   it('accepts an addition that carries its own exercise', () => {
