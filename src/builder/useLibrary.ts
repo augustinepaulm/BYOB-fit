@@ -14,21 +14,35 @@ export interface LoadedTemplate {
   program: Program
 }
 
-/** The three starter programs from public/templates/ (precached for offline). */
+let starterLoad: Promise<LoadedTemplate[]> | null = null
+
+/**
+ * The three starter programs from public/templates/ (precached for offline),
+ * fetched once per page load and shared by onboarding, the builder and the
+ * pickers. A failed load is forgotten so the next screen can try again.
+ */
+export function loadStarterTemplates(): Promise<LoadedTemplate[]> {
+  starterLoad ??= Promise.all(
+    STARTER_TEMPLATES.map(async (t) => {
+      const response = await fetch(`${import.meta.env.BASE_URL}templates/${t.file}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const result = importProgramText(await response.text())
+      if (!result.ok) throw new Error(result.errors[0])
+      return { file: t.file, level: t.level, program: result.program }
+    }),
+  ).catch((e: Error) => {
+    starterLoad = null
+    throw e
+  })
+  return starterLoad
+}
+
 export function useStarterTemplates(): { templates: LoadedTemplate[] | null; error: string | null } {
   const [templates, setTemplates] = useState<LoadedTemplate[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     let live = true
-    void Promise.all(
-      STARTER_TEMPLATES.map(async (t) => {
-        const response = await fetch(`${import.meta.env.BASE_URL}templates/${t.file}`)
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const result = importProgramText(await response.text())
-        if (!result.ok) throw new Error(result.errors[0])
-        return { file: t.file, level: t.level, program: result.program }
-      }),
-    ).then(
+    void loadStarterTemplates().then(
       (loaded) => live && setTemplates(loaded),
       (e: Error) => live && setError(e.message),
     )

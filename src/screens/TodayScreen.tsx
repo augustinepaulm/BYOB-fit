@@ -5,15 +5,47 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { ReviewBanner } from '../ai/parts.tsx'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
+import { shouldShowBackupNote } from '../lib/notices.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, isLogged, resolveItem } from '../lib/program.ts'
 import { buildDeck, findEntry, isSetConfirmed, restDayState, summarise } from '../lib/session.ts'
 import { PrimaryButton, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
+import { useSettings } from '../settings/useSettings.ts'
 import type { Program, Section } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, SwapIcon } from '../ui/icons.tsx'
+import { StateBlock } from '../ui/StateBlock.tsx'
+
+/** Frame 7a "Loading": shown while the program is read from the phone. */
+export function TodayLoading() {
+  return (
+    <div className="tl">
+      <div className="tl-state">
+        <StateBlock role="status" mark="loading" title="Loading today" body="This only takes a moment." />
+      </div>
+    </div>
+  )
+}
+
+/** Frame 7a "Monthly backup reminder" (D-050 rule 2): one note, dismissible. */
+function BackupNote() {
+  const navigate = useNavigate()
+  const { settings, loading, update } = useSettings()
+  if (loading || !shouldShowBackupNote(settings, new Date())) return null
+  return (
+    <div className="tl-state tl-state--note">
+      <StateBlock
+        mark="↓"
+        title="Back up your data"
+        body={settings.lastExportAt ? 'It’s been a month since your last export.' : 'You haven’t exported your data yet.'}
+        primary={{ label: 'Export now', onClick: () => navigate('/settings', { state: { export: true } }) }}
+        secondary={{ label: 'Not now', onClick: () => void update({ backupNoteDismissedAt: new Date().toISOString() }) }}
+      />
+    </div>
+  )
+}
 
 function SectionList({
   section,
@@ -98,7 +130,30 @@ export function TodayScreen() {
 
   const deck = useMemo(() => (day && program ? buildDeck(day, week, today) : []), [day, program, week, today])
 
-  if (!program || !day) return null
+  if (!program) {
+    // 7a "No program yet": onboarding finished without one, or it was removed.
+    return (
+      <div className="tl">
+        <div className="tl-head">
+          <div className="tl-head__meta">
+            <span>{formatLongDate(today)}</span>
+          </div>
+          <h1 className="tl-head__title">Today</h1>
+        </div>
+        <BackupNote />
+        <div className="tl-state">
+          <StateBlock
+            mark="+"
+            title="No program yet"
+            body="Pick a starter program or build your own. It takes a few minutes."
+            primary={{ label: 'Pick a starter', onClick: () => navigate('/program/new') }}
+            secondary={{ label: 'Build my own', onClick: () => navigate('/program/new', { state: { build: true } }) }}
+          />
+        </div>
+      </div>
+    )
+  }
+  if (!day) return null
 
   const session = api.session ?? undefined
   const finished = Boolean(session?.endedAt)
@@ -119,8 +174,15 @@ export function TodayScreen() {
     const restDone = restDayState(session, deck) === 'done'
     return (
       <div className="tl">
-        {head('Rest day', deck.length ? "Recovery counts as training. Today's daily items:" : 'Recovery counts as training. Daily items live on your next session.')}
+        {/* With nothing scheduled, the 7a state block carries the words. */}
+        {deck.length ? head('Rest day', "Recovery counts as training. Today's daily items:") : head('Today', '')}
+        <BackupNote />
         <ReviewBanner program={program} />
+        {deck.length === 0 && (
+          <div className="tl-state">
+            <StateBlock mark="–" title="Rest day" body="Nothing scheduled. Recovery counts as training." />
+          </div>
+        )}
         {day.sections.map((section) => (
           <SectionList
             key={section.id}
@@ -158,12 +220,13 @@ export function TodayScreen() {
 
   async function enterDeck() {
     await api.start()
-    navigate('/deck')
+    navigate('/deck', { state: { fromToday: true } })
   }
 
   return (
     <div className="tl" style={{ paddingBottom: 8 }}>
       {head(day.focus ?? day.name, sub)}
+      <BackupNote />
       <ReviewBanner program={program} />
       {swapped && (
         <div className="banner">

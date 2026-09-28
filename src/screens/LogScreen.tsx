@@ -24,6 +24,7 @@ import { BuilderBar } from '../builder/ui.tsx'
 import { useStarterTemplates } from '../builder/useLibrary.ts'
 import { SectionHead } from '../onboarding/ui.tsx'
 import { ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
+import { StateBlock } from '../ui/StateBlock.tsx'
 
 const MONTH_DAY = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -127,10 +128,8 @@ export function LogScreen() {
     [program, week],
   )
 
-  if (!program) return null
-
   // The active program's exercises, plus any logged under an earlier program.
-  const ids = new Set([...Object.keys(program.exercises), ...history.keys()])
+  const ids = new Set([...Object.keys(program?.exercises ?? {}), ...history.keys()])
   const rows = [...ids]
     .map((id) => {
       const logged = history.get(id) ?? []
@@ -178,8 +177,20 @@ export function LogScreen() {
           Index lifts
         </button>
       </div>
-      <div style={{ margin: '12px 24px 24px', borderTop: '1.5px solid var(--text)' }}>
-        {rows.length === 0 && <p className="bd-hint">No exercises match.</p>}
+      {history.size === 0 && query.trim() === '' && !indexOnly && (
+        // 7c "Log, nothing logged"
+        <div className="tl-state">
+          <StateBlock mark="–" title="Nothing logged yet" body="Finish a session and your sets show up here." />
+        </div>
+      )}
+      <div style={{ margin: '12px 24px 24px', borderTop: rows.length ? '1.5px solid var(--text)' : undefined }}>
+        {rows.length === 0 && query.trim() !== '' && (
+          // 7c "Log search, no match"
+          <div className="lg-state">
+            <StateBlock mark="?" title={`No exercises match “${query.trim()}”`} body="Only exercises you have logged are listed." />
+          </div>
+        )}
+        {rows.length === 0 && query.trim() === '' && indexOnly && <p className="bd-hint">No index lifts in this program.</p>}
         {rows.map((row) => (
           <Link className="lg-row log-row" to={`/log/${row.id}`} key={row.id}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -240,7 +251,6 @@ export function ExerciseLogScreen() {
   const weeks = useMemo(() => weeksWithExercise(sessions, exerciseId), [sessions, exerciseId])
   const [picked, setPicked] = useState<{ from: number | null; to: number | null } | null>(null)
 
-  if (!program) return null
   const logged: ExerciseSession[] = history.get(exerciseId) ?? []
   const series = topSetSeries(logged)
   // Defaults: the latest week with this exercise, and the one before it.
@@ -249,7 +259,7 @@ export function ExerciseLogScreen() {
   const toSets = to !== null ? setsInWeek(sessions, exerciseId, to) : []
   const fromBest = bestSetOf(fromSets)
   const toBest = bestSetOf(toSets)
-  const change = bestSetChange(fromBest, toBest, unitFor(program, exerciseId))
+  const change = bestSetChange(fromBest, toBest, program ? unitFor(program, exerciseId) : 'kg')
   const count = Math.max(fromSets.length, toSets.length)
 
   return (
@@ -265,6 +275,13 @@ export function ExerciseLogScreen() {
         </p>
       ) : (
         <>
+          {weeks.length === 1 ? (
+            // 7c "Log detail, one week only"
+            <div className="tl-state">
+              <StateBlock mark="–" title="Only one week so far" body="The comparison appears after your second week." />
+            </div>
+          ) : (
+          <>
           <div className="lg-pickers">
             <WeekPicker label="Compare" value={from} weeks={weeks} onChange={(w) => setPicked({ from: w, to })} />
             <span className="lg-pickers__vs">vs</span>
@@ -290,6 +307,8 @@ export function ExerciseLogScreen() {
             </div>
           </div>
           {change && <div className="lg-change">{change}</div>}
+          </>
+          )}
 
           <div style={{ margin: '0 24px' }}>
             <SectionHead aside={`${weeksSpanned(series)} ${weeksSpanned(series) === 1 ? 'week' : 'weeks'}`}>Top-set weight</SectionHead>

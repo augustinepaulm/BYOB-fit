@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.11 · Date: Monday, Sep 28, 2026 (v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.12 · Date: Monday, Sep 28, 2026 (v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -91,7 +91,7 @@ Settings  { apiKey, model, lastExportAt, rules, mealBaseline, mealFoods?: [{ nam
 Goals     { items: [{ rank, type: lose_weight|lose_fat|build_muscle|get_stronger|improve_cardio|general,
             target?: { amount, unit: lb|kg|percent|km|min, exerciseId? } }], timeframeWeeks: 4|8|12|16,
             startDate, currentStats?: { weight?, weightUnit?, bodyFatPct?, heightCm?, age?, sex?: male|female, activity?: sitting|active|very_active (D-046) }, updatedAt }
-SentLog   { id, at, kind: review|update|meals, privacyLevel, payloadSummary, payload }   (Phase 9)
+SentLog   { id, at, kind: review|update|meals, privacyLevel, payloadSummary, payload, status?: sent|failed, error? }   (Phase 9; status D-050)
 ```
 
 v1.5 storage rules: IndexedDB version 3 adds `goals` (one record, key `me`) and `sentLog` (keyPath `id`, index `at`), and rewrites every stored program's `schemaVersion` to 2 on upgrade. Export envelope version 2 adds `goals` and `sentLog`; import reads versions 1 and 2 (version 1 files restore with empty goals and sent log); any other version is refused. `currentStats` and the API key never leave the phone except that `currentStats` is included in the user's own export file.
@@ -202,7 +202,9 @@ Phase 10A: merged Sep 28, 2026 (24ed3fb). Found in verification: Log shows an ex
 10B.2 Calorie and protein target (D-046, D-049 rule 4) with the floor state (3p)
 10B.3 Goal setter current stats gain height, age, sex and activity (D-046)
 
-### Phase 11: Settings, privacy and polish (gate: every frame, light and dark, on an iPhone and an Android phone)
+Phase 10B: merged Sep 28, 2026 (013a882).
+
+### Phase 11: Settings, privacy and polish (gate: every frame, light and dark, on Auggie's iPhone; Android on a real phone if one is available, otherwise Chrome's Android emulation, labeled as emulation)
 Frames 5b to 5j, 7a to 7e, all `-dark` frames. Cross-device check. Two corrections to frame 5c: add the Appearance row under Units (D-039), and show the stored model name, default `claude-sonnet-5` (D-005), not the frame's `claude-sonnet-4-5`.
 
 ### Phase 12: Retrospective
@@ -220,8 +222,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-049 | 91936ce8414631a22d5e7d410d63372d |
-| docs/PLAN.md | This file, v1.11 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-050 | 061f058e03ce0c58b610c19d86438650 |
+| docs/PLAN.md | This file, v1.12 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -236,7 +238,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-08.md | Executor prompt, Phase 8 | 12d5247c42d150f20a1105a335415365 |
 | docs/EXEC-09.md | Executor prompt, Phase 9 | f51e5a90dfd6ec7539c2cf5df539bfd5 |
 | docs/EXEC-10A.md | Executor prompt, Phase 10A | 0ce9f9998e3cd4b668f19519a99bfaab |
-| docs/EXEC-10B.md | Executor prompt, Phase 10B | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-10B.md | Executor prompt, Phase 10B | 490b7230e2ca66e6dca75f1a88c9f889 |
+| docs/EXEC-11.md | Executor prompt, Phase 11 | recorded in chat at delivery (it checks this file's hash) |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
@@ -255,7 +258,7 @@ Served-bytes vs fresh local build for anything deployed. Visual acceptance on Au
 
 ## 10. Backlog (parked, named, not blocking)
 
-B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b · B-10 Convert an existing program between kg and lb as an explicit action (D-040) · B-9 Home-equipment versions of the starter programs (stated by Auggie Sep 28, 2026: after the complete build)
+B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b · B-10 Convert an existing program between kg and lb as an explicit action (D-040) · B-11 App icon in the 1b direction (D-050) · B-9 Home-equipment versions of the starter programs (stated by Auggie Sep 28, 2026: after the complete build)
 
 ## 11. Open items
 

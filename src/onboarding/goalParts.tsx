@@ -14,11 +14,11 @@ import {
   timeframeLine,
   toggleGoal,
   type GoalDraft,
+  ACTIVITY_OPTIONS,
   type ProfileDraft,
   type Timeframe,
 } from '../lib/goals.ts'
 import type { LoadUnit } from '../types/program.ts'
-import type { Activity } from '../types/stores.ts'
 import {
   ChevronDown,
   ChoiceRow,
@@ -325,6 +325,8 @@ export function CurrentStats({
             />
             <span className="ob-field__unit">{unit}</span>
           </div>
+          {/* D-050 rule 3 */}
+          <div className="ob-stats__privacy">Sent only at the Full privacy level</div>
         </div>
         <div className="ob-stats__cell">
           <label className="ob-stats__label" htmlFor="stat-fat">
@@ -340,6 +342,7 @@ export function CurrentStats({
             />
             <span className="ob-field__unit">%</span>
           </div>
+          <div className="ob-stats__privacy">Never sent</div>
         </div>
       </div>
       {children}
@@ -351,12 +354,6 @@ export function CurrentStats({
   )
 }
 
-const ACTIVITIES: { value: Activity; title: string; sub: string }[] = [
-  { value: 'sitting', title: 'Mostly sitting', sub: 'Desk work and little exercise' },
-  { value: 'active', title: 'Active most days', sub: 'About an hour of moderate exercise' },
-  { value: 'very_active', title: 'Very active', sub: 'Hard training or physical work most days' },
-]
-
 /** Height, age, sex and activity for the calorie formula (5a, D-046): optional, never sent. */
 export function ProfileStats({
   draft,
@@ -367,7 +364,7 @@ export function ProfileStats({
   onChange: (draft: ProfileDraft) => void
   unit: LoadUnit
 }) {
-  const field = (id: string, label: string, key: 'heightCm' | 'feet' | 'inches' | 'age', suffix: string, inputMode: 'decimal' | 'numeric' = 'decimal') => (
+  const field = (id: string, label: string, key: 'heightCm' | 'feet' | 'inches' | 'age', suffix: string, inputMode: 'decimal' | 'numeric' = 'decimal', privacy = 'Never sent') => (
     <div className="ob-stats__cell">
       <label className="ob-stats__label" htmlFor={id}>
         {label}
@@ -376,6 +373,7 @@ export function ProfileStats({
         <input id={id} aria-label={key === 'inches' ? 'Height, inches' : undefined} inputMode={inputMode} placeholder="Optional" value={draft[key]} onChange={(event) => onChange({ ...draft, [key]: event.target.value })} />
         <span className="ob-field__unit">{suffix}</span>
       </div>
+      <div className="ob-stats__privacy">{privacy}</div>
     </div>
   )
   return (
@@ -384,7 +382,7 @@ export function ProfileStats({
         {unit === 'lb' ? (
           <>
             {field('stat-feet', 'Height', 'feet', 'ft', 'numeric')}
-            {field('stat-inches', '\u00a0', 'inches', 'in')}
+            {field('stat-inches', '\u00a0', 'inches', 'in', 'decimal', '\u00a0')}
           </>
         ) : (
           field('stat-height', 'Height', 'heightCm', 'cm')
@@ -403,11 +401,12 @@ export function ProfileStats({
         value={draft.sex}
         onChange={(sex) => onChange({ ...draft, sex: draft.sex === sex ? undefined : sex })}
       />
+      <div className="ob-stats__privacy">Never sent</div>
       <div className="ob-stats__label" style={{ marginTop: 14 }}>
         Activity
       </div>
       <div role="radiogroup" aria-label="Activity">
-        {ACTIVITIES.map((a) => (
+        {ACTIVITY_OPTIONS.map((a) => (
           <ChoiceRow
             key={a.value}
             compact
@@ -418,6 +417,7 @@ export function ProfileStats({
           />
         ))}
       </div>
+      <div className="ob-stats__privacy">Never sent</div>
       <div style={{ height: 12 }} />
     </>
   )

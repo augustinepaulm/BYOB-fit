@@ -33,3 +33,17 @@ describe('dark tokens (D-039, EXEC-07.1 task 5)', () => {
     expect([...override.entries()].sort()).toEqual([...system.entries()].sort())
   })
 })
+
+describe('literal colours outside the token blocks (EXEC-11 task 10)', () => {
+  it('theme-color values equal the Ground tokens', async () => {
+    const { GROUND } = await import('./appearance.ts')
+    expect(declarations(':root {').get('--bg')).toBe(GROUND.light)
+    expect(declarations(':root[data-theme="dark"] {').get('--bg')).toBe(GROUND.dark)
+  })
+
+  it('no colour literal outside :root and the two dark blocks', () => {
+    const end = css.indexOf('}', css.indexOf(':root[data-theme="dark"] {'))
+    const rest = css.slice(end + 1)
+    expect(rest.match(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/g) ?? []).toEqual([])
+  })
+})

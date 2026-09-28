@@ -2,7 +2,7 @@
 // Every answer lives in wizard state and survives Back; nothing is stored
 // until Go to Today on the summary step.
 
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 
 import {
@@ -25,7 +25,6 @@ import {
 } from '../lib/goals.ts'
 import { importProgramText } from '../lib/importProgram.ts'
 import {
-  STARTER_TEMPLATES,
   applyUnit,
   loadRepsExercises,
   longestSessionMin,
@@ -38,8 +37,10 @@ import {
 import { recordStoragePersistence } from '../lib/storage.ts'
 import { AIIntroStep, AIKeyStep } from '../onboarding/AISteps.tsx'
 import { BuilderEntry } from '../builder/BuilderEntry.tsx'
+import { useStarterTemplates } from '../builder/useLibrary.ts'
 import { StarterReview } from '../builder/StarterReview.tsx'
 import { useProgram } from '../program/useProgram.ts'
+import { SAFETY_TITLE, SafetyNotice } from '../onboarding/safety.tsx'
 import {
   CurrentStats,
   GoalBox,
@@ -89,12 +90,6 @@ interface Answers {
   privacyLevel: PrivacyLevel
 }
 
-interface LoadedTemplate {
-  file: string
-  level: string
-  program: Program
-}
-
 export function OnboardingScreen() {
   const navigate = useNavigate()
   const { program: activeProgram, loading, refresh } = useProgram()
@@ -106,8 +101,8 @@ export function OnboardingScreen() {
     apiKey: '',
     privacyLevel: 'minimal',
   })
-  const [templates, setTemplates] = useState<LoadedTemplate[] | null>(null)
-  const [templateError, setTemplateError] = useState<string | null>(null)
+  // Starter programs from public/templates/, loaded once per page load (EXEC-11 task 11).
+  const { templates, error: templateError } = useStarterTemplates()
   const [importErrors, setImportErrors] = useState<string[]>([])
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -123,26 +118,6 @@ export function OnboardingScreen() {
     setPath((p) => (p.length > 1 ? p.slice(0, -1) : p))
     window.scrollTo({ top: 0 })
   }
-
-  // Starter programs come from public/templates/, precached for offline use.
-  useEffect(() => {
-    let live = true
-    void Promise.all(
-      STARTER_TEMPLATES.map(async (t) => {
-        const response = await fetch(`${import.meta.env.BASE_URL}templates/${t.file}`)
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        const result = importProgramText(await response.text())
-        if (!result.ok) throw new Error(result.errors[0])
-        return { file: t.file, level: t.level, program: result.program }
-      }),
-    ).then(
-      (loaded) => live && setTemplates(loaded),
-      (error: Error) => live && setTemplateError(error.message),
-    )
-    return () => {
-      live = false
-    }
-  }, [])
 
   const chosenProgram = answers.program?.program ?? null
 
@@ -310,17 +285,8 @@ export function OnboardingScreen() {
         <StepNav step={n} onBack={back} />
         <div className="ob-head">
           <div className="ob-step">Step 3 of 8</div>
-          <h1 className="ob-title">Before you start</h1>
-          <div className="ob-notice">
-            BYOB-fit is not medical advice. Check with a doctor or physiotherapist before starting a
-            new training program if you have a heart, lung, bone or joint condition, take medicine
-            for your heart or blood pressure, are pregnant, are recovering from an injury or
-            surgery, or have felt chest pain, dizziness or faintness during exercise.
-          </div>
-          <div className="ob-notice ob-notice--stop">
-            During any workout, stop if you feel chest pain, severe breathlessness, dizziness or
-            sharp pain.
-          </div>
+          <h1 className="ob-title">{SAFETY_TITLE}</h1>
+          <SafetyNotice />
         </div>
         <Dock>
           <PrimaryButton

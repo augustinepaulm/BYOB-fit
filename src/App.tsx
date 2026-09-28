@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { ProgramProvider } from './program/ProgramProvider.tsx'
 import { AppNotices } from './pwa/AppNotices.tsx'
 import { RequireProgram } from './program/RequireProgram.tsx'
+import { PrivacyPageScreen, SafetyScreen } from './screens/AboutScreens.tsx'
 import { BuildScreen } from './screens/BuildScreen.tsx'
 import { DeckScreen } from './screens/DeckScreen.tsx'
 import { ImportScreen } from './screens/ImportScreen.tsx'
@@ -16,7 +17,7 @@ import { ReviewScreen } from './screens/ReviewScreen.tsx'
 import { EditProgramScreen, NewProgramScreen } from './screens/ProgramScreens.tsx'
 import { ProfileScreen } from './screens/ProfileScreen.tsx'
 import { SettingsScreen } from './screens/SettingsScreen.tsx'
-import { TodayScreen } from './screens/TodayScreen.tsx'
+import { TodayLoading, TodayScreen } from './screens/TodayScreen.tsx'
 import { WeekScreen } from './screens/WeekScreen.tsx'
 import { PlainLayout, TabbedLayout } from './ui/AppShell.tsx'
 
@@ -31,7 +32,8 @@ export default function App() {
             <Route path="/import" element={<ImportScreen />} />
             <Route path="/welcome" element={<OnboardingScreen />} />
           </Route>
-          <Route element={<RequireProgram />}>
+          {/* Screens with an empty state for "no program yet" (7a, 7c). */}
+          <Route element={<RequireProgram allowEmpty todayLoading={<TodayLoading />} />}>
             <Route element={<TabbedLayout />}>
               <Route path="/" element={<TodayScreen />} />
               <Route path="/week" element={<WeekScreen />} />
@@ -41,16 +43,23 @@ export default function App() {
               <Route path="/profile" element={<ProfileScreen />} />
             </Route>
             <Route element={<PlainLayout />}>
-              <Route path="/deck" element={<DeckScreen />} />
-              <Route path="/build" element={<BuildScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
               <Route path="/goal" element={<GoalScreen />} />
-              <Route path="/program/edit" element={<EditProgramScreen />} />
               <Route path="/program/new" element={<NewProgramScreen />} />
-              <Route path="/review" element={<ReviewScreen />} />
               <Route path="/settings/privacy" element={<PrivacyLevelScreen />} />
               <Route path="/settings/sent-log" element={<SentLogScreen />} />
               <Route path="/settings/foods" element={<FoodsScreen />} />
+              <Route path="/settings/privacy-page" element={<PrivacyPageScreen />} />
+              <Route path="/settings/safety" element={<SafetyScreen />} />
+            </Route>
+          </Route>
+          {/* Screens that need a program. */}
+          <Route element={<RequireProgram />}>
+            <Route element={<PlainLayout />}>
+              <Route path="/deck" element={<DeckScreen />} />
+              <Route path="/build" element={<BuildScreen />} />
+              <Route path="/program/edit" element={<EditProgramScreen />} />
+              <Route path="/review" element={<ReviewScreen />} />
             </Route>
           </Route>
         </Routes>

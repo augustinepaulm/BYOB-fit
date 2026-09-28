@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { saveProgram, setActiveProgram } from '../db/index.ts'
@@ -6,11 +6,15 @@ import { importProgramText } from '../lib/importProgram.ts'
 import { recordStoragePersistence } from '../lib/storage.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Program } from '../types/program.ts'
+import { ImportErrorState } from '../ui/StateBlock.tsx'
 
 export function ImportScreen() {
   const { refresh } = useProgram()
   const navigate = useNavigate()
   const [errors, setErrors] = useState<string[]>([])
+  // 7e: a file that fails the checks; the sample's fetch errors stay as before.
+  const [fileFailed, setFileFailed] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 
   async function activate(program: Program) {
@@ -22,13 +26,15 @@ export function ImportScreen() {
     navigate('/', { replace: true })
   }
 
-  async function load(text: string) {
+  async function load(text: string, fromFile = false) {
     const result = importProgramText(text)
     if (!result.ok) {
       setErrors(result.errors)
+      setFileFailed(fromFile)
       return
     }
     setErrors([])
+    setFileFailed(false)
     await activate(result.program)
   }
 
@@ -54,7 +60,7 @@ export function ImportScreen() {
     if (!file) return
     setBusy(true)
     try {
-      await load(await file.text())
+      await load(await file.text(), true)
     } finally {
       setBusy(false)
     }
@@ -81,6 +87,7 @@ export function ImportScreen() {
         <label className="file-label">
           <span className="btn-secondary">Import program file</span>
           <input
+            ref={fileInput}
             type="file"
             accept=".json,application/json"
             onChange={(event) => void onFile(event)}
@@ -88,7 +95,8 @@ export function ImportScreen() {
           />
         </label>
       </div>
-      {errors.length > 0 && (
+      {fileFailed && <ImportErrorState errors={errors} onChoose={() => fileInput.current?.click()} />}
+      {errors.length > 0 && !fileFailed && (
         <div className="errors">
           <div className="errors__title">
             {errors.length === 1 ? '1 problem' : `${errors.length} problems`} — nothing was saved

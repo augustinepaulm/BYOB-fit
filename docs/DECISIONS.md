@@ -212,3 +212,12 @@ Makes D-032 and D-046 buildable.
 2. Line grammar, matched on the phone, case-insensitive with spaces collapsed: `<food>` or `BASE <food>` counts that food once; `ADD <food>` or `ADD <food> <n>` counts it n times; `SKIP <food>` subtracts it once. `<food>` must equal a baseline food's name. Any other line is unmatched.
 3. Unmatched lines are listed under Needs AI, with "Send these lines" (the preview shows only those lines, the foods and the free-text baseline) or "Enter kcal myself". Each line's result records its source: phone, ai or manual. Today's total excludes lines still waiting.
 4. Target details. The deficit and the 2.0 g/kg protein apply when the main goal (rank 1) is lose weight or lose body fat. Weight, height, age, sex and activity come from the goal setter's current stats; with no weight there is no target, and with weight but not all of height, age, sex and activity there is a protein target only.
+
+## D-050 Release polish (FROZEN, Sep 28, 2026)
+Closes the items parked during Phases 6 to 10B.
+1. Sent log status. Entries keep being written before a call is sent (nothing is ever sent unlogged) and gain `status: 'sent' | 'failed'`, updated when the call returns; a failed row says so and shows the error. Entries without a status read as sent.
+2. Backup reminder. When the setting is on and the last export is more than 30 days old (or there never was one), Today shows one dismissible note linking to Export. No notifications. Dismissing hides it until the next 30-day mark.
+3. Privacy copy. Under current stats: weight "Sent only at the Full privacy level"; height, age, sex and activity "Never sent".
+4. The privacy page (frame 5i) and the safety notice (frame 5j) are reachable from Settings, as D-029 requires; neither was built before this release. The safety notice text is the D-029 wording, unchanged.
+5. The app shows its version in Settings (frame 5d) from `package.json`, set to 2.0.0 for this release.
+6. The app icon is not redesigned in this release; it becomes backlog B-11, because no design exists for it.

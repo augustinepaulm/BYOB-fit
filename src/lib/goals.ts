@@ -201,6 +201,13 @@ export function statsFromInput(
   return Object.keys(stats).length ? stats : undefined
 }
 
+/** Activity for the calorie formula (5a); descriptions per EXEC-10B judgment call. */
+export const ACTIVITY_OPTIONS: { value: Activity; title: string; sub: string }[] = [
+  { value: 'sitting', title: 'Mostly sitting', sub: 'Desk work and little exercise' },
+  { value: 'active', title: 'Active most days', sub: 'About an hour of moderate exercise' },
+  { value: 'very_active', title: 'Very active', sub: 'Hard training or physical work most days' },
+]
+
 /** Height, age, sex and activity while editing (5a, EXEC-10B task 8). */
 export interface ProfileDraft {
   heightCm: string
