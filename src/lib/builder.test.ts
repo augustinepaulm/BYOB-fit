@@ -20,10 +20,13 @@ import {
   removeItem,
   reviewChecks,
   roundTrip,
+  sessionGroup,
   sessionMinutes,
   setSwappable,
   swapExercise,
+  swapInGroup,
   usedIds,
+  weekdaysLabel,
   weeksOfHistory,
 } from './builder.ts'
 
@@ -264,5 +267,48 @@ describe('days (2f)', () => {
 describe('howToSteps (2d)', () => {
   it('splits sentences', () => {
     expect(howToSteps('Sit down. Push up! Done?')).toEqual(['Sit down.', 'Push up!', 'Done?'])
+  })
+})
+
+describe('starter sessions group by focus (Phase 8 fix)', () => {
+  const p = structuredClone(starter3) as unknown as Program
+  const mon = p.days.find((d) => d.id === 'mon')!
+  const goblet = mon.sections.flatMap((s) => s.items).find((i) => i.exerciseId === 'goblet-squat')!
+  const legPress = { id: 'leg-press', exercise: p.exercises['leg-press'] }
+
+  it('groups Monday and Friday (Full body A), never Wednesday', () => {
+    expect(sessionGroup(p, 'mon').map((d) => d.id)).toEqual(['mon', 'fri'])
+    expect(sessionGroup(p, 'wed').map((d) => d.id)).toEqual(['wed'])
+  })
+
+  it('reads "Monday and Friday" in the 2b header', () => {
+    expect(weekdaysLabel(sessionGroup(p, 'mon'))).toBe('Monday and Friday')
+  })
+
+  it('a swap on Full body A changes Monday and Friday and never Wednesday', () => {
+    const next = swapInGroup(p, 'mon', goblet.id, legPress)
+    const ids = (dayId: string) => next.days.find((d) => d.id === dayId)!.sections.flatMap((s) => s.items).map((i) => i.exerciseId)
+    expect(ids('mon')).toContain('leg-press')
+    expect(ids('mon')).not.toContain('goblet-squat')
+    expect(ids('fri')).toContain('leg-press')
+    expect(ids('fri')).not.toContain('goblet-squat')
+    expect(ids('wed')).toEqual(p.days.find((d) => d.id === 'wed')!.sections.flatMap((s) => s.items).map((i) => i.exerciseId))
+  })
+
+  it('falls back to the name when a day has no focus', () => {
+    const q = blankProgram('b', '2026-09-27')
+    q.days[1].name = 'Push'
+    q.days[4].name = 'Push'
+    expect(sessionGroup(q, 'mon').map((d) => d.id)).toEqual(['mon', 'thu'])
+  })
+})
+
+describe('round trip with an alternate exercise', () => {
+  it('a test copy of the sample with alternateExerciseId comes back byte-identical', () => {
+    const copy = structuredClone(sample) as unknown as Program
+    const item = copy.days.find((d) => d.id === 'mon')!.sections.find((s) => s.kind === 'main')!.items[0]
+    item.alternateExerciseId = 'incline-db-press'
+    expect(roundTrip(copy)).toBe(JSON.stringify(copy))
+    expect(JSON.stringify(sample)).not.toContain('alternateExerciseId')
   })
 })

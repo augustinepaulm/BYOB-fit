@@ -8,8 +8,10 @@ import {
   defaultItem,
   lowerFirst,
   newId,
+  sessionGroup,
   sessionMinutes,
-  swapExercise,
+  swapInGroup,
+  weekdaysLabel,
   withExercise,
   type LibraryEntry,
 } from '../lib/builder.ts'
@@ -23,7 +25,6 @@ import type { LoadedTemplate } from './useLibrary.ts'
 import { useLibrary } from './useLibrary.ts'
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 /** Kinds listed plainly, without a demo or Swap (frame 2b's warm-up). */
 const PLAIN: SectionKind[] = ['warmup', 'cooldown', 'daily']
 
@@ -31,15 +32,6 @@ function exerciseCount(day: Day): number {
   return day.sections.filter((s) => !PLAIN.includes(s.kind)).reduce((n, s) => n + s.items.length, 0)
 }
 
-/** Training days that share a name are one template day used more than once. */
-function groupOf(program: Program, day: Day): Day[] {
-  return program.days.filter((d) => !d.rest && d.name === day.name).sort((a, b) => a.order - b.order)
-}
-
-function joinDays(days: Day[]): string {
-  const names = days.map((d) => WEEKDAY[d.order])
-  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-}
 
 type View =
   | { kind: 'week' }
@@ -69,7 +61,6 @@ export function StarterReview({
   const [view, setView] = useState<View>({ kind: 'week' })
   const library = useLibrary(program, templates)
   const changed = program !== template
-  const none = new Set<string>()
 
   if (view.kind === 'detail') {
     return <ExerciseDetail entry={view.entry} onBack={() => setView({ kind: 'day', dayId: view.dayId })} />
@@ -77,7 +68,7 @@ export function StarterReview({
 
   if (view.kind === 'swap' || view.kind === 'add') {
     const day = program.days.find((d) => d.id === view.dayId)!
-    const group = groupOf(program, day)
+    const group = sessionGroup(program, day.id)
     const item = view.kind === 'swap' ? day.sections.flatMap((s) => s.items).find((i) => i.id === view.itemId) : undefined
     const current = item ? { id: item.exerciseId, exercise: program.exercises[item.exerciseId] } : undefined
     const back = () => setView({ kind: 'day', dayId: view.dayId })
@@ -90,25 +81,24 @@ export function StarterReview({
         draft={program}
         onBack={back}
         onPick={(entry) => {
+          if (item) {
+            setProgram(swapInGroup(program, day.id, item.id, entry))
+            back()
+            return
+          }
+          // Add: a new item at the end of Main on every day of the session.
           let next = withExercise(program, entry)
           for (const d of group) {
-            if (item) {
-              // The same exercise in the same kind of section on each day of the group.
-              const kind = day.sections.find((s) => s.items.includes(item))?.kind
-              const matches = d.sections.filter((s) => s.kind === kind).flatMap((s) => s.items).filter((i) => i.exerciseId === item.exerciseId)
-              for (const m of matches) next = swapExercise(next, m.id, entry.id, none, '', none)
-            } else {
-              const id = newId(next, 'item')
-              const added: Item = defaultItem(id, entry.id, 'main', unit)
-              next = {
-                ...next,
-                days: next.days.map((x) => {
-                  if (x.id !== d.id) return x
-                  const main = x.sections.find((s) => s.kind === 'main')
-                  if (main) return { ...x, sections: x.sections.map((s) => (s === main ? { ...s, items: [...s.items, added] } : s)) }
-                  return { ...x, sections: [...x.sections, { id: newId(next, `${x.id}-main`), kind: 'main' as const, title: 'Main', items: [added] }] }
-                }),
-              }
+            const id = newId(next, 'item')
+            const added: Item = defaultItem(id, entry.id, 'main', unit)
+            next = {
+              ...next,
+              days: next.days.map((x) => {
+                if (x.id !== d.id) return x
+                const main = x.sections.find((s) => s.kind === 'main')
+                if (main) return { ...x, sections: x.sections.map((s) => (s === main ? { ...s, items: [...s.items, added] } : s)) }
+                return { ...x, sections: [...x.sections, { id: newId(next, `${x.id}-main`), kind: 'main' as const, title: 'Main', items: [added] }] }
+              }),
             }
           }
           setProgram(next)
@@ -121,7 +111,7 @@ export function StarterReview({
   // ── 2b One template day ──
   if (view.kind === 'day') {
     const day = program.days.find((d) => d.id === view.dayId)!
-    const group = groupOf(program, day)
+    const group = sessionGroup(program, day.id)
     const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
     const open = (exerciseId: string) =>
       setView({ kind: 'detail', dayId: day.id, entry: { id: exerciseId, exercise: program.exercises[exerciseId] } })
@@ -133,7 +123,7 @@ export function StarterReview({
           onBack={() => setView({ kind: 'week' })}
           right={<AppbarAction onClick={() => setView({ kind: 'week' })}>Done</AppbarAction>}
         />
-        <Hero title={day.name} sub={`${joinDays(group)} · about ${sessionMinutes(day)} min`} />
+        <Hero title={day.name} sub={`${weekdaysLabel(group)} · about ${sessionMinutes(day)} min`} />
         <Note>Tap an exercise to see how it’s done. Swap anything that doesn’t suit you.</Note>
         <div className="ob-pad">
           {sections.map((section) => (
