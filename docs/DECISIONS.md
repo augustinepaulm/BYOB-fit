@@ -141,3 +141,12 @@ Consequence: `docs/program.schema.json` v2; stored programs are upgraded when th
 ## D-036 Other people may use the app (FROZEN, Sep 27, 2026)
 PLAN section 1's single-user scope is lifted: the app is built so a stranger can install it and use it with their own program and, optionally, their own key. Promotion to strangers waits on O-7.
 Consequence: amends PLAN section 1. D-020 is unchanged: there is still no server and no account, and everyone brings their own key.
+
+## D-037 Starter programs (FROZEN, Sep 28, 2026)
+Three full-gym starter programs ship with the app under `public/templates/`: 3-day full body (beginner, 8 weeks), 4-day upper/lower (intermediate, 10 weeks), 5-day split (experienced, 12 weeks). Drafted by Claude and approved by Auggie without changes. Design rules, sources and the coverage matrix are in `docs/STARTER-PROGRAMS.md`: every major muscle group trained at least twice a week, about 10 weekly sets per group in the intermediate and experienced programs, heavier compound work there, 8 to 12 reps for beginners (ACSM position stands 2026 and 2009).
+Consequence: resolves O-8. Onboarding suggests the 3-day program for New and the 4-day program for Experienced. A home-equipment version is backlog B-9. Exercise how-to text stays DEFAULT until O-6.
+
+## D-038 byWeek overrides are closed (FROZEN, Sep 28, 2026)
+An override may carry only `itemFields` properties; any other key is rejected by the schema. The same closed shape validates the `fields` of an AI update's overrides.
+Rationale: found in Phase 6 verification. `itemFields` never closed its property list, so since Gate 2 an override, including one proposed by the model, could carry any key. The executor enforced the `retiredFrom` case in code; this closes the whole class in the contract.
+Consequence: `docs/program.schema.json` corrected without a version change, because it only rejects keys that were never part of the format. Every stored and seed program must still validate; a file that fails is reported, never silently changed.

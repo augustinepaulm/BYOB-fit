@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 2,
+  "id": "starter-3day-fullbody",
+  "name": "3-day full body",
+  "version": "starter-1",
+  "weekStartsOn": "sunday",
+  "programWeeks": 8,
+  "startDate": "2026-01-04",
+  "notes": "BYOB-fit starter template (beginner, full gym). Approved by the owner Sep 28, 2026 (D-037). startDate is a placeholder that onboarding replaces. Loads start empty and use the display unit the user chose.",
+  "exercises": {
+    "bike-easy": {
+      "name": "Easy bike or rower",
+      "howTo": "Pedal or row at a pace where you could hold a conversation. It raises your body temperature before lifting.",
+      "muscles": [
+        "cardio"
+      ],
+      "equipment": "cardio_machine",
+      "level": "beginner"
+    },
+    "cable-row": {
+      "name": "Seated cable row",
+      "howTo": "Sit tall with your feet on the platform. Pull the handle to your lower ribs, squeezing your shoulder blades together, then let your arms straighten slowly.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "db-bench": {
+      "name": "Dumbbell bench press",
+      "howTo": "Lie on a flat bench with a dumbbell in each hand above your chest. Lower them until your elbows are just below the bench, then press back up.",
+      "muscles": [
+        "chest"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "db-rdl": {
+      "name": "Dumbbell Romanian deadlift",
+      "howTo": "Hold dumbbells in front of your thighs. Push your hips back with a slight knee bend until you feel a stretch in your hamstrings, then stand tall.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "db-shoulder-press": {
+      "name": "Seated dumbbell shoulder press",
+      "howTo": "Sit upright with dumbbells at shoulder height. Press them overhead until your arms are straight, then lower slowly.",
+      "muscles": [
+        "shoulders"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "dead-bug": {
+      "name": "Dead bug",
+      "howTo": "Lie on your back with arms up and knees bent over your hips. Lower the opposite arm and leg slowly while keeping your lower back on the floor, then switch.",
+      "muscles": [
+        "core"
+      ],
+      "equipment": "none",
+      "level": "beginner"
+    },
+    "goblet-squat": {
+      "name": "Goblet squat",
+      "howTo": "Hold one dumbbell upright against your chest. Sit down between your heels with your chest up, then stand by pushing through your whole foot.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "hip-thrust-machine": {
+      "name": "Glute bridge or hip thrust",
+      "howTo": "With your upper back on a bench and feet flat, drive your hips up until your body is straight from shoulders to knees, then lower. Add load across your hips when bodyweight is easy.",
+      "muscles": [
+        "glutes",
+        "legs"
+      ],
+      "equipment": "bench",
+      "level": "beginner"
+    },
+    "lat-pulldown": {
+      "name": "Lat pulldown",
+      "howTo": "Grip the bar a little wider than your shoulders. Pull it to your upper chest while leaning back slightly, then let it rise under control.",
+      "muscles": [
+        "back"
+      ],
+      "equipment": "cable",
+      "level": "beginner"
+    },
+    "lateral-raise": {
+      "name": "Dumbbell lateral raise",
+      "howTo": "With a slight bend in your elbows, raise the dumbbells out to your sides to shoulder height, then lower slowly.",
+      "muscles": [
+        "shoulders"
+      ],
+      "equipment": "dumbbell",
+      "level": "beginner"
+    },
+    "leg-press": {
+      "name": "Leg press",
+      "howTo": "Sit with your back flat on the pad and feet shoulder-width on the plate. Lower until your knees are bent to about a right angle, then push back up without locking your knees.",
+      "muscles": [
+        "legs",
+        "glutes"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "machine-press": {
+      "name": "Machine chest press",
+      "howTo": "Adjust the seat so the handles are at mid-chest. Press forward until your arms are straight, then return slowly.",
+      "muscles": [
+        "chest"
+      ],
+      "equipment": "machine",
+      "level": "beginner"
+    },
+    "plank": {
+      "name": "Plank",
+      "howTo": "Rest on your forearms and toes with your body in a straight line from head to heels. Brace your stomach and breathe steadily.",
+      "muscles": [
+        "core"
+      ],
+      "equipment": "none",
+      "level": "beginner"
+    }
+  },
+  "days": [
+    {
+      "id": "sun",
+      "order": 0,
+      "name": "Sunday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    },
+    {
+      "id": "mon",
+      "order": 1,
+      "name": "Monday",
+      "focus": "Full body A",
+      "durationMin": 45,
+      "sections": [
+        {
+          "id": "mon-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i001",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "mon-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i002",
+              "exerciseId": "goblet-squat",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i003",
+              "exerciseId": "db-bench",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i004",
+              "exerciseId": "cable-row",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i005",
+              "exerciseId": "db-rdl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i006",
+              "exerciseId": "lateral-raise",
+              "type": "load_reps",
+              "sets": 2,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        },
+        {
+          "id": "mon-abs",
+          "kind": "abs",
+          "title": "Core",
+          "items": [
+            {
+              "id": "i007",
+              "exerciseId": "plank",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "restSec": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tue",
+      "order": 2,
+      "name": "Tuesday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    },
+    {
+      "id": "wed",
+      "order": 3,
+      "name": "Wednesday",
+      "focus": "Full body B",
+      "durationMin": 45,
+      "sections": [
+        {
+          "id": "wed-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i008",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "wed-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i009",
+              "exerciseId": "leg-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i010",
+              "exerciseId": "lat-pulldown",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i011",
+              "exerciseId": "db-shoulder-press",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i012",
+              "exerciseId": "hip-thrust-machine",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i013",
+              "exerciseId": "machine-press",
+              "type": "load_reps",
+              "sets": 2,
+              "repMin": 10,
+              "repMax": 12,
+              "restSec": 60
+            }
+          ]
+        },
+        {
+          "id": "wed-abs",
+          "kind": "abs",
+          "title": "Core",
+          "items": [
+            {
+              "id": "i014",
+              "exerciseId": "dead-bug",
+              "type": "bodyweight_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 8,
+              "restSec": 45,
+              "perSide": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thu",
+      "order": 4,
+      "name": "Thursday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    },
+    {
+      "id": "fri",
+      "order": 5,
+      "name": "Friday",
+      "focus": "Full body A",
+      "durationMin": 45,
+      "sections": [
+        {
+          "id": "fri-warmup",
+          "kind": "warmup",
+          "title": "Warm-up",
+          "items": [
+            {
+              "id": "i015",
+              "exerciseId": "bike-easy",
+              "type": "cardio_block",
+              "minutes": 5
+            }
+          ]
+        },
+        {
+          "id": "fri-main",
+          "kind": "main",
+          "title": "Main",
+          "items": [
+            {
+              "id": "i016",
+              "exerciseId": "goblet-squat",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i017",
+              "exerciseId": "db-bench",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i018",
+              "exerciseId": "cable-row",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i019",
+              "exerciseId": "db-rdl",
+              "type": "load_reps",
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "restSec": 90
+            },
+            {
+              "id": "i020",
+              "exerciseId": "lateral-raise",
+              "type": "load_reps",
+              "sets": 2,
+              "repMin": 12,
+              "repMax": 15,
+              "restSec": 60
+            }
+          ]
+        },
+        {
+          "id": "fri-abs",
+          "kind": "abs",
+          "title": "Core",
+          "items": [
+            {
+              "id": "i021",
+              "exerciseId": "plank",
+              "type": "timed_hold",
+              "sets": 3,
+              "holdSec": 30,
+              "restSec": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sat",
+      "order": 6,
+      "name": "Saturday",
+      "focus": "Rest",
+      "rest": true,
+      "sections": []
+    }
+  ]
+}

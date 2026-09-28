@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.5 · Date: Sunday, Sep 27, 2026 (v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.6 · Date: Monday, Sep 28, 2026 (v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -20,7 +20,7 @@ Success test for v2 (MODELED): a person who has never seen the app installs it, 
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists.
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists.
 
 ## 3. Inputs (private, never committed)
 
@@ -52,7 +52,7 @@ Source of truth for layout and copy: `design/BYOB-fit_v2_design.dc.html` (frame 
 
 The v1 screens in `design/BYOB-fit_Design.html` stay in force for each screen until the phase that rebuilds it.
 
-## 5. Data model (FROZEN at Gate 2, Sep 13, 2026; byWeek wording re-frozen Sep 14, D-023; schema v2 and new stores frozen Sep 27, D-035)
+## 5. Data model (FROZEN at Gate 2, Sep 13, 2026; byWeek wording re-frozen Sep 14, D-023; schema v2 and new stores frozen Sep 27, D-035; byWeek overrides closed Sep 28, D-038)
 
 The machine-readable contract is `docs/program.schema.json` (JSON Schema 2020-12). The import screen validates every program file against it; a file that fails does not load. Summary:
 
@@ -154,8 +154,15 @@ Each phase ends at a gate: Claude Code reports PASS/FAIL per task number; this c
 6.6 Settings fields from section 5 (stored only; no new UI)
 6.7 `npm run verify` also prints md5 for `design/`
 
-### Phase 7: Onboarding and goals (gate: a new install reaches Today through onboarding with a starter program)
-Frames 1a to 1l and 5a. Starter templates and the exercise library behind them (O-8). Import stays reachable.
+### Phase 6: shipped Sep 28, 2026 (PR #7, merge 4c64790); served JS and CSS verified byte-identical to a fresh build of the merge
+
+### Phase 7: Onboarding and goals (gate: a fresh install reaches Today through onboarding with a starter program, on Auggie's iPhone)
+7.1 Schema correction D-038; confirm the private seed still validates
+7.2 Starter programs and their record committed by hash (D-037)
+7.3 Onboarding, frames 1a to 1l, in the 1b layout, light and dark
+7.4 Goal setter, frame 5a, reached from the existing Profile screen
+7.5 First-run routing: onboarding only when there is no program and onboarding was never completed; an existing install (Auggie's) is never sent through it
+Phase-7 limit: "Build it with forms" (frame 1d) is hidden until Phase 8 builds the builder; step 4 then offers starter programs and file import only. The app is not promoted to strangers before Phase 8 (O-7), so no one meets the gap.
 
 ### Phase 8: Builder (gate: a program built and edited in the app, an item retired with history intact)
 Frames 2a to 2j.
@@ -176,14 +183,16 @@ Frames 5b to 5j, 7a to 7e, all `-dark` frames. Cross-device check.
 
 v1.4 estimate: 5 to 6 weekends to the Phase 5 gate. Actual: two working sessions (git history: Phases 2 to 4 merged between 20:00 and 22:26 on Sep 13; Phase 5 on Sep 27). The estimate was about 3 times too high, so confidence in the next one is low.
 
+Phase 6 actual: one session (contracts Sep 27, merge Sep 28), inside the estimate.
+
 v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 size. Phase 6: 1 session. Phases 7 to 11: 1 to 2 sessions each. Total 6 to 11 sessions; 2 to 5 calendar weeks at the pace so far. Outside the code timeline: demo media (O-6), legal review (O-7), starter template review (O-8).
 
 ## 8. Integrity table
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-036 | a1bb1ee2a865bbc5784b5d378e1932d4 |
-| docs/PLAN.md | This file, v1.5 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-038 | 0693fd312242b74dd3ee6a94b5209e1d |
+| docs/PLAN.md | This file, v1.6 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -192,10 +201,15 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-03.md | Executor prompt, Phase 3 | 08119055aa3cc751f502340309ffed1a |
 | docs/EXEC-04.md | Executor prompt, Phase 4 | 459cb6850b6909aef8dd0dc80619da5f |
 | docs/EXEC-05.md | Executor prompt, Phase 5 | f3f96142b65b443e256dd7af0374c49f |
-| docs/EXEC-06.md | Executor prompt, Phase 6 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-06.md | Executor prompt, Phase 6 | 1baffd43cd4fcbf7f75659434f82c35e |
+| docs/EXEC-07.md | Executor prompt, Phase 7 | recorded in chat at delivery (it checks this file's hash) |
+| docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
+| public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
+| public/templates/starter-4day-upper-lower.json | Starter program, intermediate | 9c530c1784051b4c2e19cd66a206184c |
+| public/templates/starter-5day-split.json | Starter program, experienced | 1d6934c21f157f6733a5527bb14d4f55 |
 | design/BYOB-fit_Design.html | Claude Design export v1, seven screens, placeholder data | 52e9bae37b40670779a7acb0b1801806 |
 | design/BYOB-fit_v2_design.dc.html | Claude Design canvas v2, 124 frames (62 light, 62 dark), placeholder data. Reference only: it loads `./support.js`, which is not included, so it does not render on its own; read its markup | 9a9efdfa60041f89fd173b2992215554 |
-| docs/program.schema.json | Program file contract, schema v2, frozen Sep 27 | 8fc9d9917735ff00c3d69f9e4221d9f8 |
+| docs/program.schema.json | Program file contract, schema v2, frozen Sep 27, overrides closed Sep 28 | e3ae437fd83a49e9a21ac2a39d38966b |
 | public/sample-program.json | Generic sample program (schemaVersion 1, valid under v2) | 8416d1974b9746f2172f8b73c493a0f9 |
 
 Sequence for every delivered file: download → copy into repo → `md5` against the recorded value → `git add` → commit. Not saved until the hash check passes in the repo.
@@ -206,7 +220,7 @@ Served-bytes vs fresh local build for anything deployed. Visual acceptance on Au
 
 ## 10. Backlog (parked, named, not blocking)
 
-B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b
+B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b · B-9 Home-equipment versions of the starter programs (stated by Auggie Sep 28, 2026: after the complete build)
 
 ## 11. Open items
 
@@ -217,7 +231,7 @@ O-4 Resolved for goals by D-030; Profile keeps free label/value fields for anyth
 O-5 Resolved in Phase 4: reprogramming rules are a Settings text field the user writes
 O-6 Demo media: source (made in-house, licensed, or openly licensed), licence terms compatible with an MIT repo, format and size per clip. Blocks filling the demo slot, not building it
 O-7 Legal review before promoting the app to strangers: whether a no-server app counts as collecting consumer health data under Washington's My Health My Data Act, and the wording of the privacy page. Not blocking any build phase
-O-8 Starter templates (3-day full body, 4-day upper/lower, 5-day split) and the exercises they use, with muscles, equipment and level: DEFAULT, Claude drafts, Auggie approves before Phase 7
+O-8 Resolved Sep 28, 2026 by D-037
 O-9 Calorie target formula and safe floor: to be specified with published sources before Phase 10. No number ships without a source
 O-10 Progression rule format for the chip in frame 3b (for example "+2.5 kg when every set hits the top of the rep range"): structure and where it lives in the schema, before Phase 10
 
