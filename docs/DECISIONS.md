@@ -163,3 +163,16 @@ Consequence: the Units row carries the line "Applies to new programs and goals. 
 
 ## D-041 The not-advice banner stays off onboarding (FROZEN, Sep 28, 2026)
 The per-load disclaimer banner (Phase 5) is not shown on `/welcome`, where step 3's safety notice already covers it. Everywhere else it behaves as before.
+
+## D-042 Builder rules (FROZEN, Sep 28, 2026)
+These make D-028 buildable; each protects logged history or the user's time.
+1. Drafts. One draft at a time, saved to the `meta` store under `builderDraft` on every change, so it survives navigation and reload. Save or Discard clears it. The draft is exported with the rest of `meta`.
+2. Ids. New items, sections and exercises get generated ids that cannot collide with any id the program has ever used. Existing ids are never renamed or reused.
+3. History. An item "has history" when any stored session has an entry with its `itemId`. Removing an item without history deletes it. Removing an item with history retires it (frame 2i): `retiredFrom` is today, or tomorrow if a session today already logged it.
+4. Swapping the exercise of an item with history retires that item and adds a new item with the new exercise in the same position, so last week's numbers are never shown for a different exercise. Without history, the swap edits the item in place.
+5. Editing the current program: `startDate` is read-only, because changing it would renumber every week and move every `byWeek` override; length cannot go below the current week. Existing `byWeek` overrides are kept exactly; the item editor edits the base item and says how many later-week changes exist.
+6. Starting a new program saves it and makes it active; the previous program and all its sessions stay stored and visible in Log.
+7. Exercise library for pickers: the exercises of the three starter programs and of every stored program, de-duplicated by id. Filters (same muscles, beginner friendly, no equipment) use `muscles`, `equipment` and `level`; exercises without that metadata appear only when no filter is on. Users can create an exercise: name required; how-to, muscles, equipment and level optional.
+8. Session length on day cards and in review uses the formula recorded in `docs/STARTER-PROGRAMS.md` and is labeled "about".
+9. Saving an unchanged program writes back a program whose JSON is identical to what was loaded.
+Consequence: frames 2a to 2j; onboarding step 4 shows "Build it with forms" again (the Phase 7 limit ends), and choosing a starter program in onboarding shows frame 2a before step 5.

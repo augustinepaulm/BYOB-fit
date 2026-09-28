@@ -24,7 +24,7 @@ function rowsFrom(fields: Record<string, string>): Row[] {
 /** Only what the user typed; the app computes nothing here (PLAN section 4). */
 export function ProfileScreen() {
   const navigate = useNavigate()
-  const { program } = useProgram()
+  const { program, week } = useProgram()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [goal, setGoal] = useState<string | null>(null)
 
@@ -88,6 +88,25 @@ export function ProfileScreen() {
             {goal ?? 'Set a goal'}
           </span>
         </button>
+        {program && (
+          <>
+            <div className="setting-row" style={{ cursor: 'default' }}>
+              <span>Program</span>
+              <span
+                className="setting-row__hint"
+                style={{ flex: '0 1 auto', minWidth: 0, textAlign: 'right' }}
+              >
+                {program.name} · Week {week} of {program.programWeeks}
+              </span>
+            </div>
+            <button type="button" className="setting-row" onClick={() => navigate('/program/edit')}>
+              <span>Edit program</span>
+            </button>
+            <button type="button" className="setting-row" onClick={() => navigate('/program/new')}>
+              <span>Start a new program</span>
+            </button>
+          </>
+        )}
       </div>
 
       {rows.length === 0 && (
