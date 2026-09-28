@@ -25,3 +25,6 @@ seed/program.json
 *.njsproj
 *.sln
 *.sw?
+
+# Local screenshot evidence from phase checks
+phase*-screens/
