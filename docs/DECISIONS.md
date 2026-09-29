@@ -221,3 +221,12 @@ Closes the items parked during Phases 6 to 10B.
 4. The privacy page (frame 5i) and the safety notice (frame 5j) are reachable from Settings, as D-029 requires; neither was built before this release. The safety notice text is the D-029 wording, unchanged.
 5. The app shows its version in Settings (frame 5d) from `package.json`, set to 2.0.0 for this release.
 6. The app icon is not redesigned in this release; it becomes backlog B-11, because no design exists for it.
+
+## D-051 Weight and reps in separate boxes (FROZEN, Sep 28, 2026)
+Found by Auggie on his iPhone after Phase 11: the single free-text set field rejects "5, 135", "135, 5", "5 reps 135 lbs" and "135 lbs", and on a first session (no last-week reference) even a bare "5". Reproduced against `parseSet` on `main` (f0dd5d2). The grammar only accepts weight first with a connector word ("135 x 5", "135 for 5").
+Decision (Auggie's): every `load_reps` set row has two boxes, Weight (decimal keypad, with the unit shown) and Reps (number keypad). Last week's values show as placeholders; the progression chip fills Weight. A set saves when Reps holds a whole number of at least 1 and Weight holds a number of at least 0, typed or taken from its visible placeholder; an invalid box shows its error inline and nothing is saved. Other item types keep one box, now with a number keypad and the unit named: reps for `bodyweight_reps`, seconds for `timed_hold`, meters for `distance`, minutes for `cardio_block`. Number words from keyboard dictation ("sixty two point five") still read correctly in any box.
+Consequence: supersedes D-011's single field and the dictation hint (frame 3b's "say 62.5 for 8"), which is removed. `parseSet` stays for "same" and for number words; its grammar no longer faces the user.
+
+## D-052 No program after onboarding shows empty states (FROZEN, Sep 28, 2026; records Phase 11 behaviour)
+After onboarding, a missing program opens the tabs with the empty states of frames 7a and 7c instead of redirecting to Import; screens that need a program go to Today. Import stays reachable from Settings and Start a new program. Before onboarding, the app still goes to `/welcome`.
+Rationale: an executor judgment call in Phase 11, accepted after verification because it follows the design. Amends PLAN 7.5.

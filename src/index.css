@@ -4067,11 +4067,73 @@ input[type='file'] {
   color: var(--secondary);
 }
 
-.dk-field__confirm {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent);
+.dk-field--error {
+  border: 2px solid var(--danger);
+  background: var(--surface);
+}
+
+/* D-051: Weight and Reps boxes in one row, same height, type and tokens. */
+.dk-boxcol {
+  flex: 1;
+  min-width: 0;
+}
+
+.dk-field--box {
+  padding: 0 10px;
+  gap: 6px;
+}
+
+.dk-field__unit {
   flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.dk-box-error {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.dk-set__row--boxes {
+  align-items: flex-start;
+  padding: 2px 0;
+}
+
+.dk-set__row--boxes > .dk-set__n,
+.dk-set__row--boxes > .dk-set__ref {
+  line-height: 48px;
+}
+
+.dk-set__row--boxes > .dk-mark {
+  height: 48px;
+  align-items: center;
+}
+
+.dk-set__row--boxes .dk-pair .dk-boxcol {
+  flex: 1;
+}
+
+.dk-tick {
+  width: 36px;
+  height: 48px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+
+/* Narrow phones: last week's values are the placeholders, so the column goes. */
+@media (max-width: 379px) {
+  .dk-set__row--load > .dk-set__ref {
+    display: none;
+  }
 }
 
 .dk-pair {
@@ -4138,15 +4200,6 @@ input[type='file'] {
 .dk-chip--note {
   border-style: dashed;
   cursor: default;
-}
-
-.dk-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 6px 0 4px 28px;
-  font-size: 13px;
-  color: var(--secondary);
 }
 
 .dk-tools {
