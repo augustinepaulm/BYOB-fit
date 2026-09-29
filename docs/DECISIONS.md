@@ -230,3 +230,9 @@ Consequence: supersedes D-011's single field and the dictation hint (frame 3b's 
 ## D-052 No program after onboarding shows empty states (FROZEN, Sep 28, 2026; records Phase 11 behaviour)
 After onboarding, a missing program opens the tabs with the empty states of frames 7a and 7c instead of redirecting to Import; screens that need a program go to Today. Import stays reachable from Settings and Start a new program. Before onboarding, the app still goes to `/welcome`.
 Rationale: an executor judgment call in Phase 11, accepted after verification because it follows the design. Amends PLAN 7.5.
+
+## D-053 A pre-fill never becomes data without a real value and an explicit action (FROZEN, Sep 28, 2026)
+Found in chat verification of small change 11.1, after it was merged (70109a3): on a first session, Done saved untouched rows from placeholders built from the prescription (the top of the rep range) and from the set above, recording sets never done, which could also trigger the progression chip.
+1. Done saves an untouched row only from last week's reference for that row (its weight and reps). Rows without a reference stay empty.
+2. With no last-week value, the Reps placeholder shows the rep range ("8–12") and cannot be confirmed; the tick needs typed reps ("Enter reps"). The Weight placeholder may still come from the set above, used only when the user types reps.
+With rules 1 and 2 no prescription value can be saved, so the progression suggestion (D-047) sees only numbers the user typed or last week's real numbers. Amends D-051.

@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.13 · Date: Monday, Sep 28, 2026 (v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.14 · Date: Monday, Sep 28, 2026 (v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -212,6 +212,11 @@ Phase 11: merged Sep 28, 2026 (f0dd5d2).
 ### Small change 11.1: two-box set entry (gate: on Auggie's iPhone, "135" and "5" entered in the two boxes save as 135 × 5 on a first session and with last week's placeholders)
 D-051. A live defect found by Auggie on his phone; ships before the retrospective. The white first screen he reported is investigated separately until he identifies which screen it is.
 
+Small change 11.1: merged Sep 28, 2026 (70109a3) before chat verification finished; verification found the D-053 defect.
+
+### Small change 11.2: pre-fills never become data (gate: on Auggie's iPhone, a first-session exercise with set 1 logged and Done tapped leaves sets 2 onward empty)
+D-053. Executor opens the pull request as a draft; Auggie marks it ready only after chat verification (process change after two merges before verification: Phase 8 and 11.1).
+
 ### Phase 12: Retrospective
 12.1 Write failures and fixes into the project-execution-protocol skill
 
@@ -227,8 +232,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-052 | 7590decf64ebffd2a98f62ca37e11941 |
-| docs/PLAN.md | This file, v1.13 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-053 | fe951434a02cbdd3283f64c8e5105149 |
+| docs/PLAN.md | This file, v1.14 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -245,7 +250,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-10A.md | Executor prompt, Phase 10A | 0ce9f9998e3cd4b668f19519a99bfaab |
 | docs/EXEC-10B.md | Executor prompt, Phase 10B | 490b7230e2ca66e6dca75f1a88c9f889 |
 | docs/EXEC-11.md | Executor prompt, Phase 11 | ea6898335ca531bb76e71f3eee3b0ac9 |
-| docs/EXEC-11.1.md | Executor prompt, small change 11.1 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-11.1.md | Executor prompt, small change 11.1 | 3b603a8eae7924557cc765e2de0ddf2c |
+| docs/EXEC-11.2.md | Executor prompt, small change 11.2 | recorded in chat at delivery (it checks this file's hash) |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
