@@ -13,7 +13,7 @@ import { getMeta, listAllSessions, setMeta } from '../db/index.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
-import { readAmount, readLoadSet, type BoxResult } from '../lib/setBoxes.ts'
+import { loadRowOutcome, repRangeText, singleRowOutcome, type BoxResult, type RowAction } from '../lib/setBoxes.ts'
 import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
 import { dayForDate } from '../lib/program.ts'
 import { suggestProgression, suggestionText } from '../lib/progression.ts'
@@ -26,6 +26,7 @@ import {
   isSetFlagged,
   nearestWeightAbove,
   referenceSet,
+  sameRow,
   setRowsFor,
   summarise,
   type DeckItem,
@@ -53,18 +54,20 @@ function rowKey(itemId: string, row: SetRow): string {
   return `${itemId}:${row.n}:${row.side ?? ''}`
 }
 
-/** Pre-fill when there is no reference: the prescription, and no weight. */
-function prescriptionPrefill(resolved: ItemFields): ParsedFields {
+/**
+ * Placeholder text when there is no last-week value: the prescription, shown
+ * only. D-053: it is never saved (the reps range, e.g. "8–12").
+ */
+function prescriptionPlaceholder(resolved: ItemFields): string {
   switch (resolved.type) {
     case 'timed_hold':
-      return { seconds: resolved.holdSec }
+      return String(resolved.holdSec ?? '')
     case 'distance':
-      return { distanceM: resolved.distanceM }
+      return String(resolved.distanceM ?? '')
     case 'cardio_block':
-      return { minutes: resolved.minutes }
+      return String(resolved.minutes ?? '')
     default:
-      // D-051: the rep range's top.
-      return { reps: resolved.repMax ?? resolved.repMin }
+      return repRangeText(resolved.repMin, resolved.repMax)
   }
 }
 
@@ -79,13 +82,6 @@ const SINGLE: Record<string, { kind: 'reps' | 'seconds' | 'meters' | 'minutes'; 
   cardio_block: { kind: 'minutes', field: 'minutes', unit: 'min', decimal: false },
 }
 
-function referencePrefill(set: SetLog): ParsedFields {
-  return { weight: set.weight, reps: set.reps, seconds: set.seconds, distanceM: set.distanceM, minutes: set.minutes }
-}
-
-function hasValue(fields: ParsedFields): boolean {
-  return formatSetValue(fields) !== ''
-}
 
 /** Put the focused row in the top half of the viewport. */
 function scrollIntoTopHalf(element: HTMLElement) {
@@ -214,12 +210,17 @@ export function DeckScreen() {
   }, [current, history, todayIso, exerciseId, exercise, unit])
 
   const prefillFor = useCallback(
-    (row: SetRow): { fields: ParsedFields; firstTime: boolean; reference?: SetLog } => {
+    (row: SetRow): { firstTime: boolean; reference?: SetLog } => {
       const reference = referenceSet(referenceEntry, row)
-      if (reference) return { fields: referencePrefill(reference), firstTime: false, reference }
-      return { fields: current ? prescriptionPrefill(current.resolved) : {}, firstTime: true }
+      return reference ? { firstTime: false, reference } : { firstTime: true }
     },
-    [referenceEntry, current],
+    [referenceEntry],
+  )
+
+  /** D-053: last week's set for this exact row, the only source an untouched row saves from. */
+  const exactReference = useCallback(
+    (row: SetRow): SetLog | undefined => referenceEntry?.sets.find((set) => sameRow(set, row) && isSetConfirmed(set)),
+    [referenceEntry],
   )
 
   const startRest = useCallback(() => {
@@ -229,8 +230,8 @@ export function DeckScreen() {
 
   /** Weight placeholder: last week's for this set, else the nearest set above saved today. */
   const weightHint = useCallback(
-    (row: SetRow): number | undefined => prefillFor(row).fields.weight ?? nearestWeightAbove(entry, row),
-    [prefillFor, entry],
+    (row: SetRow): number | undefined => exactReference(row)?.weight ?? nearestWeightAbove(entry, row),
+    [exactReference, entry],
   )
 
   const clearBoxes = useCallback((key: string) => {
@@ -262,19 +263,21 @@ export function DeckScreen() {
   )
 
   /**
-   * D-051: save one set from its boxes. An empty box takes its visible
-   * placeholder; an invalid box shows its error and nothing is saved. No raw
-   * rows are written here.
+   * D-051, D-053: save one set from its boxes. An untouched row saves only
+   * last week's values for that row; the tick asks for what is missing and
+   * Done leaves it empty. An invalid box shows its error and nothing is saved.
+   * No raw rows are written here.
    */
   const saveRow = useCallback(
-    async (row: SetRow): Promise<boolean> => {
+    async (row: SetRow, action: RowAction = 'tick'): Promise<boolean> => {
       if (!current) return true
       const key = rowKey(current.item.id, row)
       const type = current.resolved.type ?? 'load_reps'
       const stored = findSet(entry, row)
       const confirmed = isSetConfirmed(stored)
       const flaggedRaw = isSetFlagged(stored) ? (stored?.raw ?? '') : undefined
-      const { fields, reference } = prefillFor(row)
+      const { reference } = prefillFor(row)
+      const exact = exactReference(row)
       const typed = (box: Box) => drafts[boxKey(key, box)]
 
       // "same" in any box copies last week's set, as before.
@@ -302,35 +305,31 @@ export function DeckScreen() {
       if (type === 'load_reps') {
         const wText = typed('w') ?? (confirmed ? String(stored?.weight ?? '') : (flaggedRaw ?? ''))
         const rText = typed('r') ?? (confirmed ? String(stored?.reps ?? '') : '')
-        const result = readLoadSet(wText, rText, { weight: weightHint(row), reps: fields.reps })
-        if (!result.ok) {
-          show([['w', result.weight], ['r', result.reps]])
+        const outcome = loadRowOutcome(
+          { weightText: wText, repsText: rText, reference: exact, weightAbove: nearestWeightAbove(entry, row) },
+          action,
+        )
+        if (outcome.kind === 'skip') return true
+        if (outcome.kind === 'invalid') {
+          show([['w', outcome.weight], ['r', outcome.reps]])
           return false
         }
-        show([['w', { ok: true, value: result.weight }], ['r', { ok: true, value: result.reps }]])
-        return writeRow(row, { weight: result.weight, reps: result.reps })
+        show([['w', { ok: true, value: outcome.weight }], ['r', { ok: true, value: outcome.reps }]])
+        return writeRow(row, { weight: outcome.weight, reps: outcome.reps })
       }
 
       const single = SINGLE[type] ?? SINGLE.bodyweight_reps
       const vText = typed('v') ?? (confirmed ? String(stored?.[single.field] ?? '') : (flaggedRaw ?? ''))
-      const placeholder = fields[single.field]
-      const value: BoxResult = vText.trim() === '' && placeholder !== undefined ? { ok: true, value: placeholder } : readAmount(vText, single.kind)
-      if (!show([['v', value]]) || !value.ok) return false
-      return writeRow(row, { [single.field]: value.value })
-    },
-    [current, entry, drafts, prefillFor, weightHint, writeRow],
-  )
-
-  /** A row with nothing typed and nothing saved: can its placeholders be saved? */
-  const canConfirmPlaceholders = useCallback(
-    (row: SetRow): boolean => {
-      if (!current) return false
-      if (current.resolved.type === 'load_reps' || current.resolved.type === undefined) {
-        return weightHint(row) !== undefined && prefillFor(row).fields.reps !== undefined
+      const outcome = singleRowOutcome(vText, single.kind, exact?.[single.field], action)
+      if (outcome.kind === 'skip') return true
+      if (outcome.kind === 'invalid') {
+        show([['v', outcome.value]])
+        return false
       }
-      return hasValue(prefillFor(row).fields)
+      show([['v', { ok: true, value: outcome.value }]])
+      return writeRow(row, { [single.field]: outcome.value })
     },
-    [current, weightHint, prefillFor],
+    [current, entry, drafts, prefillFor, exactReference, writeRow],
   )
 
   const advance = useCallback(
@@ -346,7 +345,7 @@ export function DeckScreen() {
     [deck.length],
   )
 
-  /** Done: confirm every pending row from its pre-fill, then advance. */
+  /** Done: save typed rows and last week's values for untouched ones, then advance. */
   const done = useCallback(async () => {
     if (!current) return
     const from = deck.indexOf(current)
@@ -363,13 +362,13 @@ export function DeckScreen() {
       const key = rowKey(current.item.id, row)
       const hasTyped = (['w', 'r', 'v'] as Box[]).some((box) => (drafts[boxKey(key, box)] ?? '').trim() !== '')
       const stored = findSet(entry, row)
-      // Typed boxes must save; untouched rows save their placeholders when
-      // those are complete, and are otherwise left empty (D-051).
-      const saved = hasTyped ? await saveRow(row) : stored || !canConfirmPlaceholders(row) ? true : await saveRow(row)
+      // Typed boxes must save; an untouched row saves only last week's values
+      // for that row, and is otherwise left empty (D-053).
+      const saved = stored && !hasTyped ? true : await saveRow(row, 'done')
       if (!saved) return
     }
     advance(from)
-  }, [api, current, deck, exerciseId, drafts, entry, saveRow, canConfirmPlaceholders, advance])
+  }, [api, current, deck, exerciseId, drafts, entry, saveRow, advance])
 
   const finish = useCallback(async () => {
     await api.finish()
@@ -510,7 +509,8 @@ export function DeckScreen() {
     const stored = findSet(entry, row)
     const confirmed = isSetConfirmed(stored)
     const flagged = isSetFlagged(stored)
-    const { fields, firstTime } = prefillFor(row)
+    const { firstTime } = prefillFor(row)
+    const exact = exactReference(row)
     const draft = drafts[boxKey(key, box)]
     const error = errors[boxKey(key, box)]
     const running = box === 'v' ? holdStart[key] : undefined
@@ -527,7 +527,13 @@ export function DeckScreen() {
           : flagged && box !== 'r'
             ? (stored?.raw ?? '')
             : ''
-    const hint = box === 'w' ? weightHint(row) : box === 'r' ? fields.reps : fields[single.field]
+    // D-053: without last week's value, the prescription shows but cannot be confirmed.
+    const hint =
+      box === 'w'
+        ? weightHint(row)
+        : box === 'r'
+          ? (exact?.reps ?? repRangeText(current.resolved.repMin, current.resolved.repMax))
+          : (exact?.[single.field] ?? prescriptionPlaceholder(current.resolved))
     const state = error
       ? 'dk-field--error'
       : running || draft !== undefined || (!confirmed && !flagged)
@@ -538,7 +544,7 @@ export function DeckScreen() {
     const what = box === 'w' ? 'weight' : box === 'r' ? 'reps' : single.kind
     return (
       <div className="dk-boxcol" key={`${row.side ?? ''}${box}`}>
-        <div className={`dk-field dk-field--box ${state}`}>
+        <div className={`dk-field dk-field--box ${state}${typeof hint === 'string' && hint.includes('–') ? ' dk-field--range' : ''}`}>
           {row.side && box !== 'r' && <span className="dk-field__side">{row.side}</span>}
           <input
             id={id}
@@ -548,7 +554,7 @@ export function DeckScreen() {
             autoComplete="off"
             value={shown}
             readOnly={running !== undefined}
-            placeholder={hint !== undefined ? String(hint) : ''}
+            placeholder={hint !== undefined && hint !== '' ? String(hint) : ''}
             aria-label={`Set ${row.n}${row.side ? ` ${row.side}` : ''} ${what}${firstTime ? ', first time' : ''}`}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${id}-error` : undefined}

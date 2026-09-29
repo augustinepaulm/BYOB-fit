@@ -74,3 +74,55 @@ export function readLoadSet(weightText: string, repsText: string, placeholders: 
     repsText.trim() === '' && placeholders.reps !== undefined ? { ok: true, value: placeholders.reps } : readReps(repsText)
   return weight.ok && reps.ok ? { ok: true, weight: weight.value, reps: reps.value } : { ok: false, weight, reps }
 }
+
+// ── What a row saves (D-053) ──
+
+/** "8–12", or "8" when the range is one number; '' with no reps prescribed. */
+export function repRangeText(repMin?: number, repMax?: number): string {
+  if (repMin !== undefined && repMax !== undefined) return repMin === repMax ? String(repMin) : `${repMin}–${repMax}`
+  return String(repMin ?? repMax ?? '')
+}
+
+export type RowAction = 'tick' | 'done'
+
+export type LoadRowOutcome =
+  | { kind: 'save'; weight: number; reps: number }
+  | { kind: 'skip' }
+  | { kind: 'invalid'; weight: BoxResult; reps: BoxResult }
+
+/**
+ * D-053: a pre-fill never becomes data. An untouched row saves only last
+ * week's values for that row; without them Done leaves it empty and the tick
+ * asks for reps. The set above's weight is a placeholder used only once reps
+ * are typed.
+ */
+export function loadRowOutcome(
+  input: { weightText: string; repsText: string; reference?: { weight?: number; reps?: number }; weightAbove?: number },
+  action: RowAction,
+): LoadRowOutcome {
+  const { reference } = input
+  const untouched = input.weightText.trim() === '' && input.repsText.trim() === ''
+  if (untouched) {
+    if (reference?.weight !== undefined && reference.reps !== undefined) return { kind: 'save', weight: reference.weight, reps: reference.reps }
+    if (action === 'done') return { kind: 'skip' }
+  }
+  const result = readLoadSet(input.weightText, input.repsText, { weight: reference?.weight ?? input.weightAbove, reps: reference?.reps })
+  return result.ok ? { kind: 'save', weight: result.weight, reps: result.reps } : { kind: 'invalid', weight: result.weight, reps: result.reps }
+}
+
+export type SingleRowOutcome = { kind: 'save'; value: number } | { kind: 'skip' } | { kind: 'invalid'; value: BoxResult }
+
+/** One-box types, same rule: an untouched box saves only last week's value. */
+export function singleRowOutcome(
+  text: string,
+  kind: 'reps' | 'seconds' | 'meters' | 'minutes',
+  reference: number | undefined,
+  action: RowAction,
+): SingleRowOutcome {
+  if (text.trim() === '') {
+    if (reference !== undefined) return { kind: 'save', value: reference }
+    if (action === 'done') return { kind: 'skip' }
+  }
+  const value = readAmount(text, kind)
+  return value.ok ? { kind: 'save', value: value.value } : { kind: 'invalid', value }
+}

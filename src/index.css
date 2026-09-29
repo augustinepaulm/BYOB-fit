@@ -4083,6 +4083,12 @@ input[type='file'] {
   gap: 6px;
 }
 
+/* D-053: a rep range placeholder ("8–12") is smaller so it fits beside "reps". */
+.dk-field--range input::placeholder {
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .dk-field__unit {
   flex: none;
   font-size: 13px;
