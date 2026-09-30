@@ -126,3 +126,19 @@ export function singleRowOutcome(
   const value = readAmount(text, kind)
   return value.ok ? { kind: 'save', value: value.value } : { kind: 'invalid', value }
 }
+
+/**
+ * D-054 rule 1: the attributes every number box in the deck carries. A
+ * neutral name equal to the id, and no autocomplete value naming a purpose.
+ */
+export function numberBoxAttributes(id: string) {
+  return {
+    id,
+    name: id,
+    type: 'text',
+    autoComplete: 'off',
+    autoCorrect: 'off',
+    autoCapitalize: 'off',
+    spellCheck: false,
+  } as const
+}

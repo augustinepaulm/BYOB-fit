@@ -80,6 +80,15 @@ export function isSetConfirmed(set: SetLog | undefined): boolean {
   )
 }
 
+/**
+ * Last week's set for this exact row (same number and side) when it holds a
+ * value: what D-053 saves an untouched row from, and the only value the
+ * last-week cell shows (D-054 rule 5).
+ */
+export function exactReferenceSet(entry: Entry | undefined, row: SetRow): SetLog | undefined {
+  return entry?.sets.find((set) => sameRow(set, row) && isSetConfirmed(set))
+}
+
 /** Text the parser could not read, kept verbatim so nothing is lost. */
 export function isSetFlagged(set: SetLog | undefined): boolean {
   return set !== undefined && !isSetConfirmed(set) && (set.raw ?? '') !== ''
