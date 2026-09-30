@@ -12,6 +12,7 @@ import {
   finishDraft,
   itemsLoggedOn,
   itemsWithHistory,
+  lengthHint,
   lowerFirst,
   moveDay,
   newId,
@@ -29,7 +30,7 @@ import { parseISODate } from '../lib/program.ts'
 import { Dock, HandleIcon, PrimaryButton, SectionHead, Segmented, Stepper } from '../onboarding/ui.tsx'
 import type { Day, Item, LoadUnit, Program, Section, SectionKind } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
-import { clearDraft, writeDraft, type BuilderDraft, type DraftStep } from './draft.ts'
+import { clearDraft, draftWanted, writeDraft, type BuilderDraft, type DraftStep } from './draft.ts'
 import { ExercisePicker } from './ExercisePicker.tsx'
 import { ItemEditor } from './ItemEditor.tsx'
 import { BuilderBar, CheckMark, ChevronRight, Hero, Sheet, StepBar, SwapArrows } from './ui.tsx'
@@ -81,6 +82,7 @@ type Overlay =
 
 export function FormsBuilder({
   initial,
+  resumed,
   original,
   currentWeek,
   sessions,
@@ -92,6 +94,8 @@ export function FormsBuilder({
   onDiscarded,
 }: {
   initial: BuilderDraft
+  /** Resumed from a stored draft: it keeps writing, as before (D-059 rule 4). */
+  resumed: boolean
   /** The stored program an edit started from; null for a new one. */
   original: Program | null
   /** Edit mode: the length cannot go below this week (D-042 rule 5). */
@@ -105,6 +109,11 @@ export function FormsBuilder({
   onDiscarded: () => void
 }) {
   const [program, setProgram] = useState<Program>(initial.program)
+  // D-059 rule 4: no draft until the program differs from what was opened.
+  const [opened] = useState(() => JSON.stringify(initial.program))
+  const [hasDraft, setHasDraft] = useState(resumed)
+  const wanted = draftWanted(opened, program, hasDraft)
+  if (wanted && !hasDraft) setHasDraft(true)
   const [step, setStep] = useState<DraftStep>(initial.step)
   const [overlay, setOverlay] = useState<Overlay>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -116,11 +125,11 @@ export function FormsBuilder({
   const history = useMemo(() => itemsWithHistory(sessions), [sessions])
   const loggedToday = useMemo(() => itemsLoggedOn(sessions, todayIso), [sessions, todayIso])
 
-  // D-042 rule 1: every change is written through to the meta store.
+  // D-042 rule 1: once a draft exists, every change and step is written through.
   useEffect(() => {
-    if (saving) return
+    if (saving || !wanted) return
     void writeDraft({ mode: initial.mode, program, step })
-  }, [program, step, initial.mode, saving])
+  }, [program, step, initial.mode, saving, wanted])
 
   const days = sortedDays(program)
   const dayDrag = useDragReorder(days.length, (from, to) => setProgram((p) => moveDay(p, from, to)))
@@ -272,7 +281,7 @@ export function FormsBuilder({
     const minWeeks = editing ? Math.max(1, currentWeek) : 1
     return (
       <div className="ob">
-        <BuilderBar title={title} draft onBack={onExit} />
+        <BuilderBar title={title} draft={hasDraft} onBack={onExit} />
         <StepBar current={0} />
         <Hero title="Program settings" />
         <div className="ob-pad" style={{ margin: 0, padding: '0 24px' }}>
@@ -290,12 +299,13 @@ export function FormsBuilder({
               <Stepper
                 label="Length in weeks"
                 min={minWeeks}
+                max={52}
                 value={program.programWeeks}
                 onChange={(v) => setProgram((p) => ({ ...p, programWeeks: Math.min(52, Math.max(minWeeks, v)) }))}
               />
               <span style={{ fontSize: 16 }}>weeks</span>
             </div>
-            {editing && currentWeek > 1 && <div className="bd-hint">You are in week {currentWeek}, so it can't be shorter.</div>}
+            {lengthHint(editing, currentWeek, program.programWeeks) && <div className="bd-hint">{lengthHint(editing, currentWeek, program.programWeeks)}</div>}
           </div>
           <div className="bd-field">
             <label className="bd-label" htmlFor="start-date">
@@ -320,7 +330,7 @@ export function FormsBuilder({
             <div className="bd-hint">Ends {LONG_DATE.format(endOf(program))}</div>
             {editing && <div className="bd-hint">The start date of the current program can't change.</div>}
           </div>
-          {discardLink}
+          {hasDraft && discardLink}
         </div>
         <Dock>
           <PrimaryButton onClick={() => go('days')}>Next: days</PrimaryButton>
@@ -337,7 +347,7 @@ export function FormsBuilder({
     const firstTraining = days.find((d) => !d.rest) ?? days[0]
     return (
       <div className="ob">
-        <BuilderBar title={title} draft onBack={() => go('settings')} />
+        <BuilderBar title={title} draft={hasDraft} onBack={() => go('settings')} />
         <StepBar current={1} />
         <Hero title="Your week" sub="Tap a day to add exercises." />
         <div className="ob-pad">
@@ -372,7 +382,7 @@ export function FormsBuilder({
             <SwapArrows />
             <span>Swappable: can trade places with another day that week</span>
           </div>
-          {discardLink}
+          {hasDraft && discardLink}
         </div>
         <Dock>
           <PrimaryButton onClick={() => go(`day:${firstTraining.id}`)}>Next: exercises</PrimaryButton>
@@ -388,6 +398,7 @@ export function FormsBuilder({
     const day = program.days.find((d) => d.id === step.slice(4)) ?? days[0]
     return (
       <DayEditor
+        hasDraft={hasDraft}
         day={day}
         program={program}
         title={`${DOW[day.order]} · ${day.rest ? 'Rest' : day.name}`}
@@ -407,7 +418,7 @@ export function FormsBuilder({
   const rest = days.length - training
   return (
     <div className="ob">
-      <BuilderBar title={title} draft onBack={() => go('days')} />
+      <BuilderBar title={title} draft={hasDraft} onBack={() => go('days')} />
       <StepBar current={3} />
       <Hero
         title={program.name || 'Untitled program'}
@@ -438,7 +449,7 @@ export function FormsBuilder({
           )
         })}
         {saveError && <div className="ob-errors" role="alert">{saveError}</div>}
-        {discardLink}
+        {hasDraft && discardLink}
       </div>
       <Dock>
         <PrimaryButton disabled={saving || checks.some((c) => !c.ok)} onClick={() => void save()}>
@@ -455,6 +466,7 @@ function DayEditor({
   day,
   program,
   title,
+  hasDraft,
   onBack,
   onNext,
   onChange,
@@ -464,6 +476,8 @@ function DayEditor({
   day: Day
   program: Program
   title: string
+  /** Show the Draft pill only once a draft exists (D-059 rule 4). */
+  hasDraft: boolean
   onBack: () => void
   onNext: () => void
   onChange: (fn: (p: Program) => Program) => void
@@ -477,7 +491,7 @@ function DayEditor({
 
   return (
     <div className="ob">
-      <BuilderBar title={title} draft onBack={onBack} />
+      <BuilderBar title={title} draft={hasDraft} onBack={onBack} />
       <StepBar current={2} />
       <div className="bd-day-settings">
         <div className="bd-cols">

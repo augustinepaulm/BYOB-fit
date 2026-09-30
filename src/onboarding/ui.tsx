@@ -188,26 +188,34 @@ export function Segmented<T extends string | number>({
   )
 }
 
+/** D-059 rule 5: minus is disabled at `min`, and plus at `max` when there is one. */
 export function Stepper({
   value,
   onChange,
   label,
   min = 1,
+  max,
 }: {
   value: number
   onChange: (value: number) => void
   label: string
   min?: number
+  max?: number
 }) {
   return (
     <div className="ob-stepper">
-      <button type="button" aria-label={`Less ${label}`} onClick={() => onChange(Math.max(min, value - 1))}>
+      <button type="button" aria-label={`Less ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>
         −
       </button>
       <div className="ob-stepper__value" aria-live="polite" aria-label={label}>
         {value}
       </div>
-      <button type="button" aria-label={`More ${label}`} onClick={() => onChange(value + 1)}>
+      <button
+        type="button"
+        aria-label={`More ${label}`}
+        disabled={max !== undefined && value >= max}
+        onClick={() => onChange(max === undefined ? value + 1 : Math.min(max, value + 1))}
+      >
         +
       </button>
     </div>

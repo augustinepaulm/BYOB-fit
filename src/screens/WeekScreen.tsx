@@ -103,17 +103,19 @@ function SwapSheet({ program, onClose, onConfirm }: { program: Program; onClose:
   )
 }
 
-/** Frame 3l: a future day as planned today; changes go through the builder. */
+/**
+ * Frame 3l: a future day; changes go through the builder. D-059: no badge,
+ * each item's cue under its name, and the dock above the tab bar.
+ */
 function PlannedDay({ program, day, date, week, onBack }: { program: Program; day: Day; date: Date; week: number; onBack: () => void }) {
   const navigate = useNavigate()
   const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
   return (
-    <div className="tl" style={{ paddingBottom: 110 }}>
+    // The tabbed layout already pads by the tab bar's height; this clears the
+    // dock above it (about 80 px), so the last item scrolls fully into view.
+    <div className="tl" style={{ paddingBottom: 96 }}>
       <BuilderBar title={`Week ${week}`} onBack={onBack} />
       <Hero title={day.rest ? 'Rest day' : (day.focus ?? day.name)} sub={[DAY_DATE.format(date), day.durationMin ? `about ${day.durationMin} min` : null].filter(Boolean).join(' · ')} />
-      <div style={{ margin: '12px 24px 0' }}>
-        <PlannedTag />
-      </div>
       <div style={{ margin: '0 24px' }}>
         {sections.map((section) => {
           const items = section.items.filter((item) => isActiveOn(item, date))
@@ -126,7 +128,10 @@ function PlannedDay({ program, day, date, week, onBack }: { program: Program; da
                 const resolved = resolveItem(item, week)
                 return (
                   <div className={main ? 'bd-simple bd-simple--main' : 'bd-simple'} key={item.id}>
-                    <span className="bd-simple__name">{program.exercises[resolved.exerciseId ?? '']?.name ?? resolved.exerciseId}</span>
+                    <span className="bd-simple__name">
+                      {program.exercises[resolved.exerciseId ?? '']?.name ?? resolved.exerciseId}
+                      {resolved.cue && <span className="tl-row__cue">{resolved.cue}</span>}
+                    </span>
                     <span className="bd-value">{prescriptionText(resolved)}</span>
                   </div>
                 )
@@ -135,7 +140,7 @@ function PlannedDay({ program, day, date, week, onBack }: { program: Program; da
           )
         })}
       </div>
-      <div className="ob-dock">
+      <div className="ob-dock ob-dock--above-tabbar">
         <button type="button" className="ob-outline" onClick={() => navigate('/program/edit')}>
           Edit in builder
         </button>

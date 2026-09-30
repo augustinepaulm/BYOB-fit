@@ -601,3 +601,12 @@ export function defaultItem(id: string, exerciseId: string, kind: SectionKind, u
   if (kind === 'cardio') return { id, exerciseId, type: 'cardio_block', minutes: 20 }
   return { id, exerciseId, type: 'load_reps', sets: 3, repMin: 8, repMax: 12, restSec: 90, unit }
 }
+
+/**
+ * D-059 rule 5: the builder's length hint, shown only when an edit of the
+ * current program is at its minimum length (the current week).
+ */
+export function lengthHint(editing: boolean, currentWeek: number, programWeeks: number): string | null {
+  const minWeeks = editing ? Math.max(1, currentWeek) : 1
+  return editing && currentWeek > 1 && programWeeks === minWeeks ? `You're in week ${currentWeek}, so the minimum is ${currentWeek} weeks.` : null
+}
