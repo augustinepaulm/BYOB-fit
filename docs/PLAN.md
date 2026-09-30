@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.14 · Date: Monday, Sep 28, 2026 (v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.15 · Date: Tuesday, Sep 29, 2026 (v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -20,7 +20,7 @@ Success test for v2 (MODELED): a person who has never seen the app installs it, 
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists.
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · today's plan from the deck (D-058, default).
 
 ## 3. Inputs (private, never committed)
 
@@ -217,8 +217,19 @@ Small change 11.1: merged Sep 28, 2026 (70109a3) before chat verification finish
 ### Small change 11.2: pre-fills never become data (gate: on Auggie's iPhone, a first-session exercise with set 1 logged and Done tapped leaves sets 2 onward empty)
 D-053. Executor opens the pull request as a draft; Auggie marks it ready only after chat verification (process change after two merges before verification: Phase 8 and 11.1).
 
-### Phase 12: Retrospective
-12.1 Write failures and fixes into the project-execution-protocol skill
+Small change 11.2: merged Sep 28, 2026 (ccd5696). Its device gate is still open.
+
+### Small change 11.3: set boxes and the keyboard (gate: on Auggie's iPhone, installed app, no contact AutoFill on any set box, the focused row stays visible, "15–20" and "8–10" placeholders unclipped; the open device gates for Phases 9 to 11.2 checked in the same session)
+D-054. Three defects found by Auggie on his phone; the diagnosis was tested in chat before this contract (D-054 records what was and was not reproduced). Executor prompt EXEC-11.3; pull request as a draft.
+
+### Small change 11.4: plan overview and add set (gate: on Auggie's iPhone, the overview sheet jumps to an item; a set added today is logged and does not appear next week unless kept)
+D-058 and D-055. Both stay inside the deck and the session summary. Contract drafted after 11.3 merges.
+
+### Phase 12: Add exercise and edit from Log (gate: on Auggie's iPhone, an exercise added today logged and kept in the program; a set edited in Log becomes next week's reference)
+D-056 and D-057. Changes what a session can store, so it carries export and AI payload checks.
+
+### Phase 13: Retrospective
+13.1 Write failures and fixes into the project-execution-protocol skill
 
 ## 7. Effort (MODELED)
 
@@ -232,8 +243,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-053 | fe951434a02cbdd3283f64c8e5105149 |
-| docs/PLAN.md | This file, v1.14 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-058 | aca0b0b46aa910191bfa33762837a418 |
+| docs/PLAN.md | This file, v1.15 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -251,7 +262,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-10B.md | Executor prompt, Phase 10B | 490b7230e2ca66e6dca75f1a88c9f889 |
 | docs/EXEC-11.md | Executor prompt, Phase 11 | ea6898335ca531bb76e71f3eee3b0ac9 |
 | docs/EXEC-11.1.md | Executor prompt, small change 11.1 | 3b603a8eae7924557cc765e2de0ddf2c |
-| docs/EXEC-11.2.md | Executor prompt, small change 11.2 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-11.2.md | Executor prompt, small change 11.2 | 6f42111278e61c51897d40f167889cd6 (as committed on main at ccd5696) |
+| docs/EXEC-11.3.md | Executor prompt, small change 11.3 | recorded in chat at delivery (it checks this file's hash) |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
@@ -270,7 +282,7 @@ Served-bytes vs fresh local build for anything deployed. Visual acceptance on Au
 
 ## 10. Backlog (parked, named, not blocking)
 
-B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b · B-10 Convert an existing program between kg and lb as an explicit action (D-040) · B-11 App icon in the 1b direction (D-050) · B-9 Home-equipment versions of the starter programs (stated by Auggie Sep 28, 2026: after the complete build)
+B-1 In-app microphone (D-019) · B-2 Relay server and accounts (D-020) · B-3 Closed: demos are in scope (D-033), source in O-6 · B-4 Charts beyond simple trends · B-5 Sharing a week summary as an image · B-6 Multiple programs per user (one active program; past programs kept for history is a later decision) · B-7 Health-app and wearable sync (would likely bring the FTC Health Breach Notification Rule into play; see O-7) · B-8 Local progression engine beyond the chip in frame 3b · B-10 Convert an existing program between kg and lb as an explicit action (D-040) · B-11 App icon in the 1b direction (D-050) · B-9 Home-equipment versions of the starter programs (stated by Auggie Sep 28, 2026: after the complete build) · B-12 In-app number pad for set entry: would remove the iOS keyboard from logging (and with it the contact AutoFill and keyboard scroll problems) but ends keyboard dictation for sets and supersedes D-051's native keypads; reopened only if D-054 rule 1 does not stop the contact suggestion
 
 ## 11. Open items
 
