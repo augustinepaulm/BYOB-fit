@@ -4321,6 +4321,28 @@ input[type='file'] {
   background: var(--bg);
 }
 
+/* D-054 rule 3: while a set box has focus the footer sits in normal flow. */
+.dk-foot--flow {
+  position: static;
+}
+
+/* D-054 rule 4: the focused box's name at the top of the visible area. */
+.dk-focus-label {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 8px 24px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 .dk-next {
   display: flex;
   justify-content: space-between;

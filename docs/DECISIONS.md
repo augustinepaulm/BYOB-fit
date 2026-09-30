@@ -236,3 +236,31 @@ Found in chat verification of small change 11.1, after it was merged (70109a3): 
 1. Done saves an untouched row only from last week's reference for that row (its weight and reps). Rows without a reference stay empty.
 2. With no last-week value, the Reps placeholder shows the rep range ("8–12") and cannot be confirmed; the tick needs typed reps ("Enter reps"). The Weight placeholder may still come from the set above, used only when the user types reps.
 With rules 1 and 2 no prescription value can be saved, so the progression suggestion (D-047) sees only numbers the user typed or last week's real numbers. Amends D-051.
+
+## D-054 Set boxes and the iOS keyboard (FROZEN, Sep 29, 2026)
+Found by Auggie on his iPhone after small change 11.2: focusing a set box offers "AutoFill Contact" with his name; on some exercises the focused row scrolls out of sight, leaving only the footer; a range placeholder is clipped ("15–2"). Checked in chat on `main` (ccd5696), in code and in headless Chromium (WebKit could not be installed in chat's sandbox; the default font there is not San Francisco, so pixel widths are approximate):
+- Set boxes already use `type="text"` with `inputMode` and `autoComplete="off"`, and the app has no `<form>`. Those three levers were in place when the contact suggestion appeared.
+- Collapsing the demo on focus does not push the row out of view without a keyboard: set 3 of 4 stayed at 328 to 380 px of 844, demo open or closed. The remaining causes need the iOS keyboard and are unverified.
+- From 380 px wide the deck shows a 58 px last-week cell on every set row, empty on a first session. The Reps text space is 38 px at 390 px and 58 px at 430 and 440 px; "15–20" needs about 42 px. Below 380 px the cell is hidden and the text space is 64 px.
+1. Every number box in the deck (set boxes and the cardio minutes box) carries a neutral `name` equal to its `id`, `autoComplete="off"`, `autoCorrect="off"`, `autoCapitalize="off"` and `spellCheck={false}`. No `autocomplete` value that names another purpose (such as `one-time-code`).
+2. Focusing a box does not scroll at once. The deck waits for the visual viewport's next resize (the keyboard opening) or 350 ms, whichever comes first, then scrolls that set row to the centre of the visible area. Moving between boxes with the keyboard's arrows does the same.
+3. While a set box has focus, the footer (Next tile, Back, Done) is not pinned to the bottom; it sits in normal flow.
+4. While a set box has focus, a label naming it ("Set 3 · reps", with L or R on per-side rows) is pinned to the top of the visible area.
+5. The last-week cell beside a set row is shown only when that row has last week's value for the same row (the reference D-053 saves from). A row without one has no cell and its boxes take the width. With that rule the Reps text space measured 64 to 92 px at every width from 375 to 440 px. The cell no longer shows the other side's value as a stand-in on per-side rows.
+Rationale: rule 1 uses the last attribute levers; if the contact suggestion survives, a custom number pad (backlog B-12) is the next decision, not another attribute. Rules 2 to 4 act on the keyboard causes that could not be reproduced in chat; rule 4 keeps the set identifiable even if the scroll still misbehaves. Rule 5 fixes the clipping without changing D-053's range placeholder.
+Consequence: small change 11.3. Acceptance is on Auggie's iPhone; if rule 2 or 3 does not fix the scroll there, the next step is a temporary on-screen readout of the viewport values, not another guess.
+
+## D-055 Add a set during a session (FROZEN, Sep 29, 2026)
+Stated by Auggie. Every logged exercise in the deck has "Add set". The new row is the next set number, for today only. It has no last-week value, so D-053 rule 2 applies: reps must be typed. The session summary lists added sets with "Keep in program"; the program changes only on that tap.
+DEFAULT, settled in the 11.4 contract: the progression suggestion (D-047) looks only at the prescribed sets, so an added set neither blocks nor triggers it; an added set is stored and sent like any other set; "Keep in program" edits the base item under the builder rules (D-042).
+
+## D-056 Add an exercise during a session (FROZEN, Sep 29, 2026)
+Stated by Auggie. Every deck page has "Add exercise", picking from the exercise library (D-042 rule 7). The exercise goes right after the current one, for today only, and is logged in today's session. The session summary offers "Keep in program", which adds it to that day of the base program in the same position.
+Consequence: a session can hold an entry for an item the program does not contain. The stored shape, Log, export and AI payload (D-044) for such entries are settled in the Phase 12 contract.
+
+## D-057 Edit logged sets (FROZEN, Sep 29, 2026)
+Stated by Auggie. While a session is open, a saved set is edited by going Back and retyping it; this already works (tested in chat on ccd5696: 100 × 8 saved, retyped to 105 × 8, then after Next and Back changed to 105 × 7; confirmed by Auggie on his phone). After a session ends, Log's session detail allows editing a set's values.
+DEFAULT, settled in the Phase 12 contract: an edit is typed and confirmed (D-053); an edited set becomes the last-week reference and counts for progression; the sent log is never rewritten, because it records what was sent at the time.
+
+## D-058 Today's plan from inside the deck (DEFAULT, Sep 29, 2026)
+Requested by Auggie; shape proposed by Claude. The deck header opens a sheet listing today's sections and items with their done state, the same checklist Today shows; tapping an item moves the deck to it. No data changes.

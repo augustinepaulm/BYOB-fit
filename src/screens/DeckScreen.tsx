@@ -13,7 +13,7 @@ import { getMeta, listAllSessions, setMeta } from '../db/index.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
-import { loadRowOutcome, repRangeText, singleRowOutcome, type BoxResult, type RowAction } from '../lib/setBoxes.ts'
+import { loadRowOutcome, numberBoxAttributes, repRangeText, singleRowOutcome, type BoxResult, type RowAction } from '../lib/setBoxes.ts'
 import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
 import { dayForDate } from '../lib/program.ts'
 import { suggestProgression, suggestionText } from '../lib/progression.ts'
@@ -25,8 +25,8 @@ import {
   isSetConfirmed,
   isSetFlagged,
   nearestWeightAbove,
+  exactReferenceSet,
   referenceSet,
-  sameRow,
   setRowsFor,
   summarise,
   type DeckItem,
@@ -83,11 +83,54 @@ const SINGLE: Record<string, { kind: 'reps' | 'seconds' | 'meters' | 'minutes'; 
 }
 
 
-/** Put the focused row in the top half of the viewport. */
-function scrollIntoTopHalf(element: HTMLElement) {
-  const rect = element.getBoundingClientRect()
-  const top = window.scrollY + rect.top - window.innerHeight * 0.25
-  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+/**
+ * D-054 rule 2: after a box takes focus, wait for the keyboard (the visual
+ * viewport's next resize) or 350 ms, whichever is first, then put the set's
+ * row at the centre of the visible area.
+ */
+function afterKeyboard(): Promise<void> {
+  const viewport = window.visualViewport
+  if (!viewport) return Promise.resolve()
+  return new Promise((resolve) => {
+    let timer = 0
+    const finish = () => {
+      window.clearTimeout(timer)
+      viewport.removeEventListener('resize', finish)
+      resolve()
+    }
+    viewport.addEventListener('resize', finish)
+    timer = window.setTimeout(finish, 350)
+  })
+}
+
+async function centreInVisibleArea(row: HTMLElement) {
+  await afterKeyboard()
+  if (!row.isConnected) return
+  const viewport = window.visualViewport
+  const rect = row.getBoundingClientRect()
+  const visibleCentre = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) / 2
+  window.scrollBy({ top: rect.top + rect.height / 2 - visibleCentre, behavior: 'smooth' })
+}
+
+/** D-054 rule 4: the focused box's name, pinned to the top of the visible area. */
+function FocusLabel({ text }: { text: string }) {
+  const [top, setTop] = useState(() => window.visualViewport?.offsetTop ?? 0)
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const update = () => setTop(viewport.offsetTop)
+    viewport.addEventListener('resize', update)
+    viewport.addEventListener('scroll', update)
+    return () => {
+      viewport.removeEventListener('resize', update)
+      viewport.removeEventListener('scroll', update)
+    }
+  }, [])
+  return (
+    <div className="dk-focus-label" style={{ top }} aria-hidden="true">
+      {text}
+    </div>
+  )
 }
 
 /** D-033: the bundled demo file, or the placeholder frame. */
@@ -141,6 +184,8 @@ export function DeckScreen() {
   const [resumeAsked, setResumeAsked] = useState(fromToday)
   const [saveFailed, setSaveFailed] = useState<{ row: SetRow } | null>(null)
   const [endAsked, setEndAsked] = useState(false)
+  // D-054 rules 3 and 4: the focused set box's name; null when none has focus.
+  const [focusLabel, setFocusLabel] = useState<string | null>(null)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -218,10 +263,7 @@ export function DeckScreen() {
   )
 
   /** D-053: last week's set for this exact row, the only source an untouched row saves from. */
-  const exactReference = useCallback(
-    (row: SetRow): SetLog | undefined => referenceEntry?.sets.find((set) => sameRow(set, row) && isSetConfirmed(set)),
-    [referenceEntry],
-  )
+  const exactReference = useCallback((row: SetRow): SetLog | undefined => exactReferenceSet(referenceEntry, row), [referenceEntry])
 
   const startRest = useCallback(() => {
     const restSec = current?.resolved.restSec
@@ -547,11 +589,10 @@ export function DeckScreen() {
         <div className={`dk-field dk-field--box ${state}${typeof hint === 'string' && hint.includes('–') ? ' dk-field--range' : ''}`}>
           {row.side && box !== 'r' && <span className="dk-field__side">{row.side}</span>}
           <input
-            id={id}
-            type="text"
+            {...numberBoxAttributes(id)}
+            data-set-box=""
             inputMode={box === 'w' || (box === 'v' && single.decimal) ? 'decimal' : 'numeric'}
             enterKeyHint={box === 'w' ? 'next' : 'done'}
-            autoComplete="off"
             value={shown}
             readOnly={running !== undefined}
             placeholder={hint !== undefined && hint !== '' ? String(hint) : ''}
@@ -560,8 +601,10 @@ export function DeckScreen() {
             aria-describedby={error ? `${id}-error` : undefined}
             onFocus={(event) => {
               collapseDemo()
-              const container = rowRefs.current[`${current.item.id}:${row.n}`]
-              if (container) scrollIntoTopHalf(container)
+              setFocusLabel(`Set ${row.n}${row.side ? ` ${row.side}` : ''} · ${what}`)
+              // The keyboard's arrows move focus here too, so this covers them.
+              const container = event.currentTarget.closest<HTMLElement>('.dk-set__row')
+              if (container) void centreInVisibleArea(container)
               event.currentTarget.select()
             }}
             onChange={(event) => {
@@ -581,7 +624,9 @@ export function DeckScreen() {
               if (box === 'w') document.getElementById(id.replace(/-w$/, '-r'))?.focus()
               else void saveRow(row)
             }}
-            onBlur={() => {
+            onBlur={(event) => {
+              // Moving to another set box keeps the label and the footer in flow.
+              if (!(event.relatedTarget instanceof HTMLElement && 'setBox' in event.relatedTarget.dataset)) setFocusLabel(null)
               // One-box rows save on leaving the box, as before; load rows save on the tick or Enter.
               if (box === 'v' && draft !== undefined && draft.trim() !== '') void saveRow(row)
             }}
@@ -814,7 +859,7 @@ export function DeckScreen() {
                 <div className="dk-cardio__of">
                   <span>of</span>
                   <input
-                    type="text"
+                    {...numberBoxAttributes('box-cardio-min')}
                     inputMode="numeric"
                     aria-label="Minutes"
                     value={
@@ -869,10 +914,10 @@ export function DeckScreen() {
               const setRef = (element: HTMLDivElement | null) => {
                 rowRefs.current[`${current.item.id}:${n}`] = element
               }
-              // An empty last-week value is blank, never a dash.
-              const refText = (row: SetRow) => {
-                const reference = prefillFor(row).reference
-                return reference ? formatSetValue(reference) : ''
+              // D-054 rule 5: the last-week cell only when this exact row has last week's value.
+              const refCell = (row: SetRow) => {
+                const reference = exactReference(row)
+                return reference ? <span className="dk-set__ref">{formatSetValue(reference)}</span> : null
               }
               const isLoad = (current.resolved.type ?? 'load_reps') === 'load_reps'
               return (
@@ -882,7 +927,7 @@ export function DeckScreen() {
                     rows.map((row, i) => (
                       <div className="dk-set__row dk-set__row--boxes dk-set__row--load" key={row.side ?? 'set'} ref={i === 0 ? setRef : undefined}>
                         <span className="dk-set__n">{i === 0 ? n : ''}</span>
-                        <span className="dk-set__ref">{refText(row)}</span>
+                        {refCell(row)}
                         {renderBox(row, 'w')}
                         {renderBox(row, 'r')}
                         {renderTick([row])}
@@ -891,7 +936,7 @@ export function DeckScreen() {
                   ) : (
                     <div className="dk-set__row dk-set__row--boxes" ref={setRef}>
                       <span className="dk-set__n">{n}</span>
-                      {!current.resolved.perSide && <span className="dk-set__ref">{refText(rows[0])}</span>}
+                      {!current.resolved.perSide && refCell(rows[0])}
                       {current.resolved.perSide ? <div className="dk-pair">{rows.map((row) => renderBox(row, 'v'))}</div> : renderBox(rows[0], 'v')}
                       {holdRow ? renderHoldButton(holdRow) : renderTick(rows)}
                     </div>
@@ -937,7 +982,8 @@ export function DeckScreen() {
         </div>
       </div>
 
-      <div className="dk-foot">
+      {focusLabel && <FocusLabel text={focusLabel} />}
+      <div className={focusLabel ? 'dk-foot dk-foot--flow' : 'dk-foot'}>
         {next && (
           <div className="dk-next">
             <span className="dk-next__name">
