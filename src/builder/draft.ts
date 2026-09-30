@@ -1,6 +1,7 @@
 // The one builder draft (D-042 rule 1), kept in the meta store under
 // builderDraft and written on every change, so it survives navigation and
-// reload. Save or Discard clears it.
+// reload. Save or Discard clears it. D-059 rule 4: nothing is written until
+// the program differs from what the builder opened with.
 
 import { deleteMeta, getMeta, setMeta } from '../db/index.ts'
 import type { Program } from '../types/program.ts'
@@ -35,4 +36,14 @@ export async function writeDraft(draft: Omit<BuilderDraft, 'updatedAt'>): Promis
 
 export async function clearDraft(): Promise<void> {
   await deleteMeta(DRAFT_KEY)
+}
+
+/**
+ * D-059 rule 4: whether the builder should hold a draft now. `already` is true
+ * for a builder resumed from a stored draft, or once a draft has been written;
+ * otherwise a draft starts only when the program differs (as serialized JSON)
+ * from the program the builder opened with.
+ */
+export function draftWanted(opened: string, program: Program, already: boolean): boolean {
+  return already || JSON.stringify(program) !== opened
 }

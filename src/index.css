@@ -2137,6 +2137,12 @@ input[type='file'] {
   gap: 8px;
 }
 
+/* D-059 rule 1: on a tabbed screen the dock sits above the tab bar, as Today's does. */
+.ob-dock--above-tabbar {
+  bottom: var(--tabbar-h);
+  padding: 14px 24px 10px;
+}
+
 .ob-primary {
   width: 100%;
   height: 56px;
@@ -2274,6 +2280,12 @@ input[type='file'] {
   height: 44px;
   font-size: 22px;
   color: var(--accent);
+}
+
+/* D-059 rule 5: at the minimum or maximum the button is off. */
+.ob-stepper button:disabled {
+  color: var(--placeholder);
+  cursor: default;
 }
 
 .ob-stepper__value {

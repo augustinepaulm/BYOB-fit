@@ -14,6 +14,8 @@ import { FormsBuilder } from './FormsBuilder.tsx'
 
 interface Loaded {
   draft: BuilderDraft
+  /** A stored draft was waiting and is being resumed. */
+  resumed: boolean
   original: Program | null
   sessions: Session[]
 }
@@ -59,7 +61,7 @@ export function BuilderEntry({
         draft = { mode: 'new', program: blankProgram(uniqueProgramId('my-program', ids), start), step: 'settings', updatedAt: '' }
       }
       const original = draft.mode === 'edit' ? ((await getProgram(draft.program.id)) ?? null) : null
-      if (live) setLoaded({ draft, original, sessions })
+      if (live) setLoaded({ draft, resumed: waiting !== null, original, sessions })
     })()
     return () => {
       live = false
@@ -70,6 +72,7 @@ export function BuilderEntry({
   return (
     <FormsBuilder
       initial={loaded.draft}
+      resumed={loaded.resumed}
       original={loaded.original}
       currentWeek={loaded.draft.mode === 'edit' ? currentWeek : 1}
       sessions={loaded.sessions}
