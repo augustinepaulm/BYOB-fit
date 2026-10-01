@@ -281,3 +281,56 @@ Stated by Auggie. A future day in the current week can be done today.
 3. A confirmation names both days before anything changes: "Swap Wed (Legs 2) with today (Pull)? Pull moves to Wed." Confirming applies the swap and opens the deck on the day brought forward. Cancel changes nothing.
 4. If today already has logged sets, it is still allowed (Auggie's choice), and the confirmation says so: today's workout stays logged under today, the day brought forward becomes a second workout today, and today's day moves to the other date, where it shows as done. Tested in chat on `main` (11672a1): with Monday's session finished and Monday swapped with Tuesday, Today offered Start on Tuesday's day, Week showed Monday's day on Tuesday as Done, and Log kept the logged set.
 DEFAULT, settled in the 11.5 contract: the button does not show on rest days or on days in future weeks; if today is a rest day, a training day may still be brought to today; a started but unfinished session for today is ended as it stands when the swap is confirmed, as End does, so it cannot be resumed on the wrong date.
+
+## D-061 The user controls the routine (FROZEN, Sep 30, 2026)
+Stated by Auggie: the user can do whatever they want with their routine. The app does not restrict order, sections, or which day is done when. Every contract is checked against this.
+Consequence: D-015's restriction to the program's declared swap pairs ("the program's Wed/Thu rule") is lifted; declared pairs may be shown first as suggestions and never limit the choice (D-062).
+
+## D-062 Day changes: swap and replace (FROZEN, Sep 30, 2026)
+Supersedes D-060 rule 2 and the D-060 defaults on rest days and future weeks (Auggie confirmed, Sep 30, 2026). D-060 rules 1, 3 and 4 and its default for an unfinished session carry over.
+Swap (stated by Auggie):
+1. Any two days can be swapped: today with a future day, or two future days, in the current week or later weeks, including rest days. This applies to Week's "Swap days" sheet and the day detail's "Do this today".
+2. A swap moves both days; nothing is lost or duplicated. Example: Push pulled from next Monday to this Friday sends Friday's Upper 2 to next Monday.
+3. A future rest day can be brought to today: today becomes rest and today's day moves to that date.
+4. The confirmation names both days and both dates before anything changes. Cancel changes nothing. Sets already logged today stay logged under today (D-060 rule 4).
+5. DEFAULT: each day uses the byWeek values of the week it is done in.
+Replace (stated by Auggie):
+6. Any date, today or future, can be given any day of the program from a list, including a day already done this week. The day it had is skipped on that date. The base program is unchanged.
+7. Mid-workout, the deck offers Replace. Sets already logged stay logged under today.
+8. DEFAULT: mid-workout Replace replaces only what is left of today; adding more is Add exercise (D-056).
+9. DEFAULT: the list holds the active program's days only, until Phase 13 settles sessions holding items the program does not contain.
+10. DEFAULT: a replaced date uses the byWeek values of the week it falls in.
+11. DEFAULT: when one week holds two sessions of the same day, the later one is next week's reference (D-053) and progression input (D-047).
+Model, checked in chat on `main` (40730de): a swap is stored as a pair of program days inside one program week, and each date's day comes from its weekday with that week's pairs applied (`dayForDate`). That can express any two days of one week, rest days included, but not a swap across weeks (rule 2's example) or a second session of a day in one week (rule 6). Both need an assignment per date ("this date does day X"), which also changes what the AI update is sent, last week's values, progression and export.
+Consequence: all of swap, "Do this today" and Replace are built together in Phase 12 (Auggie's choice, Sep 30, 2026). The small change 11.5 "Do this today" is cancelled. Acceptance, on Auggie's iPhone: swap next Monday's Push with this Friday's Upper 2 and both move on Week; swap a future rest day to today and today shows rest; replace this Friday with Push, next Monday is still Push and Friday's Upper 2 shows skipped; replace mid-workout after two logged exercises, both stay in Log and only the rest of today changes; next week's Push shows Friday's numbers as last week's.
+
+## D-063 Today's plan inside the deck, with reorder (FROZEN, Sep 30, 2026)
+Amends D-058, which is now frozen in this form. Stated by Auggie: mid-workout the user needs to see everything left, change the order, or stop.
+1. A visible "Plan" control in the deck header, beside End.
+2. The sheet lists today's sections and items, each marked done, current or upcoming, with its prescription.
+3. Tapping any item moves the deck to it.
+4. Any item not done can be moved to any position, across sections, by a drag handle or by Move up and Move down (Auggie's choice, Sep 30, 2026; the buttons keep it usable with VoiceOver). Moving the current item later is allowed. Done items stay where they were logged.
+5. The Next tile and the rest of the sequence follow the new order.
+6. A new order is for today only. The session summary offers "Keep this order"; only that tap changes the program, section moves included, under the builder rules (D-042).
+7. The sheet links to End, and to Replace once Phase 12 ships it.
+8. Viewing, jumping and reordering change no set data.
+9. DEFAULT: today's order is stored with the session, so a reload mid-workout keeps it.
+The tab bar stays hidden in the deck; End is the way out.
+
+## D-064 Set boxes on the device (FROZEN, Sep 30, 2026)
+Auggie's device check of small change 11.3, on the new build (the focus label showed):
+1. The contact AutoFill bar still appears after every attribute in D-054 rule 1. No further attribute attempts. The bar is cosmetic: tapping its suggestion types the name into the box, and the box rejects it ("Enter a number, like 62.5"; "Enter a number, like 8", checked in chat on 40730de), so nothing is saved. The native keyboard and its dictation stay; backlog B-12 (in-app number pad) remains the only route to remove the bar.
+2. DEFAULT: the focus label (D-054 rule 4) covered the first line of the not-advice banner. While a set box has focus the banner is hidden; it returns on blur.
+3. "Enter reps" on a set ticked with nothing typed is D-053 rule 2 working, not a defect.
+
+## D-065 Build rules for the plan sheet and Add set (DEFAULT, Sep 30, 2026)
+Proposed by Claude for small change 11.5; each closes a gap D-055 or D-063 leaves open, checked against `main` (40730de).
+1. Today's order is stored on the session as an optional list of item and section ids, written only when the user moves something. Items missing from the list (added to the program later) follow at their program position; ids no longer in today's deck are ignored. Export carries it with the session; the envelope version is unchanged because the field is optional.
+2. An item moved to another section today keeps how it is logged. Whether an item takes sets depends on its section kind unless the item sets `logged` (`isLogged`), so a warm-up check moved into Main would otherwise turn into set entry. "Keep this order" writes `logged` explicitly on any moved item whose new section kind would change it.
+3. After a reorder the current item stays current, except when the current item itself is moved later: then the item that takes its place becomes current (D-063 rule 4).
+4. Done items cannot be moved; other items can be placed anywhere, including between done items. A section left empty for today is not shown.
+5. "Add set" adds the next set number (an L and an R row on per-side items). The count of added sets is stored on the session entry so the rows survive a reload. An added row with nothing saved can be removed; a saved one cannot (edit it instead, D-057).
+6. Added sets count for the progression suggestion like any set (D-055, Auggie's choice): the existing check already reads every confirmed set (`src/lib/progression.ts`). They are sent to the AI like any set.
+7. "Keep in program" for added sets raises the item's base `sets`. Weeks with their own `sets` override keep it exactly (D-042 rule 5), and the summary says so when the item has any.
+8. "Keep in program" and "Keep this order" are not offered while a builder draft exists, because saving that draft later would overwrite them (one draft at a time, D-042 rule 1); the summary says to finish or discard the draft first.
+9. The not-advice banner is hidden while a set box has focus (D-064 rule 2) through a flag on the document root, so the banner component itself does not change.
