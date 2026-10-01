@@ -34,6 +34,10 @@ export interface SessionApi {
   setFeltOff: (itemId: string, exerciseId: string, flag: FeltOff | null) => Promise<void>
   finish: () => Promise<void>
   reload: () => Promise<void>
+  /** D-065 rule 1: today's order, stored when the user moves an item. */
+  setOrder: (order: { itemId: string; sectionId: string }[]) => Promise<void>
+  /** D-065 rule 5: add (+1) or remove (-1) an added set; creates the entry if needed. */
+  changeAddedSets: (itemId: string, exerciseId: string, delta: 1 | -1) => Promise<void>
 }
 
 function blank(target: SessionTarget): Session {
@@ -210,6 +214,30 @@ export function useSession(target: SessionTarget | null): SessionApi {
     [ensure, commit],
   )
 
+  const setOrder = useCallback(
+    async (order: { itemId: string; sectionId: string }[]) => {
+      const current = await ensure()
+      await commit({ ...current, order })
+    },
+    [ensure, commit],
+  )
+
+  const changeAddedSets = useCallback(
+    async (itemId: string, exerciseId: string, delta: 1 | -1) => {
+      const current = await ensure()
+      await commit(
+        withEntry(current, itemId, exerciseId, (entry) => {
+          const next: Entry = { ...entry }
+          const count = Math.max(0, (entry.addedSets ?? 0) + delta)
+          if (count > 0) next.addedSets = count
+          else delete next.addedSets
+          return next
+        }),
+      )
+    },
+    [ensure, commit],
+  )
+
   const finish = useCallback(async () => {
     const current = await ensure()
     await commit({ ...current, endedAt: new Date().toISOString() })
@@ -226,5 +254,7 @@ export function useSession(target: SessionTarget | null): SessionApi {
     setFeltOff,
     finish,
     reload,
+    setOrder,
+    changeAddedSets,
   }
 }
