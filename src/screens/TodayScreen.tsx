@@ -9,6 +9,7 @@ import { shouldShowBackupNote } from '../lib/notices.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, isLogged, resolveItem } from '../lib/program.ts'
 import { buildDeck, findEntry, isSetConfirmed, restDayState, summarise } from '../lib/session.ts'
+import { applyOrder } from '../lib/todayPlan.ts'
 import { PrimaryButton, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
@@ -128,7 +129,9 @@ export function TodayScreen() {
   )
   const api = useSession(target)
 
-  const deck = useMemo(() => (day && program ? buildDeck(day, week, today) : []), [day, program, week, today])
+  // Resume follows today's order once the user has moved something (D-063, D-065 rule 1).
+  const order = api.session?.order
+  const deck = useMemo(() => (day && program ? applyOrder(buildDeck(day, week, today), day, order) : []), [day, program, week, today, order])
 
   if (!program) {
     // 7a "No program yet": onboarding finished without one, or it was removed.

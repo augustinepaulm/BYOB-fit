@@ -5285,3 +5285,211 @@ input[type='file'] {
   color: var(--danger);
   overflow-wrap: anywhere;
 }
+
+/* ── Today's plan, Add set, Keep (D-063, D-065, EXEC-11.5) ── */
+
+.dk-planbtn {
+  margin-left: auto;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.dk-rest + .dk-planbtn {
+  margin-left: 12px;
+}
+
+.dk-plan {
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dk-plan__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dk-plan__close {
+  width: 44px;
+  height: 44px;
+  margin-right: -12px;
+  font-size: 26px;
+  color: var(--secondary);
+}
+
+.dk-plan__list {
+  overflow-y: auto;
+  margin: 4px -24px 0;
+  padding: 0 24px 8px;
+}
+
+.dk-plan__section {
+  margin-top: 16px;
+}
+
+.dk-plan__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--bg);
+  position: relative;
+}
+
+.dk-plan__row--current .dk-plan__title {
+  color: var(--accent);
+}
+
+.dk-plan__row--dragging {
+  z-index: 2;
+  box-shadow: 0 4px 14px var(--shadow);
+}
+
+.dk-plan__handle {
+  width: 28px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  touch-action: none;
+  cursor: grab;
+}
+
+.dk-plan__handle--off {
+  cursor: default;
+}
+
+.dk-plan__name {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  color: var(--text);
+}
+
+.dk-plan__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dk-plan__sub {
+  font-size: 13px;
+  color: var(--secondary);
+  margin-top: 2px;
+}
+
+.dk-plan__state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--secondary);
+}
+
+.dk-plan__state--done {
+  color: var(--ok);
+}
+
+.dk-plan__state--current {
+  color: var(--accent);
+}
+
+.dk-plan__moves {
+  flex: none;
+  display: flex;
+}
+
+.dk-plan__moves button {
+  width: 36px;
+  height: 44px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.dk-plan__moves button:disabled {
+  color: var(--placeholder);
+}
+
+.dk-plan__end {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.dk-addset {
+  min-height: 44px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.dk-addset--remove {
+  display: block;
+  margin: 0 0 4px 28px;
+  min-height: 36px;
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.dk-keep {
+  margin: 16px 24px 0;
+}
+
+.dk-keep__note {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--secondary);
+}
+
+.dk-keep__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.dk-keep__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.dk-keep__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dk-keep__sub {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--secondary);
+  margin-top: 2px;
+}
+
+.dk-keep__kept {
+  flex: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+/* D-064 rule 2, D-065 rule 9: the not-advice banner hides while a set box has
+   focus. It keeps its space: removing it would shift the rows under the user's
+   finger when the box blurs, and the tap on ✓ would miss. */
+:root[data-set-focus] .app-notices {
+  visibility: hidden;
+}

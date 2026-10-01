@@ -9,7 +9,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ExercisePicker } from '../builder/ExercisePicker.tsx'
 import { Sheet } from '../builder/ui.tsx'
 import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
-import { getMeta, listAllSessions, setMeta } from '../db/index.ts'
+import { getMeta, getProgram, listAllSessions, saveProgram, setMeta } from '../db/index.ts'
+import { readDraft } from '../builder/draft.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
@@ -27,12 +28,25 @@ import {
   nearestWeightAbove,
   exactReferenceSet,
   referenceSet,
-  setRowsFor,
   summarise,
   type DeckItem,
   type SetRow,
 } from '../lib/session.ts'
+import {
+  applyOrder,
+  currentAfterMove,
+  isDeckItemDone,
+  keepOrder,
+  keepSets,
+  moveItem,
+  orderDiffers,
+  orderOf,
+  setRowsWithAdded,
+  setsLoggedToday,
+  setsOverrideWeeks,
+} from '../lib/todayPlan.ts'
 import { ChoiceRow, TickIcon } from '../onboarding/ui.tsx'
+import { PlanSheet } from './PlanSheet.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
 import { useSettings } from '../settings/useSettings.ts'
@@ -142,7 +156,7 @@ function DemoMedia({ exercise }: { exercise: Exercise | undefined }) {
 }
 
 export function DeckScreen() {
-  const { program, today, week, weekPlan } = useProgram()
+  const { program, today, week, weekPlan, refresh } = useProgram()
   const { settings } = useSettings()
   const navigate = useNavigate()
   // Today's Resume button already asked; a reopened deck asks here (7b).
@@ -161,7 +175,10 @@ export function DeckScreen() {
     [day, todayIso, week, swapped],
   )
   const api = useSession(target)
-  const deck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
+  // The program's deck, and today's: the session's order applied (D-063, D-065 rule 1).
+  const baseDeck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
+  const sessionOrder = api.session?.order
+  const deck = useMemo(() => (day ? applyOrder(baseDeck, day, sessionOrder) : baseDeck), [baseDeck, day, sessionOrder])
 
   // Where the user has navigated to with Done or Back. Null until they move.
   const [position, setPosition] = useState<number | null>(null)
@@ -186,8 +203,16 @@ export function DeckScreen() {
   const [endAsked, setEndAsked] = useState(false)
   // D-054 rules 3 and 4: the focused set box's name; null when none has focus.
   const [focusLabel, setFocusLabel] = useState<string | null>(null)
+  // D-063: the plan sheet; D-065 rule 8: summary Keep controls and the draft check.
+  const [planOpen, setPlanOpen] = useState(false)
+  const [kept, setKept] = useState<{ sets: Record<string, boolean>; order: boolean }>({ sets: {}, order: false })
+  const [keepError, setKeepError] = useState<string | null>(null)
+  const [draftWaiting, setDraftWaiting] = useState<boolean | null>(null)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // D-064 rule 2: the banner flag never outlives the deck.
+  useEffect(() => () => void delete document.documentElement.dataset.setFocus, [])
 
   // One ticker drives the rest, hold and cardio timers; all read Date.now().
   useEffect(() => {
@@ -215,12 +240,7 @@ export function DeckScreen() {
   }, [])
 
   // Resume reopens at the first item with nothing recorded against it.
-  const firstIncomplete = deck.findIndex((deckItem) => {
-    const recorded = findEntry(api.session ?? undefined, deckItem.item.id)
-    if (recorded?.skipped) return false
-    if (deckItem.logged) return !(recorded?.sets ?? []).some(isSetConfirmed)
-    return recorded?.checked !== true
-  })
+  const firstIncomplete = deck.findIndex((deckItem) => !isDeckItemDone(deckItem, api.session ?? undefined))
   if (!api.loading && startAt === null && deck.length > 0) {
     setStartAt(firstIncomplete === -1 ? Math.max(0, deck.length - 1) : firstIncomplete)
   }
@@ -400,7 +420,7 @@ export function DeckScreen() {
       advance(from)
       return
     }
-    for (const row of setRowsFor(current.resolved)) {
+    for (const row of setRowsWithAdded(current.resolved, entry?.addedSets)) {
       const key = rowKey(current.item.id, row)
       const hasTyped = (['w', 'r', 'v'] as Box[]).some((box) => (drafts[boxKey(key, box)] ?? '').trim() !== '')
       const stored = findSet(entry, row)
@@ -411,6 +431,16 @@ export function DeckScreen() {
     }
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, saveRow, advance])
+
+  // D-065 rule 8: Keep controls wait for any builder draft to be finished or discarded.
+  useEffect(() => {
+    if (phase !== 'summary') return
+    let live = true
+    void readDraft().then((draft) => live && setDraftWaiting(draft !== null))
+    return () => {
+      live = false
+    }
+  }, [phase])
 
   const finish = useCallback(async () => {
     await api.finish()
@@ -435,14 +465,121 @@ export function DeckScreen() {
   const summary = summarise(api.session ?? undefined, deck)
   const setsLogged = summary.setsConfirmed
   // Exercises with nothing recorded yet, for End early (7b).
-  const notDone = deck.filter((deckItem) => {
-    const recorded = findEntry(api.session ?? undefined, deckItem.item.id)
-    if (recorded?.skipped) return false
-    if (deckItem.logged) return !(recorded?.sets ?? []).some(isSetConfirmed)
-    return recorded?.checked !== true
-  }).length
+  const doneIds = new Set(deck.filter((deckItem) => isDeckItemDone(deckItem, api.session ?? undefined)).map((d) => d.item.id))
+  const notDone = deck.length - doneIds.size
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
   const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
+
+  /** End, from the header or the plan sheet: asks first when items are not done (7b). */
+  const endFlow = () => {
+    window.scrollTo({ top: 0 })
+    if (notDone > 0) setEndAsked(true)
+    else setPhase('summary')
+  }
+
+  /** D-063 rule 4, D-065 rules 1 and 3: move an item, store today's order, keep the right item current. */
+  const moveInPlan = async (itemId: string, toIndex: number, toSectionId: string) => {
+    const before = orderOf(deck)
+    const after = moveItem(before, itemId, toIndex, toSectionId, doneIds)
+    if (JSON.stringify(after) === JSON.stringify(before)) return
+    const currentId = deck[at]?.item.id
+    await api.setOrder(after)
+    if (currentId) setPosition(after.findIndex((o) => o.itemId === currentAfterMove(before, after, currentId, itemId)))
+  }
+
+  /** D-063 rule 6, D-055, D-065 rules 2, 7 and 8: only these taps change the program. */
+  function renderKeep() {
+    if (!program || !day) return null
+    const session = api.session ?? undefined
+    const added = deck
+      .map((deckItem) => {
+        const recorded = findEntry(session, deckItem.item.id)
+        const n = setsLoggedToday(recorded)
+        return { deckItem, n, weeks: setsOverrideWeeks(program, deckItem.item.id) }
+      })
+      .filter(({ deckItem, n }) => {
+        const recorded = findEntry(session, deckItem.item.id)
+        return kept.sets[deckItem.item.id] || ((recorded?.addedSets ?? 0) > 0 && n > (deckItem.item.sets ?? 1))
+      })
+    const orderOffered = kept.order || (Boolean(session?.order) && orderDiffers(deck, baseDeck))
+    if (added.length === 0 && !orderOffered) return null
+
+    const keepAdded = async (itemId: string, n: number) => {
+      setKeepError(null)
+      try {
+        const latest = (await getProgram(program.id)) ?? program
+        await saveProgram(keepSets(latest, itemId, n))
+        await refresh()
+        setKept((k) => ({ ...k, sets: { ...k.sets, [itemId]: true } }))
+      } catch (e) {
+        setKeepError(`Could not keep it: ${(e as Error).message}`)
+      }
+    }
+    const keepTodaysOrder = async () => {
+      setKeepError(null)
+      try {
+        const latest = (await getProgram(program.id)) ?? program
+        const loggedToday = new Map(deck.map((d) => [d.item.id, d.logged]))
+        await saveProgram(keepOrder(latest, day.id, orderOf(deck), loggedToday))
+        await refresh()
+        setKept((k) => ({ ...k, order: true }))
+      } catch (e) {
+        setKeepError(`Could not keep it: ${(e as Error).message}`)
+      }
+    }
+
+    return (
+      <div className="dk-keep">
+        <div className="ob-sechead">
+          <span>Change the program?</span>
+        </div>
+        {draftWaiting === null ? null : draftWaiting ? (
+          <p className="dk-keep__note">Finish or discard your program draft first to keep these changes.</p>
+        ) : (
+          <>
+            {added.map(({ deckItem, n, weeks }) => (
+              <div className="dk-keep__row" key={deckItem.item.id}>
+                <div className="dk-keep__main">
+                  <div className="dk-keep__title">{nameOf(deckItem.resolved.exerciseId ?? '')}</div>
+                  <div className="dk-keep__sub">
+                    {n} sets today, {deckItem.item.sets ?? 1} in the program
+                    {weeks.length > 0 && ` · Week${weeks.length > 1 ? 's' : ''} ${weeks.join(', ')} ${weeks.length > 1 ? 'keep their' : 'keeps its'} own set count`}
+                  </div>
+                </div>
+                {kept.sets[deckItem.item.id] ? (
+                  <span className="dk-keep__kept">Kept</span>
+                ) : (
+                  <button type="button" className="ai-btn" onClick={() => void keepAdded(deckItem.item.id, n)}>
+                    Keep {n} sets in program
+                  </button>
+                )}
+              </div>
+            ))}
+            {orderOffered && (
+              <div className="dk-keep__row">
+                <div className="dk-keep__main">
+                  <div className="dk-keep__title">Today&apos;s order</div>
+                  <div className="dk-keep__sub">You changed the order or sections today.</div>
+                </div>
+                {kept.order ? (
+                  <span className="dk-keep__kept">Kept</span>
+                ) : (
+                  <button type="button" className="ai-btn" onClick={() => void keepTodaysOrder()}>
+                    Keep this order
+                  </button>
+                )}
+              </div>
+            )}
+            {keepError && (
+              <div className="ob-errors" role="alert">
+                {keepError}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   // ── 3g Session summary ──
   if (phase === 'summary') {
@@ -493,6 +630,7 @@ export function DeckScreen() {
             <span>Logged as {day.name}&apos;s session (days swapped)</span>
           </div>
         )}
+        {renderKeep()}
         <div className="ob-dock">
           <button type="button" className="tl-done" onClick={() => void finish()}>
             Finish
@@ -602,6 +740,7 @@ export function DeckScreen() {
             onFocus={(event) => {
               collapseDemo()
               setFocusLabel(`Set ${row.n}${row.side ? ` ${row.side}` : ''} · ${what}`)
+              document.documentElement.dataset.setFocus = ''
               // The keyboard's arrows move focus here too, so this covers them.
               const container = event.currentTarget.closest<HTMLElement>('.dk-set__row')
               if (container) void centreInVisibleArea(container)
@@ -626,7 +765,10 @@ export function DeckScreen() {
             }}
             onBlur={(event) => {
               // Moving to another set box keeps the label and the footer in flow.
-              if (!(event.relatedTarget instanceof HTMLElement && 'setBox' in event.relatedTarget.dataset)) setFocusLabel(null)
+              if (!(event.relatedTarget instanceof HTMLElement && 'setBox' in event.relatedTarget.dataset)) {
+                setFocusLabel(null)
+                delete document.documentElement.dataset.setFocus
+              }
               // One-box rows save on leaving the box, as before; load rows save on the tick or Enter.
               if (box === 'v' && draft !== undefined && draft.trim() !== '') void saveRow(row)
             }}
@@ -699,7 +841,10 @@ export function DeckScreen() {
     )
   }
 
-  const setNumbers = Array.from({ length: Math.max(1, current.resolved.sets ?? 1) }, (_, i) => i + 1)
+  // D-065 rule 5: today's rows include the sets added during the session.
+  const addedSets = entry?.addedSets ?? 0
+  const baseSets = Math.max(1, current.resolved.sets ?? 1)
+  const setNumbers = Array.from({ length: baseSets + addedSets }, (_, i) => i + 1)
   // The chip and the hint sit under the first row still waiting for a value.
   const pendingN = setNumbers.find((n) => {
     const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
@@ -709,7 +854,7 @@ export function DeckScreen() {
   function applySuggestion() {
     if (!current || !suggestion || suggestion.kind !== 'weight') return
     const fills: Record<string, string> = {}
-    for (const row of setRowsFor(current.resolved)) {
+    for (const row of setRowsWithAdded(current.resolved, entry?.addedSets)) {
       if (isSetConfirmed(findSet(entry, row))) continue
       // D-051: the chip fills Weight; Reps keeps its own placeholder.
       fills[boxKey(rowKey(current.item.id, row), 'w')] = String(suggestion.to)
@@ -729,18 +874,13 @@ export function DeckScreen() {
             <span className="dk-rest__value">{formatClock(restRemaining)}</span>
           </span>
         )}
+        <button type="button" className="dk-planbtn" aria-label="Today's plan" onClick={() => setPlanOpen(true)}>
+          Plan
+        </button>
         <button
           type="button"
           className="dk-end"
-          onClick={() => {
-            if (notDone > 0) {
-              setEndAsked(true)
-              window.scrollTo({ top: 0 })
-              return
-            }
-            setPhase('summary')
-            window.scrollTo({ top: 0 })
-          }}
+          onClick={endFlow}
         >
           End
         </button>
@@ -942,6 +1082,19 @@ export function DeckScreen() {
                     </div>
                   )}
                   {flaggedRow && <div className="dk-flag">Couldn&apos;t read this. Tap to fix.</div>}
+                  {/* D-065 rule 5: the last added set, with nothing saved, can be removed. */}
+                  {n === baseSets + addedSets && n > baseSets && !rows.some((row) => findSet(entry, row)) && (
+                    <button
+                      type="button"
+                      className="dk-addset dk-addset--remove"
+                      onClick={() => {
+                        for (const row of rows) clearBoxes(rowKey(current.item.id, row))
+                        void api.changeAddedSets(current.item.id, exerciseId, -1)
+                      }}
+                    >
+                      Remove set {n}
+                    </button>
+                  )}
                   {n === pendingN && suggestion && (
                     suggestion.kind === 'weight' ? (
                       <button type="button" className="dk-chip" onClick={applySuggestion}>
@@ -954,6 +1107,11 @@ export function DeckScreen() {
                 </div>
               )
             })
+          )}
+          {!entry?.skipped && !isCheckTile && !isCardioTile && (
+            <button type="button" className="dk-addset" onClick={() => void api.changeAddedSets(current.item.id, exerciseId, 1)}>
+              + Add set
+            </button>
           )}
 
           <div className="dk-tools">
@@ -1012,6 +1170,26 @@ export function DeckScreen() {
         </div>
       </div>
 
+      {planOpen && (
+        <PlanSheet
+          deck={deck}
+          order={orderOf(deck)}
+          currentIndex={at}
+          done={doneIds}
+          nameOf={(d) => nameOf(findEntry(api.session ?? undefined, d.item.id)?.exerciseId ?? d.resolved.exerciseId ?? '')}
+          onJump={(index) => {
+            setPlanOpen(false)
+            setPosition(index)
+            window.scrollTo({ top: 0 })
+          }}
+          onMove={(itemId, toIndex, toSectionId) => void moveInPlan(itemId, toIndex, toSectionId)}
+          onEnd={() => {
+            setPlanOpen(false)
+            endFlow()
+          }}
+          onClose={() => setPlanOpen(false)}
+        />
+      )}
       {sheet === 'felt' && (
         <Sheet
           title={`How did ${lowerFirst(exercise?.name ?? exerciseId)} feel?`}

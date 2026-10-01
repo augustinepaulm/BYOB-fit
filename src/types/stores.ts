@@ -26,6 +26,8 @@ export interface Entry {
   feltOff?: FeltOff
   /** The rest of the exercise was skipped today (set with Discomfort). */
   skipped?: boolean
+  /** Sets added today beyond the prescription (D-055, D-065 rule 5). */
+  addedSets?: number
 }
 
 export type FeltOff = 'easy' | 'hard' | 'discomfort'
@@ -40,6 +42,8 @@ export interface Session {
   endedAt?: string
   swapped?: boolean
   entries: Entry[]
+  /** Today's order, written only when the user moves an item (D-065 rule 1). */
+  order?: { itemId: string; sectionId: string }[]
 }
 
 export interface Profile {
