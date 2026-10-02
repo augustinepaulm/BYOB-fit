@@ -15,9 +15,11 @@
   --accent-fg: #ffffff;
   --accent-soft-border: #ddd5c8;
   --dashed: #cfc6b7;
-  --tabbar-bg: #f5f2ec;
-  --tabbar-border: #ddd5c8;
-  --tab-inactive: #8f897d;
+  /* D-067 rule 1: a navy tab bar in every appearance. */
+  --tabbar-bg: #1f3a5f;
+  --tabbar-border: #1f3a5f;
+  --tab-inactive: #bcc4cf;
+  --tab-active: #ffffff;
   --chip-idle: #e4ddd0;
   --icon-muted: #bdb3a3;
   --ok: #2e7d4f;
@@ -68,9 +70,10 @@
     --accent-fg: #101a26;
     --accent-soft-border: #36312a;
     --dashed: #4a443b;
-    --tabbar-bg: #171512;
-    --tabbar-border: #36312a;
-    --tab-inactive: #8a8276;
+    --tabbar-bg: #1f3a5f;
+    --tabbar-border: #1f3a5f;
+    --tab-inactive: #bcc4cf;
+    --tab-active: #ffffff;
     --chip-idle: #2a2620;
     --icon-muted: #5a5348;
     --ok: #5bb887;
@@ -113,9 +116,10 @@
   --accent-fg: #101a26;
   --accent-soft-border: #36312a;
   --dashed: #4a443b;
-  --tabbar-bg: #171512;
-  --tabbar-border: #36312a;
-  --tab-inactive: #8a8276;
+  --tabbar-bg: #1f3a5f;
+  --tabbar-border: #1f3a5f;
+  --tab-inactive: #bcc4cf;
+  --tab-active: #ffffff;
   --chip-idle: #2a2620;
   --icon-muted: #5a5348;
   --ok: #5bb887;
@@ -752,8 +756,22 @@ input[type='file'] {
 }
 
 .tab--active {
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--tab-active);
+  font-weight: 700;
+}
+
+/* D-067 rule 1: a white marker above the active tab's icon. Every tab has the
+   slot, so the icons stay level. */
+.tab::before {
+  content: '';
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.tab--active::before {
+  background: var(--tab-active);
 }
 
 /* ── Deck (design boards 1b, 1e, 1f) ── */
@@ -3865,10 +3883,14 @@ input[type='file'] {
   font-size: 15px;
   font-weight: 700;
   color: var(--danger);
+  /* D-067 rule 2a: a 44 × 44 tap area, 8 px from Plan. */
+  min-width: 44px;
   min-height: 44px;
+  margin-left: 8px;
+  padding: 0 4px;
   display: flex;
   align-items: center;
-  padding-left: 12px;
+  justify-content: center;
 }
 
 .dk-progress {
@@ -5290,8 +5312,13 @@ input[type='file'] {
 
 .dk-planbtn {
   margin-left: auto;
+  /* D-067 rule 2a: a 44 × 44 tap area. */
+  min-width: 44px;
   min-height: 44px;
-  padding: 0 4px 0 12px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 15px;
   font-weight: 700;
   color: var(--accent);
