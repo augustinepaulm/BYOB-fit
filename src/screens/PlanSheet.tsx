@@ -21,6 +21,7 @@ export function PlanSheet({
   onJump,
   onMove,
   onChangeDay,
+  onAddExercise,
   onEnd,
   onClose,
 }: {
@@ -36,6 +37,8 @@ export function PlanSheet({
   onMove: (itemId: string, toIndex: number, toSectionId: string) => void
   /** D-069 rule 5: Change today's workout. */
   onChangeDay: () => void
+  /** D-069 rule 7: Add exercise. */
+  onAddExercise: () => void
   onEnd: () => void
   onClose: () => void
 }) {
@@ -143,6 +146,9 @@ export function PlanSheet({
           ))}
         </div>
         <div className="bd-sheet__actions">
+          <button type="button" className="ob-outline" onClick={onAddExercise}>
+            Add exercise
+          </button>
           <button type="button" className="ob-outline" onClick={onChangeDay}>
             Change today&apos;s workout
           </button>

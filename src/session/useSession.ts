@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getSessionByDateAndDay, saveSession } from '../db/index.ts'
 import { sessionIdFor } from '../lib/session.ts'
+import type { ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 
 export interface SessionTarget {
@@ -38,6 +39,10 @@ export interface SessionApi {
   setOrder: (order: { itemId: string; sectionId: string }[]) => Promise<void>
   /** D-065 rule 5: add (+1) or remove (-1) an added set; creates the entry if needed. */
   changeAddedSets: (itemId: string, exerciseId: string, delta: 1 | -1) => Promise<void>
+  /** D-069 rule 7: an exercise added today, with today's order, in one write. */
+  addEntry: (entry: Entry, order: { itemId: string; sectionId: string }[]) => Promise<void>
+  /** D-069 rule 8: a swap logged with its own prescription. */
+  changeExercise: (itemId: string, exerciseId: string, fields: ItemFields) => Promise<void>
 }
 
 function blank(target: SessionTarget): Session {
@@ -238,6 +243,22 @@ export function useSession(target: SessionTarget | null): SessionApi {
     [ensure, commit],
   )
 
+  const addEntry = useCallback(
+    async (entry: Entry, order: { itemId: string; sectionId: string }[]) => {
+      const current = await ensure()
+      await commit({ ...current, entries: [...current.entries.filter((e) => e.itemId !== entry.itemId), entry], order })
+    },
+    [ensure, commit],
+  )
+
+  const changeExercise = useCallback(
+    async (itemId: string, exerciseId: string, fields: ItemFields) => {
+      const current = await ensure()
+      await commit(withEntry(current, itemId, exerciseId, (entry) => ({ ...entry, exerciseId, fields, changed: true })))
+    },
+    [ensure, commit],
+  )
+
   const finish = useCallback(async () => {
     const current = await ensure()
     await commit({ ...current, endedAt: new Date().toISOString() })
@@ -256,5 +277,7 @@ export function useSession(target: SessionTarget | null): SessionApi {
     reload,
     setOrder,
     changeAddedSets,
+    addEntry,
+    changeExercise,
   }
 }

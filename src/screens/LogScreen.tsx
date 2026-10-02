@@ -25,11 +25,8 @@ import { useStarterTemplates } from '../builder/useLibrary.ts'
 import { SectionHead } from '../onboarding/ui.tsx'
 import { ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { LogHistory } from './LogHistory.tsx'
 
-const MONTH_DAY = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-})
 
 /** Exercise ids the program marks as index lifts for the current week. */
 function indexExerciseIds(program: Program, week: number): Set<string> {
@@ -46,7 +43,13 @@ function indexExerciseIds(program: Program, week: number): Set<string> {
 }
 
 function useSessions(): Session[] {
+  return useSessionsWithReload()[0]
+}
+
+/** Sessions, and a reload for after a Log edit (D-069 rule 10). */
+function useSessionsWithReload(): [Session[], () => void] {
   const [sessions, setSessions] = useState<Session[]>([])
+  const [version, setVersion] = useState(0)
   useEffect(() => {
     let live = true
     void listAllSessions().then((found) => {
@@ -55,8 +58,8 @@ function useSessions(): Session[] {
     return () => {
       live = false
     }
-  }, [])
-  return sessions
+  }, [version])
+  return [sessions, () => setVersion((v) => v + 1)]
 }
 
 /**
@@ -245,7 +248,7 @@ export function ExerciseLogScreen() {
   const { program } = useProgram()
   const { exerciseId = '' } = useParams()
   const navigate = useNavigate()
-  const sessions = useSessions()
+  const [sessions, reloadSessions] = useSessionsWithReload()
   const history = useMemo(() => buildExerciseLog(sessions), [sessions])
   const names = useExerciseNames(program)
   const weeks = useMemo(() => weeksWithExercise(sessions, exerciseId), [sessions, exerciseId])
@@ -314,16 +317,7 @@ export function ExerciseLogScreen() {
             <SectionHead aside={`${weeksSpanned(series)} ${weeksSpanned(series) === 1 ? 'week' : 'weeks'}`}>Top-set weight</SectionHead>
             <Sparkline points={series} />
             <SectionHead>History</SectionHead>
-            {logged.map((item) => (
-              <div className="tl-row" key={item.date} style={{ alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, color: 'var(--secondary)' }}>{MONTH_DAY.format(parseISODate(item.date))}</div>
-                  <div style={{ fontSize: 15, color: 'var(--secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {item.sets.map((set) => formatSetValue(set)).join(', ')}
-                  </div>
-                </div>
-              </div>
-            ))}
+            <LogHistory sessions={sessions} exerciseId={exerciseId} onSaved={reloadSessions} />
           </div>
         </>
       )}

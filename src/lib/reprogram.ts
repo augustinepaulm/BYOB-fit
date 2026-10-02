@@ -94,6 +94,8 @@ export interface CompactSet {
   seconds?: number
   distanceM?: number
   minutes?: number
+  /** D-069 rule 10: edited from Log after the session ended. */
+  mark?: 'edited'
 }
 
 export interface CompactSession {
@@ -105,6 +107,10 @@ export interface CompactSession {
     sets?: CompactSet[]
     checked?: boolean
     note?: string
+    /** D-069 rule 9: an exercise added today, or swapped with its own prescription. */
+    mark?: 'added today' | 'changed today'
+    /** The prescription a changed entry was logged with. */
+    fields?: ItemFields
   }[]
 }
 
@@ -135,6 +141,7 @@ export function compactSessions(sessions: Session[]): CompactSession[] {
             seconds: set.seconds,
             distanceM: set.distanceM,
             minutes: set.minutes,
+            mark: set.editedAt ? 'edited' : undefined,
           }),
         )
         return {
@@ -143,6 +150,7 @@ export function compactSessions(sessions: Session[]): CompactSession[] {
           ...(sets.length > 0 ? { sets } : {}),
           ...(entry.checked !== undefined ? { checked: entry.checked } : {}),
           ...(entry.note ? { note: entry.note } : {}),
+          ...(entry.added ? { mark: 'added today' as const } : entry.changed ? { mark: 'changed today' as const, fields: entry.fields } : {}),
         }
       }),
     }))
