@@ -150,7 +150,7 @@ function PlannedDay({ program, day, date, week, onBack }: { program: Program; da
 }
 
 export function WeekScreen() {
-  const { program, today, week, weekPlan, applySwap } = useProgram()
+  const { program, today, week, changes, setChange } = useProgram()
   const navigate = useNavigate()
   const [shown, setShown] = useState<number | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
@@ -261,7 +261,7 @@ export function WeekScreen() {
         )}
         <div style={{ borderTop: isFuture ? '1.5px solid var(--text)' : undefined }}>
           {dates.map((date) => {
-            const day = dayForDate(program, isCurrent ? weekPlan : null, date)
+            const day = dayForDate(program, changes, date)
             const isToday = isSameDate(date, today)
             const upcoming = toISODate(date) > toISODate(today)
             const title = day.focus ?? day.name
@@ -339,7 +339,13 @@ export function WeekScreen() {
           program={program}
           onClose={() => setSheetOpen(false)}
           onConfirm={(a, b) => {
-            void applySwap(a, b)
+            // Until Change replaces this sheet (EXEC-12 commit B), a swap is the
+            // two days' dates in this week given each other's day (D-069).
+            for (const date of weekDates(program, week)) {
+              const own = program.days.find((d) => d.order === date.getDay())?.id
+              if (own === a) void setChange(toISODate(date), b)
+              if (own === b) void setChange(toISODate(date), a)
+            }
             setSheetOpen(false)
           }}
         />

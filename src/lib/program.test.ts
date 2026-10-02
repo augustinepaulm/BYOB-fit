@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Day, Item, Program, Section } from '../types/program.ts'
-import type { WeekPlan } from '../types/stores.ts'
+import type { DayChange } from '../types/stores.ts'
 import {
   currentWeek,
   dayForDate,
@@ -185,15 +185,24 @@ describe('dayForDate', () => {
     expect(dayForDate(program, null, new Date(2026, 8, 13)).id).toBe('sun')
   })
 
-  it('honours a recorded swap in both directions', () => {
-    const plan: WeekPlan = { programWeek: 6, swaps: [['thu', 'mon']] }
-    expect(dayForDate(program, plan, new Date(2026, 8, 14)).id).toBe('thu')
-    expect(dayForDate(program, plan, new Date(2026, 8, 17)).id).toBe('mon')
+  const setAt = '2026-09-13T09:00:00.000Z'
+
+  it('uses the change for a date when there is one (D-069)', () => {
+    const changes: DayChange[] = [{ date: '2026-09-14', dayId: 'thu', setAt }]
+    expect(dayForDate(program, changes, new Date(2026, 8, 14)).id).toBe('thu')
+    // Nothing else moves: Thursday keeps its own day.
+    expect(dayForDate(program, changes, new Date(2026, 8, 17)).id).toBe('thu')
   })
 
-  it('leaves unswapped days alone when a swap exists', () => {
-    const plan: WeekPlan = { programWeek: 6, swaps: [['thu', 'mon']] }
-    expect(dayForDate(program, plan, new Date(2026, 8, 15)).id).toBe('tue')
+  it('leaves dates without a change alone', () => {
+    const changes: DayChange[] = [{ date: '2026-09-14', dayId: 'thu', setAt }]
+    expect(dayForDate(program, changes, new Date(2026, 8, 15)).id).toBe('tue')
+    expect(dayForDate(program, [], new Date(2026, 8, 14)).id).toBe('mon')
+  })
+
+  it('ignores a change naming a day the program no longer has', () => {
+    const changes: DayChange[] = [{ date: '2026-09-14', dayId: 'gone', setAt }]
+    expect(dayForDate(program, changes, new Date(2026, 8, 14)).id).toBe('mon')
   })
 })
 

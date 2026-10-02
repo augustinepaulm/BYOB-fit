@@ -158,7 +158,7 @@ function DemoMedia({ exercise }: { exercise: Exercise | undefined }) {
 }
 
 export function DeckScreen() {
-  const { program, today, week, weekPlan, refresh } = useProgram()
+  const { program, today, week, changes, refresh } = useProgram()
   const { settings } = useSettings()
   const navigate = useNavigate()
   // Today's Resume button already asked; a reopened deck asks here (7b).
@@ -166,7 +166,7 @@ export function DeckScreen() {
   const { templates } = useStarterTemplates()
   const library = useLibrary(program, templates)
 
-  const day = program ? dayForDate(program, weekPlan, today) : null
+  const day = program ? dayForDate(program, changes, today) : null
   const scheduled = program?.days.find((d) => d.order === today.getDay())
   const swapped = Boolean(scheduled && day && scheduled.id !== day.id)
   const todayIso = toISODate(today)

@@ -204,7 +204,7 @@ describe('done, as the sheet and Resume read it', () => {
 })
 
 describe('backup round trip (D-065 rules 1 and 5)', () => {
-  it('keeps order and addedSets, with the envelope version unchanged', () => {
+  it('keeps order and addedSets', () => {
     const session: Session = {
       id: '2026-09-29__tue',
       date: '2026-09-29',
@@ -216,7 +216,7 @@ describe('backup round trip (D-065 rules 1 and 5)', () => {
     const file = backupFromData({
       programs: [program],
       sessions: [session],
-      weekPlans: [],
+      dayChanges: [],
       meals: [],
       profile: null,
       settings: null,
@@ -226,7 +226,8 @@ describe('backup round trip (D-065 rules 1 and 5)', () => {
       sentLog: [],
     })
     expect(file.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
-    expect(BACKUP_SCHEMA_VERSION).toBe(2)
+    // D-069 moved the envelope to version 3; order and addedSets need no change.
+    expect(BACKUP_SCHEMA_VERSION).toBe(3)
     const back = parseBackup(JSON.stringify(file))
     expect(back.ok).toBe(true)
     if (back.ok) expect(back.backup.sessions).toEqual([session])
