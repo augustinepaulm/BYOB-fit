@@ -5,6 +5,7 @@
 import { readAllStores, replaceAllStores } from '../db/index.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  DayChange,
   Goals,
   MealDay,
   Profile,
@@ -12,16 +13,16 @@ import type {
   SentLogEntry,
   Session,
   Settings,
-  WeekPlan,
 } from '../types/stores.ts'
+import { dayChangesFromWeekPlans, type LegacyWeekPlan } from './dayChanges.ts'
 import { upgradeProgram } from './program.ts'
 import { withoutDeviceStorage } from './storage.ts'
 
 /** The envelope version this build writes (PLAN v1.5 section 5). */
-export const BACKUP_SCHEMA_VERSION = 2
+export const BACKUP_SCHEMA_VERSION = 3
 
 /** Every envelope version this build reads. Anything else is refused. */
-const READABLE_VERSIONS = [1, 2]
+const READABLE_VERSIONS = [1, 2, 3]
 
 export interface BackupFile {
   app: 'BYOB-fit'
@@ -29,7 +30,8 @@ export interface BackupFile {
   exportedAt: string
   programs: Program[]
   sessions: Session[]
-  weekPlans: WeekPlan[]
+  /** D-069: version 3. Versions 1 and 2 carried weekPlans, converted on import. */
+  dayChanges: DayChange[]
   meals: MealDay[]
   profile: Profile | null
   /** Never carries apiKey. */
@@ -68,9 +70,11 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Check the envelope before anything touches a store. Versions 1 and 2 are
- * read; a version 1 file comes back as version 2 with no goals and an empty
- * sent log. An unknown or missing schemaVersion is refused, never guessed at.
+ * Check the envelope before anything touches a store. Versions 1, 2 and 3 are
+ * read and come back as version 3: a version 1 file has no goals and an empty
+ * sent log, and the week plans of versions 1 and 2 become day changes against
+ * the file's active program (D-069). An unknown or missing schemaVersion is
+ * refused, never guessed at.
  */
 export function validateBackup(value: unknown): BackupResult {
   if (!isObject(value)) {
@@ -94,23 +98,17 @@ export function validateBackup(value: unknown): BackupResult {
     return {
       ok: false,
       errors: [
-        `/schemaVersion: this build reads versions ${READABLE_VERSIONS.join(' and ')}, the file says ${JSON.stringify(value.schemaVersion)}. Nothing was imported`,
+        `/schemaVersion: this build reads versions ${READABLE_VERSIONS.slice(0, -1).join(', ')} and ${READABLE_VERSIONS[READABLE_VERSIONS.length - 1]}, the file says ${JSON.stringify(value.schemaVersion)}. Nothing was imported`,
       ],
     }
   }
-  const version = value.schemaVersion as 1 | 2
+  const version = value.schemaVersion as 1 | 2 | 3
 
   const errors: string[] = []
   if (typeof value.exportedAt !== 'string' || Number.isNaN(Date.parse(value.exportedAt))) {
     errors.push('/exportedAt: must be an ISO date-time string')
   }
-  for (const key of [
-    'programs',
-    'sessions',
-    'weekPlans',
-    'meals',
-    'reprograms',
-  ] as const) {
+  for (const key of ['programs', 'sessions', version === 3 ? 'dayChanges' : 'weekPlans', 'meals', 'reprograms'] as const) {
     if (!Array.isArray(value[key])) errors.push(`/${key}: must be an array`)
   }
   for (const key of ['profile', 'settings'] as const) {
@@ -119,7 +117,7 @@ export function validateBackup(value: unknown): BackupResult {
     }
   }
   if (!isObject(value.meta)) errors.push('/meta: must be an object')
-  if (version === 2) {
+  if (version >= 2) {
     if (value.goals !== null && !isObject(value.goals)) {
       errors.push('/goals: must be an object or null')
     }
@@ -127,7 +125,10 @@ export function validateBackup(value: unknown): BackupResult {
   }
   if (errors.length > 0) return { ok: false, errors }
 
-  const backup = value as unknown as BackupFile
+  const backup = value as unknown as BackupFile & { weekPlans?: LegacyWeekPlan[] }
+  const active = backup.programs.find((p) => p.id === backup.meta.activeProgramId) ?? backup.programs[0]
+  const dayChanges =
+    version === 3 ? backup.dayChanges : dayChangesFromWeekPlans(active, backup.weekPlans ?? [], backup.exportedAt)
   return {
     ok: true,
     backup: {
@@ -136,14 +137,14 @@ export function validateBackup(value: unknown): BackupResult {
       exportedAt: backup.exportedAt,
       programs: backup.programs,
       sessions: backup.sessions,
-      weekPlans: backup.weekPlans,
+      dayChanges,
       meals: backup.meals,
       profile: backup.profile,
       settings: backup.settings,
       reprograms: backup.reprograms,
       meta: backup.meta,
-      goals: version === 2 ? backup.goals : null,
-      sentLog: version === 2 ? backup.sentLog : [],
+      goals: version >= 2 ? backup.goals : null,
+      sentLog: version >= 2 ? backup.sentLog : [],
     },
   }
 }
@@ -167,7 +168,7 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
     // Stored programs are always schema version 2 (D-035).
     programs: backup.programs.map(upgradeProgram),
     sessions: backup.sessions,
-    weekPlans: backup.weekPlans,
+    dayChanges: backup.dayChanges,
     meals: backup.meals,
     profile: backup.profile,
     // Device-specific storage fields never cross devices.

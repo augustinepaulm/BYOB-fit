@@ -12,6 +12,17 @@ import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
 import { getMeta, getProgram, listAllSessions, saveProgram, setMeta } from '../db/index.ts'
 import { readDraft } from '../builder/draft.ts'
 import { blurSetBox, endStep } from '../lib/endFlow.ts'
+import {
+  addableItems,
+  addedDeckItems,
+  addedEntry,
+  effectiveDeckItem,
+  insertAfter,
+  keepAddedInProgram,
+  newAddedItemId,
+  progressionHistory,
+  swapPrefill,
+} from '../lib/sessionExercises.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
@@ -47,6 +58,9 @@ import {
   setsOverrideWeeks,
 } from '../lib/todayPlan.ts'
 import { ChoiceRow, TickIcon } from '../onboarding/ui.tsx'
+import { AddExercise } from './AddExercise.tsx'
+import { ChangeDay } from './ChangeDay.tsx'
+import { SwapStep } from './SwapStep.tsx'
 import { PlanSheet } from './PlanSheet.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
@@ -157,8 +171,18 @@ function DemoMedia({ exercise }: { exercise: Exercise | undefined }) {
   return <span className="dk-demo__label">demo · looping clip</span>
 }
 
+/**
+ * D-069 rule 5: the deck is keyed by today's day, so changing today's workout
+ * mid-session starts the new day's deck from its first item.
+ */
 export function DeckScreen() {
-  const { program, today, week, weekPlan, refresh } = useProgram()
+  const { program, today, changes } = useProgram()
+  const dayId = program ? dayForDate(program, changes, today).id : 'none'
+  return <Deck key={dayId} />
+}
+
+function Deck() {
+  const { program, today, week, changes, refresh, setChange } = useProgram()
   const { settings } = useSettings()
   const navigate = useNavigate()
   // Today's Resume button already asked; a reopened deck asks here (7b).
@@ -166,7 +190,7 @@ export function DeckScreen() {
   const { templates } = useStarterTemplates()
   const library = useLibrary(program, templates)
 
-  const day = program ? dayForDate(program, weekPlan, today) : null
+  const day = program ? dayForDate(program, changes, today) : null
   const scheduled = program?.days.find((d) => d.order === today.getDay())
   const swapped = Boolean(scheduled && day && scheduled.id !== day.id)
   const todayIso = toISODate(today)
@@ -180,7 +204,13 @@ export function DeckScreen() {
   // The program's deck, and today's: the session's order applied (D-063, D-065 rule 1).
   const baseDeck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
   const sessionOrder = api.session?.order
-  const deck = useMemo(() => (day ? applyOrder(baseDeck, day, sessionOrder) : baseDeck), [baseDeck, day, sessionOrder])
+  // D-069 rules 7 to 9: exercises added today join today's order, and an entry
+  // logged with its own prescription replaces the program's.
+  const deck = useMemo(() => {
+    if (!day || !program) return baseDeck
+    const ordered = applyOrder([...baseDeck, ...addedDeckItems(api.session, program, day)], day, sessionOrder)
+    return ordered.map((d) => effectiveDeckItem(d, findEntry(api.session ?? undefined, d.item.id)))
+  }, [baseDeck, day, program, sessionOrder, api.session])
 
   // Where the user has navigated to with Done or Back. Null until they move.
   const [position, setPosition] = useState<number | null>(null)
@@ -207,6 +237,11 @@ export function DeckScreen() {
   const [focusLabel, setFocusLabel] = useState<string | null>(null)
   // D-063: the plan sheet; D-065 rule 8: summary Keep controls and the draft check.
   const [planOpen, setPlanOpen] = useState(false)
+  // D-069 rule 5: Change today's workout from the Plan sheet.
+  const [changingDay, setChangingDay] = useState(false)
+  // D-069 rules 7 and 8: the Add exercise list, and the swap step after a pick.
+  const [adding, setAdding] = useState(false)
+  const [swapPick, setSwapPick] = useState<{ id: string; name: string } | null>(null)
   const [kept, setKept] = useState<{ sets: Record<string, boolean>; order: boolean }>({ sets: {}, order: false })
   const [keepError, setKeepError] = useState<string | null>(null)
   const [draftWaiting, setDraftWaiting] = useState<boolean | null>(null)
@@ -266,15 +301,14 @@ export function DeckScreen() {
     void setMeta(DEMO_SEEN, JSON.stringify(seen.current))
   }, [firstView, exerciseId])
 
-  // D-047: this item's recent entries with this exercise, newest first.
+  // D-047: this item's recent entries with this exercise, newest first. D-069
+  // rule 9: entries logged with their own prescription do not count, and
+  // today's added or changed exercise gets no suggestion for the program item.
   const suggestion = useMemo(() => {
-    if (!current) return null
-    const past: Entry[] = [...history]
-      .filter((s) => s.date < todayIso)
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .flatMap((s) => s.entries.filter((e) => e.itemId === current.item.id && e.exerciseId === exerciseId))
+    if (!current || entry?.changed || entry?.added) return null
+    const past: Entry[] = progressionHistory(history, current.item.id, exerciseId, todayIso)
     return suggestProgression({ ...current.resolved, progression: current.item.progression }, exercise, past, unit)
-  }, [current, history, todayIso, exerciseId, exercise, unit])
+  }, [current, entry, history, todayIso, exerciseId, exercise, unit])
 
   const prefillFor = useCallback(
     (row: SetRow): { firstTime: boolean; reference?: SetLog } => {
@@ -508,10 +542,25 @@ export function DeckScreen() {
       })
       .filter(({ deckItem, n }) => {
         const recorded = findEntry(session, deckItem.item.id)
-        return kept.sets[deckItem.item.id] || ((recorded?.addedSets ?? 0) > 0 && n > (deckItem.item.sets ?? 1))
+        return !recorded?.added && (kept.sets[deckItem.item.id] || ((recorded?.addedSets ?? 0) > 0 && n > (deckItem.item.sets ?? 1)))
       })
-    const orderOffered = kept.order || (Boolean(session?.order) && orderDiffers(deck, baseDeck))
-    if (added.length === 0 && !orderOffered) return null
+    // D-069 rule 7: an exercise added today can be kept in today's day.
+    const addedToday = (session?.entries ?? []).filter((e) => e.added)
+    const programDeck = deck.filter((d) => !findEntry(session, d.item.id)?.added)
+    const orderOffered = kept.order || (Boolean(session?.order) && orderDiffers(programDeck, baseDeck))
+    if (added.length === 0 && !orderOffered && addedToday.length === 0) return null
+
+    const keepAddedExercise = async (e: Entry) => {
+      setKeepError(null)
+      try {
+        const latest = (await getProgram(program.id)) ?? program
+        await saveProgram(keepAddedInProgram(latest, day.id, orderOf(deck), e))
+        await refresh()
+        setKept((k) => ({ ...k, sets: { ...k.sets, [`added:${e.itemId}`]: true } }))
+      } catch (error) {
+        setKeepError(`Could not keep it: ${(error as Error).message}`)
+      }
+    }
 
     const keepAdded = async (itemId: string, n: number) => {
       setKeepError(null)
@@ -529,7 +578,7 @@ export function DeckScreen() {
       try {
         const latest = (await getProgram(program.id)) ?? program
         const loggedToday = new Map(deck.map((d) => [d.item.id, d.logged]))
-        await saveProgram(keepOrder(latest, day.id, orderOf(deck), loggedToday))
+        await saveProgram(keepOrder(latest, day.id, orderOf(programDeck), loggedToday))
         await refresh()
         setKept((k) => ({ ...k, order: true }))
       } catch (e) {
@@ -560,6 +609,21 @@ export function DeckScreen() {
                 ) : (
                   <button type="button" className="ai-btn" onClick={() => void keepAdded(deckItem.item.id, n)}>
                     Keep {n} sets in program
+                  </button>
+                )}
+              </div>
+            ))}
+            {addedToday.map((e) => (
+              <div className="dk-keep__row" key={`added:${e.itemId}`}>
+                <div className="dk-keep__main">
+                  <div className="dk-keep__title">{nameOf(e.exerciseId)}</div>
+                  <div className="dk-keep__sub">Added today</div>
+                </div>
+                {kept.sets[`added:${e.itemId}`] ? (
+                  <span className="dk-keep__kept">Kept</span>
+                ) : (
+                  <button type="button" className="ai-btn" onClick={() => void keepAddedExercise(e)}>
+                    Keep {nameOf(e.exerciseId)} in program
                   </button>
                 )}
               </div>
@@ -651,6 +715,45 @@ export function DeckScreen() {
 
   if (!current) return null
 
+  // ── Add exercise (D-069 rule 7) ──
+  if (adding) {
+    return (
+      <AddExercise
+        items={addableItems(program, week, today)}
+        onBack={() => setAdding(false)}
+        onPick={(source) =>
+          void (async () => {
+            const id = newAddedItemId(program, api.session)
+            const order = insertAfter(orderOf(deck), current.item.id, id, current.section.id)
+            await api.addEntry(addedEntry(source, id), order)
+            setAdding(false)
+            setPosition(order.findIndex((o) => o.itemId === id))
+            window.scrollTo({ top: 0 })
+          })()
+        }
+      />
+    )
+  }
+
+  // ── Swap with its own prescription (D-069 rule 8) ──
+  if (sheet === 'swap' && swapPick) {
+    const prefill = swapPrefill(program, swapPick.id, current.item.id, week, today, current.resolved)
+    return (
+      <SwapStep
+        exerciseName={swapPick.name}
+        prefill={prefill.fields}
+        from={prefill.from}
+        onBack={() => setSwapPick(null)}
+        onConfirm={(fields) =>
+          void api.changeExercise(current.item.id, swapPick.id, fields).then(() => {
+            setSwapPick(null)
+            setSheet(null)
+          })
+        }
+      />
+    )
+  }
+
   // ── Swap for this session only (frame 2c) ──
   if (sheet === 'swap') {
     return (
@@ -662,10 +765,7 @@ export function DeckScreen() {
         draft={program}
         allowCreate={false}
         onBack={() => setSheet(null)}
-        onPick={(picked) => {
-          void api.chooseExercise(current.item.id, picked.id)
-          setSheet(null)
-        }}
+        onPick={(picked) => setSwapPick({ id: picked.id, name: picked.exercise.name })}
       />
     )
   }
@@ -1121,6 +1221,9 @@ export function DeckScreen() {
               </svg>
               Swap
             </button>
+            <button type="button" className="dk-tool" onClick={() => setAdding(true)}>
+              + Add exercise
+            </button>
             {swapTo && (
               <button type="button" className="dk-tool" onClick={() => void api.chooseExercise(current.item.id, swapTo)}>
                 Use {nameOf(swapTo)} instead
@@ -1188,11 +1291,37 @@ export function DeckScreen() {
             window.scrollTo({ top: 0 })
           }}
           onMove={(itemId, toIndex, toSectionId) => void moveInPlan(itemId, toIndex, toSectionId)}
+          sections={day.sections}
+          onAddExercise={() => {
+            setPlanOpen(false)
+            setAdding(true)
+          }}
+          onChangeDay={() => {
+            setPlanOpen(false)
+            setChangingDay(true)
+          }}
           onEnd={() => {
             setPlanOpen(false)
             endFlow()
           }}
           onClose={() => setPlanOpen(false)}
+        />
+      )}
+      {changingDay && (
+        <ChangeDay
+          program={program}
+          date={today}
+          current={day}
+          isToday
+          loggedToday={setsLogged > 0}
+          onClose={() => setChangingDay(false)}
+          onConfirm={async (dayId) => {
+            // Rule 4: today's session ends as it stands; what was logged stays.
+            blurSetBox(document)
+            if (api.session) await api.finish()
+            await setChange(todayIso, dayId)
+            window.scrollTo({ top: 0 })
+          }}
         />
       )}
       {sheet === 'felt' && (

@@ -1,6 +1,7 @@
 // Repository layer. Every read and write to IndexedDB goes through a named
 // function here, so screens never hold a raw database handle.
 
+import { endedAsItStands } from '../lib/dayChanges.ts'
 import type { Program } from '../types/program.ts'
 import type {
   Goals,
@@ -10,7 +11,7 @@ import type {
   SentLogEntry,
   Session,
   Settings,
-  WeekPlan,
+  DayChange,
 } from '../types/stores.ts'
 import { sessionIdFor } from '../lib/session.ts'
 import {
@@ -74,18 +75,22 @@ export async function deleteMeta(key: string): Promise<void> {
   await db.delete('meta', key)
 }
 
-// ── Week plans ──
+// ── Day changes (D-069) ──
 
-export async function getWeekPlan(
-  programWeek: number,
-): Promise<WeekPlan | undefined> {
+/** Every changed date, in date order. */
+export async function getDayChanges(): Promise<DayChange[]> {
   const db = await getDB()
-  return db.get('weekPlans', programWeek)
+  return db.getAll('dayChanges')
 }
 
-export async function saveWeekPlan(weekPlan: WeekPlan): Promise<void> {
+export async function putDayChange(change: DayChange): Promise<void> {
   const db = await getDB()
-  await db.put('weekPlans', weekPlan)
+  await db.put('dayChanges', change)
+}
+
+export async function deleteDayChange(date: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('dayChanges', date)
 }
 
 // ── Sessions ──
@@ -122,6 +127,18 @@ export async function getSessionByDateAndDay(
 ): Promise<Session | undefined> {
   const db = await getDB()
   return db.get('sessions', sessionIdFor(date, dayId))
+}
+
+/**
+ * D-069 rule 4: before a date's day changes, its open session ends as it
+ * stands, as End does. What was logged stays. True when one was ended.
+ */
+export async function endOpenSession(date: string, dayId: string): Promise<boolean> {
+  const db = await getDB()
+  const session = await db.get('sessions', sessionIdFor(date, dayId))
+  if (!session || session.endedAt) return false
+  await db.put('sessions', endedAsItStands(session, new Date()))
+  return true
 }
 
 export async function listSessionsBetween(
@@ -218,7 +235,7 @@ export async function listSentLog(): Promise<SentLogEntry[]> {
 export const DATA_STORES = [
   'programs',
   'sessions',
-  'weekPlans',
+  'dayChanges',
   'meals',
   'profile',
   'settings',
@@ -239,7 +256,7 @@ export async function clearAllStores(): Promise<void> {
 export async function readAllStores(): Promise<{
   programs: Program[]
   sessions: Session[]
-  weekPlans: WeekPlan[]
+  dayChanges: DayChange[]
   meals: MealDay[]
   profile: Profile | null
   settings: Settings | null
@@ -258,7 +275,7 @@ export async function readAllStores(): Promise<{
   return {
     programs: await db.getAll('programs'),
     sessions: await db.getAll('sessions'),
-    weekPlans: await db.getAll('weekPlans'),
+    dayChanges: await db.getAll('dayChanges'),
     meals: await db.getAll('meals'),
     profile: (await db.get('profile', PROFILE_KEY)) ?? null,
     settings: (await db.get('settings', SETTINGS_KEY)) ?? null,
@@ -273,7 +290,7 @@ export async function readAllStores(): Promise<{
 export async function replaceAllStores(data: {
   programs: Program[]
   sessions: Session[]
-  weekPlans: WeekPlan[]
+  dayChanges: DayChange[]
   meals: MealDay[]
   profile: Profile | null
   settings: Settings | null
@@ -287,7 +304,7 @@ export async function replaceAllStores(data: {
   await Promise.all(DATA_STORES.map((name) => tx.objectStore(name).clear()))
   for (const program of data.programs) await tx.objectStore('programs').put(program)
   for (const s of data.sessions) await tx.objectStore('sessions').put(s)
-  for (const plan of data.weekPlans) await tx.objectStore('weekPlans').put(plan)
+  for (const change of data.dayChanges) await tx.objectStore('dayChanges').put(change)
   for (const meal of data.meals) await tx.objectStore('meals').put(meal)
   for (const record of data.reprograms) await tx.objectStore('reprograms').put(record)
   if (data.profile) await tx.objectStore('profile').put(data.profile, PROFILE_KEY)

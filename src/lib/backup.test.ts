@@ -51,7 +51,7 @@ function storeData() {
   return {
     programs: [],
     sessions: [],
-    weekPlans: [],
+    dayChanges: [{ date: '2026-10-02', dayId: 'mon', setAt: '2026-09-29T09:00:00.000Z' }],
     meals: [],
     profile: null,
     settings: { apiKey: 'sk-ant-secret', model: 'claude-sonnet-5', storagePersisted: true },
@@ -67,21 +67,23 @@ describe('backup envelope validator', () => {
     const result = parseBackup(JSON.stringify(envelopeV1()))
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.backup.schemaVersion).toBe(2)
+    expect(result.backup.schemaVersion).toBe(3)
+    expect(result.backup.dayChanges).toEqual([])
     expect(result.backup.goals).toBeNull()
     expect(result.backup.sentLog).toEqual([])
     expect(result.backup.meta.activeProgramId).toBe('sample')
   })
 
-  it('round-trips a version 2 file, goals and sent log included', () => {
+  it('round-trips a version 3 file, day changes, goals and sent log included', () => {
     const written = backupFromData(storeData(), new Date('2026-09-27T12:00:00Z'))
-    expect(written.schemaVersion).toBe(2)
+    expect(written.schemaVersion).toBe(3)
     const result = parseBackup(JSON.stringify(written))
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.backup).toEqual(written)
     expect(result.backup.goals).toEqual(goals)
     expect(result.backup.sentLog).toEqual(sentLog)
+    expect(result.backup.dayChanges).toEqual(storeData().dayChanges)
   })
 
   it('never writes the API key, or this device’s storage fields', () => {
@@ -123,14 +125,20 @@ describe('backup envelope validator', () => {
     if (!result.ok) expect(result.errors[0]).toMatch(/^\/schemaVersion: missing\./)
   })
 
-  it('refuses version 3', () => {
-    const result = validateBackup({ ...envelopeV1(), schemaVersion: 3, goals: null, sentLog: [] })
+  it('refuses version 4, naming 1, 2 and 3', () => {
+    const result = validateBackup({ ...envelopeV1(), schemaVersion: 4, goals: null, sentLog: [], dayChanges: [] })
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.errors[0]).toBe(
-        '/schemaVersion: this build reads versions 1 and 2, the file says 3. Nothing was imported',
+        '/schemaVersion: this build reads versions 1, 2 and 3, the file says 4. Nothing was imported',
       )
     }
+  })
+
+  it('refuses a version 3 file without its day changes', () => {
+    const result = validateBackup({ ...envelopeV1(), schemaVersion: 3, goals: null, sentLog: [] })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors).toContain('/dayChanges: must be an array')
   })
 
   it('refuses corrupt JSON', () => {

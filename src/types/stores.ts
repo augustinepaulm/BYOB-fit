@@ -1,6 +1,6 @@
 // Stores outside the program file, per PLAN v1.5 section 5.
 
-import type { LoadUnit } from './program.ts'
+import type { ItemFields, LoadUnit } from './program.ts'
 
 export interface SetLog {
   n: number
@@ -13,6 +13,8 @@ export interface SetLog {
   rpe?: string
   /** Unparseable input is kept here verbatim, never silently zeroed. */
   raw?: string
+  /** When the set was edited from Log after its session ended (D-069 rule 10). */
+  editedAt?: string
 }
 
 export interface Entry {
@@ -28,6 +30,21 @@ export interface Entry {
   skipped?: boolean
   /** Sets added today beyond the prescription (D-055, D-065 rule 5). */
   addedSets?: number
+  /** The prescription logged today when it differs from the program item (D-069 rule 9). */
+  fields?: ItemFields
+  /** An exercise added today from the plan; its itemId is new, not a program item (D-069 rule 7). */
+  added?: { fromItemId: string }
+  /** An exercise swapped and logged with its own prescription (D-069 rule 8). */
+  changed?: true
+}
+
+/** One date given a day other than its weekday's (D-069). */
+export interface DayChange {
+  /** YYYY-MM-DD */
+  date: string
+  dayId: string
+  /** ISO date-time the change was made. */
+  setAt: string
 }
 
 export type FeltOff = 'easy' | 'hard' | 'discomfort'
@@ -191,8 +208,3 @@ export interface Reprogram {
   approved: boolean
 }
 
-/** Day swaps recorded for one program week. */
-export interface WeekPlan {
-  programWeek: number
-  swaps: [string, string][]
-}

@@ -1,30 +1,15 @@
 // Today's plan inside the deck (D-063, D-065, EXEC-11.5 task 6): today's
 // sections and items with their state, jump, reorder by handle or by Move up
 // and Move down, and End. Viewing, jumping and moving change no set data.
+// D-069: sections emptied today stay as drop targets (rule 11), and "Change
+// today's workout" (rule 5).
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { prescriptionText } from '../lib/prescription.ts'
 import type { DeckItem } from '../lib/session.ts'
-import { stepTarget, type OrderEntry } from '../lib/todayPlan.ts'
+import { planGroups, stepInGroups, type OrderEntry } from '../lib/todayPlan.ts'
 import { HandleIcon, TickIcon } from '../onboarding/ui.tsx'
-
-interface Group {
-  sectionId: string
-  title: string
-  items: { deckItem: DeckItem; index: number }[]
-}
-
-/** Consecutive items of one section form a group; empty sections never show. */
-function groupsOf(deck: DeckItem[]): Group[] {
-  const groups: Group[] = []
-  deck.forEach((deckItem, index) => {
-    const last = groups[groups.length - 1]
-    if (last && last.sectionId === deckItem.section.id) last.items.push({ deckItem, index })
-    else groups.push({ sectionId: deckItem.section.id, title: deckItem.section.title, items: [{ deckItem, index }] })
-  })
-  return groups
-}
 
 export function PlanSheet({
   deck,
@@ -32,12 +17,17 @@ export function PlanSheet({
   currentIndex,
   done,
   nameOf,
+  sections,
   onJump,
   onMove,
+  onChangeDay,
+  onAddExercise,
   onEnd,
   onClose,
 }: {
   deck: DeckItem[]
+  /** The day's sections in program order; empty ones stay as drop targets. */
+  sections: readonly { id: string; title: string }[]
   order: OrderEntry[]
   currentIndex: number
   /** Item ids that are done; they never move (D-065 rule 4). */
@@ -45,10 +35,15 @@ export function PlanSheet({
   nameOf: (deckItem: DeckItem) => string
   onJump: (index: number) => void
   onMove: (itemId: string, toIndex: number, toSectionId: string) => void
+  /** D-069 rule 5: Change today's workout. */
+  onChangeDay: () => void
+  /** D-069 rule 7: Add exercise. */
+  onAddExercise: () => void
   onEnd: () => void
   onClose: () => void
 }) {
   const listRef = useRef<HTMLDivElement>(null)
+  const groups = planGroups(deck, sections)
   const [drag, setDrag] = useState<{ itemId: string; startY: number; dy: number } | null>(null)
 
   /** Where a drop at clientY lands: the index among the other items, and the section. */
@@ -83,19 +78,20 @@ export function PlanSheet({
           </button>
         </div>
         <div className="dk-plan__list" ref={listRef}>
-          {groupsOf(deck).map((group, g) => (
+          {groups.map((group, g) => (
             <div key={`${group.sectionId}-${g}`}>
               <div className="ob-sechead dk-plan__section" data-section-id={group.sectionId}>
                 <span>{group.title}</span>
                 <span style={{ fontWeight: 500, color: 'var(--secondary)' }}>{group.items.length}</span>
               </div>
+              {group.items.length === 0 && <div className="dk-plan__empty">Nothing here today. Move an item here.</div>}
               {group.items.map(({ deckItem, index }) => {
                 const id = deckItem.item.id
                 const name = nameOf(deckItem)
                 const isDone = done.has(id)
                 const state = isDone ? 'Done' : index === currentIndex ? 'Current' : 'Upcoming'
-                const up = isDone ? null : stepTarget(order, id, 'up')
-                const down = isDone ? null : stepTarget(order, id, 'down')
+                const up = isDone ? null : stepInGroups(groups, id, 'up')
+                const down = isDone ? null : stepInGroups(groups, id, 'down')
                 const dragging = drag?.itemId === id
                 return (
                   <div
@@ -150,6 +146,12 @@ export function PlanSheet({
           ))}
         </div>
         <div className="bd-sheet__actions">
+          <button type="button" className="ob-outline" onClick={onAddExercise}>
+            Add exercise
+          </button>
+          <button type="button" className="ob-outline" onClick={onChangeDay}>
+            Change today&apos;s workout
+          </button>
           <button type="button" className="ob-outline dk-plan__end" onClick={onEnd}>
             End session
           </button>

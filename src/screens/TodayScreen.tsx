@@ -116,10 +116,10 @@ function SectionList({
 }
 
 export function TodayScreen() {
-  const { program, today, week, weekPlan } = useProgram()
+  const { program, today, week, changes } = useProgram()
   const navigate = useNavigate()
 
-  const day = program ? dayForDate(program, weekPlan, today) : null
+  const day = program ? dayForDate(program, changes, today) : null
   const scheduled = program?.days.find((d) => d.order === today.getDay())
   const swapped = Boolean(scheduled && day && scheduled.id !== day.id)
 

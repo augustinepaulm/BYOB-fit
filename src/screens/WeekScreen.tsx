@@ -1,17 +1,19 @@
-// Week, frames 3j to 3m in the 1b layout (EXEC-10A task 9): the current week,
-// any other week by the arrows (future ones "As planned today"), a read-only
-// future day, the swap sheet, and Phase 9's Update program.
+// Week, frames 3j to 3l in the 1b layout (EXEC-10A task 9): the current week,
+// any other week by the arrows (future ones "As planned today"), a future day
+// with "Do this today", Change and Restore on every date from today on
+// (D-069), and Phase 9's Update program.
 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ReviewBanner } from '../ai/parts.tsx'
-import { BuilderBar, ChevronRight, Hero, Sheet, SwapArrows } from '../builder/ui.tsx'
-import { listSessionsBetween } from '../db/index.ts'
-import { formatDayOrder, formatShortDay, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
+import { BuilderBar, ChevronRight, Hero, Sheet } from '../builder/ui.tsx'
+import { endOpenSession, listSessionsBetween } from '../db/index.ts'
+import { formatShortDay, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
+import { canChangeDate, changedFrom, dayLabel } from '../lib/dayChanges.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, resolveItem, weekDates } from '../lib/program.ts'
-import { buildDeck, restDayState, sessionState, type DayState } from '../lib/session.ts'
+import { buildDeck, isSetConfirmed, restDayState, sessionState, type DayState } from '../lib/session.ts'
 import { SECTION_ORDER } from '../lib/builder.ts'
 import { SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
@@ -19,6 +21,7 @@ import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, ChevronLeftIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { ChangeDay } from './ChangeDay.tsx'
 
 const DAY_DATE = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
@@ -46,69 +49,11 @@ function PlannedTag() {
   return <span className="ob-badge">As planned today</span>
 }
 
-/** Days that may trade places with `day`, per swappableWith in both directions. */
-function partnersOf(program: Program, day: Day): Day[] {
-  return program.days.filter((other) => other.id !== day.id && (other.id === day.swappableWith || other.swappableWith === day.id))
-}
-
-/** Frame 3m. */
-function SwapSheet({ program, onClose, onConfirm }: { program: Program; onClose: () => void; onConfirm: (a: string, b: string) => void }) {
-  const [first, setFirst] = useState<Day | null>(null)
-  const [second, setSecond] = useState<Day | null>(null)
-  const swappable = program.days.filter((d) => partnersOf(program, d).length > 0)
-  const eligible = first ? partnersOf(program, first) : swappable
-  const days = [...program.days].sort((a, b) => a.order - b.order)
-
-  function pick(day: Day) {
-    if (first && !second) {
-      if (day.id === first.id) {
-        setFirst(null)
-        return
-      }
-      setSecond(day)
-      return
-    }
-    setFirst(day)
-    setSecond(null)
-  }
-
-  return (
-    <Sheet title="Swap two days" body="Pick two days this week. Logs stay with the session." onClose={onClose}>
-      <div className="wk-dayseg" style={{ marginTop: -6 }}>
-        {days.map((day) => {
-          const on = day.id === first?.id || day.id === second?.id
-          const allowed = on || eligible.some((d) => d.id === day.id)
-          return (
-            <button type="button" key={day.id} className={on ? 'wk-dayseg--on' : undefined} disabled={!allowed} aria-pressed={on} onClick={() => pick(day)}>
-              {formatDayOrder(day.order)}
-            </button>
-          )
-        })}
-      </div>
-      <div className="wk-pair">
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: 'var(--secondary)' }}>{first ? formatDayOrder(first.order) : 'Pick one'}</div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{first ? (first.focus ?? first.name) : ''}</div>
-        </div>
-        <SwapArrows />
-        <div style={{ flex: 1, textAlign: 'right' }}>
-          <div style={{ fontSize: 12, color: 'var(--secondary)' }}>{second ? formatDayOrder(second.order) : 'Pick one'}</div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{second ? (second.focus ?? second.name) : ''}</div>
-        </div>
-      </div>
-      <button type="button" className="ob-primary" disabled={!first || !second} onClick={() => first && second && onConfirm(first.id, second.id)}>
-        <span>{first && second ? `Swap ${formatDayOrder(first.order)} and ${formatDayOrder(second.order)}` : 'Swap'}</span>
-      </button>
-    </Sheet>
-  )
-}
-
 /**
- * Frame 3l: a future day; changes go through the builder. D-059: no badge,
- * each item's cue under its name, and the dock above the tab bar.
+ * Frame 3l: a future day. D-059: no badge, each item's cue under its name, and
+ * the dock above the tab bar. D-069 rule 3: its only action is "Do this today".
  */
-function PlannedDay({ program, day, date, week, onBack }: { program: Program; day: Day; date: Date; week: number; onBack: () => void }) {
-  const navigate = useNavigate()
+function PlannedDay({ day, date, week, program, onBack, onDoToday }: { program: Program; day: Day; date: Date; week: number; onBack: () => void; onDoToday: () => void }) {
   const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
   return (
     // The tabbed layout already pads by the tab bar's height; this clears the
@@ -141,8 +86,8 @@ function PlannedDay({ program, day, date, week, onBack }: { program: Program; da
         })}
       </div>
       <div className="ob-dock ob-dock--above-tabbar">
-        <button type="button" className="ob-outline" onClick={() => navigate('/program/edit')}>
-          Edit in builder
+        <button type="button" className="ob-primary" style={{ justifyContent: 'center' }} onClick={onDoToday}>
+          <span>Do this today</span>
         </button>
       </div>
     </div>
@@ -150,13 +95,17 @@ function PlannedDay({ program, day, date, week, onBack }: { program: Program; da
 }
 
 export function WeekScreen() {
-  const { program, today, week, weekPlan, applySwap } = useProgram()
+  const { program, today, week, changes, setChange, restoreDate } = useProgram()
   const navigate = useNavigate()
   const [shown, setShown] = useState<number | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [todaySessions, setTodaySessions] = useState<Session[]>([])
   const [updateOpen, setUpdateOpen] = useState(false)
   const [openDay, setOpenDay] = useState<{ dayId: string; date: Date } | null>(null)
+  // D-069: the date being changed, or today taking a future day's workout.
+  const [changing, setChanging] = useState<{ date: Date; preset?: Day } | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const todayIso = toISODate(today)
 
   const viewWeek = shown ?? week
   const dates = useMemo(() => (program ? weekDates(program, viewWeek) : []), [program, viewWeek])
@@ -167,10 +116,13 @@ export function WeekScreen() {
     void listSessionsBetween(toISODate(dates[0]), toISODate(dates[dates.length - 1])).then((found) => {
       if (live) setSessions(found)
     })
+    void listSessionsBetween(todayIso, todayIso).then((found) => {
+      if (live) setTodaySessions(found)
+    })
     return () => {
       live = false
     }
-  }, [dates])
+  }, [dates, todayIso, reloadKey])
 
   if (!program) {
     // 7c "Week, no program".
@@ -191,14 +143,47 @@ export function WeekScreen() {
     )
   }
 
+  // D-069 rule 4: today's logged sets stay; its open session ends before the change.
+  const loggedToday = todaySessions.some((s) => s.entries.some((e) => e.sets.some(isSetConfirmed)))
+  const applyChange = async (date: Date, dayId: string | null) => {
+    const iso = toISODate(date)
+    if (iso === todayIso) await endOpenSession(iso, dayForDate(program, changes, date).id)
+    if (dayId === null) await restoreDate(iso)
+    else await setChange(iso, dayId)
+    setReloadKey((k) => k + 1)
+  }
+  const changeSheet = changing && (
+    <ChangeDay
+      program={program}
+      date={changing.date}
+      current={dayForDate(program, changes, changing.date)}
+      isToday={toISODate(changing.date) === todayIso}
+      loggedToday={loggedToday}
+      preset={changing.preset}
+      onClose={() => setChanging(null)}
+      onConfirm={async (dayId) => {
+        await applyChange(changing.date, dayId)
+        // "Do this today" opens the deck on the new workout.
+        if (changing.preset) navigate('/deck')
+      }}
+    />
+  )
+
   if (openDay) {
     const day = program.days.find((d) => d.id === openDay.dayId)
-    if (day) return <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} />
+    if (day)
+      return (
+        <>
+          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={() => setChanging({ date: today, preset: day })} />
+          {changeSheet}
+        </>
+      )
   }
 
   const isCurrent = viewWeek === week
   const isFuture = viewWeek > week
-  const byDayId = new Map(sessions.map((s) => [s.dayId, s]))
+  // D-069: one workout can fall on two dates in a week, so sessions are found by date and day.
+  const sessionOn = (date: Date, dayId: string) => sessions.find((s) => s.date === toISODate(date) && s.dayId === dayId)
   // D-027: Ask AI needs at least one finished session this week.
   const finished = isCurrent ? sessions.filter((session) => session.endedAt).length : 0
   const training = program.days.filter((d) => !d.rest).length
@@ -238,16 +223,7 @@ export function WeekScreen() {
             Updates to your program can change this week.
           </div>
         </>
-      ) : (
-        isCurrent && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-            <button type="button" className="ai-btn" onClick={() => setSheetOpen(true)}>
-              <SwapArrows />
-              Swap days
-            </button>
-          </div>
-        )
-      )}
+      ) : null}
 
       {isCurrent && (
         <div style={{ marginTop: 14 }}>
@@ -261,30 +237,48 @@ export function WeekScreen() {
         )}
         <div style={{ borderTop: isFuture ? '1.5px solid var(--text)' : undefined }}>
           {dates.map((date) => {
-            const day = dayForDate(program, isCurrent ? weekPlan : null, date)
+            const day = dayForDate(program, changes, date)
             const isToday = isSameDate(date, today)
             const upcoming = toISODate(date) > toISODate(today)
-            const title = day.focus ?? day.name
+            const title = dayLabel(day)
             const sub = [day.rest && title !== 'Rest' ? 'Rest' : null, day.durationMin ? `${day.durationMin} min` : null, isToday ? 'today' : null].filter(Boolean).join(' · ')
-            const state = day.rest ? restDayState(byDayId.get(day.id), buildDeck(day, viewWeek, date)) : sessionState(byDayId.get(day.id))
+            const session = sessionOn(date, day.id)
+            const state = day.rest ? restDayState(session, buildDeck(day, viewWeek, date)) : sessionState(session)
+            const was = changedFrom(program, changes, date, day)
+            const changeable = canChangeDate(toISODate(date), todayIso)
             const content = (
               <>
                 <span className={isToday ? 'wk-row__dow wk-row__dow--today' : 'wk-row__dow'}>{formatShortDay(date)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="wk-row__name">{title}</div>
                   {sub && <div className="wk-row__sub">{sub}</div>}
+                  {was && <div className="wk-row__changed">Changed (was {dayLabel(was)})</div>}
                 </div>
                 {!isFuture && <StateMark state={state} />}
                 {upcoming && <ChevronRight />}
               </>
             )
-            return upcoming ? (
-              <button type="button" className="wk-row" key={toISODate(date)} onClick={() => setOpenDay({ dayId: day.id, date })}>
-                {content}
-              </button>
-            ) : (
-              <div className="wk-row" key={toISODate(date)}>
-                {content}
+            return (
+              <div className="wk-row wk-row--day" key={toISODate(date)}>
+                {upcoming ? (
+                  <button type="button" className="wk-row__open" aria-label={`Open ${formatShortDay(date)} ${title}`} onClick={() => setOpenDay({ dayId: day.id, date })}>
+                    {content}
+                  </button>
+                ) : (
+                  <div className="wk-row__open">{content}</div>
+                )}
+                {changeable && (
+                  <div className="wk-row__actions">
+                    <button type="button" className="wk-row__action" aria-label={`Change ${formatShortDay(date)}`} onClick={() => setChanging({ date })}>
+                      Change
+                    </button>
+                    {was && (
+                      <button type="button" className="wk-row__action" aria-label={`Restore ${formatShortDay(date)}`} onClick={() => void applyChange(date, null)}>
+                        Restore
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -334,16 +328,7 @@ export function WeekScreen() {
         </Sheet>
       )}
 
-      {sheetOpen && (
-        <SwapSheet
-          program={program}
-          onClose={() => setSheetOpen(false)}
-          onConfirm={(a, b) => {
-            void applySwap(a, b)
-            setSheetOpen(false)
-          }}
-        />
-      )}
+      {changeSheet}
     </div>
   )
 }

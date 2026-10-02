@@ -5520,3 +5520,113 @@ input[type='file'] {
 :root[data-set-focus] .app-notices {
   visibility: hidden;
 }
+
+/* ── Change a day (D-069, EXEC-12) ── */
+
+.wk-row--day {
+  gap: 8px;
+}
+
+.wk-row__open {
+  flex: 1;
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: var(--text);
+}
+
+.wk-row__changed {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.wk-row__actions {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.wk-row__action {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.wk-change-list {
+  margin-top: -6px;
+  border-top: 1.5px solid var(--text);
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.dk-plan__empty {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Add and change exercises (D-069 rules 7 and 8) ── */
+
+.dk-add__row {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+/* Log history with Edit (D-069 rule 10) */
+.lg-hist {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.lg-hist__date {
+  font-size: 14px;
+  color: var(--secondary);
+  margin-bottom: 2px;
+}
+.lg-hist__set {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.lg-hist__n {
+  width: 24px;
+  color: var(--secondary);
+}
+.lg-hist__value {
+  flex: 1;
+  min-width: 0;
+}
+.lg-hist__edited {
+  font-size: 13px;
+  color: var(--secondary);
+}
+.lg-hist__edit-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 4px;
+  font-size: 15px;
+  color: var(--accent);
+}
+.lg-hist__edit {
+  padding: 6px 0 10px;
+}

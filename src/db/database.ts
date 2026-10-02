@@ -3,9 +3,11 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 
+import { dayChangesFromWeekPlans, type LegacyWeekPlan } from '../lib/dayChanges.ts'
 import { upgradeProgram } from '../lib/program.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  DayChange,
   Goals,
   MealDay,
   Profile,
@@ -13,11 +15,10 @@ import type {
   SentLogEntry,
   Session,
   Settings,
-  WeekPlan,
 } from '../types/stores.ts'
 
 export const DB_NAME = 'byob-fit'
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 /** The single record keys for the one-row stores. */
 export const PROFILE_KEY = 'me'
@@ -32,7 +33,8 @@ export interface ByobDB extends DBSchema {
     value: Session
     indexes: { date: string; dayId: string }
   }
-  weekPlans: { key: number; value: WeekPlan }
+  /** D-069: one record per changed date, keyed by date. Replaced weekPlans at version 4. */
+  dayChanges: { key: string; value: DayChange }
   profile: { key: string; value: Profile }
   meals: { key: string; value: MealDay }
   settings: { key: string; value: Settings }
@@ -55,7 +57,8 @@ export function getDB(): Promise<IDBPDatabase<ByobDB>> {
           sessions.createIndex('date', 'date')
           sessions.createIndex('dayId', 'dayId')
 
-          db.createObjectStore('weekPlans', { keyPath: 'programWeek' })
+          // Week plans existed until version 4, which converts and removes them.
+          db.createObjectStore('weekPlans' as never, { keyPath: 'programWeek' })
           db.createObjectStore('meals', { keyPath: 'date' })
 
           // Single-record stores and the key-value store use out-of-line keys.
@@ -81,6 +84,23 @@ export function getDB(): Promise<IDBPDatabase<ByobDB>> {
               await cursor.update(upgradeProgram(cursor.value))
               cursor = await cursor.continue()
             }
+          })()
+        }
+        if (oldVersion < 4) {
+          // D-069: weekly swap pairs become per-date day changes against the
+          // active program, then the week-plan store goes. The upgrade
+          // transaction stays open while these requests are pending.
+          db.createObjectStore('dayChanges', { keyPath: 'date' })
+          const legacy = transaction as unknown as {
+            objectStore(name: string): { getAll(): Promise<unknown[]>; get(key: string): Promise<unknown> }
+          }
+          void (async () => {
+            const plans = (await legacy.objectStore('weekPlans').getAll()) as LegacyWeekPlan[]
+            const activeId = (await legacy.objectStore('meta').get(ACTIVE_PROGRAM_KEY)) as string | undefined
+            const program = activeId ? ((await legacy.objectStore('programs').get(activeId)) as Program | undefined) : undefined
+            const changes = dayChangesFromWeekPlans(program, plans, new Date().toISOString())
+            for (const change of changes) await transaction.objectStore('dayChanges').put(change)
+            db.deleteObjectStore('weekPlans' as never)
           })()
         }
       },

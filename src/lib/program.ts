@@ -8,7 +8,7 @@ import type {
   Program,
   SectionKind,
 } from '../types/program.ts'
-import type { WeekPlan } from '../types/stores.ts'
+import type { DayChange } from '../types/stores.ts'
 import { toISODate } from './dates.ts'
 
 const MS_PER_DAY = 86_400_000
@@ -89,29 +89,24 @@ export function isLogged(sectionKind: SectionKind, item: ItemFields): boolean {
 }
 
 /**
- * The day to train on a date: the template day whose order matches the weekday
- * (0 = Sunday), redirected to its partner when the week plan records a swap.
+ * The day to train on a date: the change for that date when there is one
+ * (D-069), otherwise the template day whose order matches the weekday
+ * (0 = Sunday). A change naming a day the program no longer has is ignored.
  */
 export function dayForDate(
   program: Program,
-  weekPlan: WeekPlan | null | undefined,
+  changes: readonly DayChange[] | null | undefined,
   date: Date,
 ): Day {
+  const iso = toISODate(date)
+  const changed = changes?.find((c) => c.date === iso)
+  const day = changed ? program.days.find((d) => d.id === changed.dayId) : undefined
+  if (day) return day
   const scheduled = program.days.find((d) => d.order === date.getDay())
   if (!scheduled) {
     throw new Error(`Program has no day with order ${date.getDay()}`)
   }
-  for (const [a, b] of weekPlan?.swaps ?? []) {
-    if (a === scheduled.id) return dayById(program, b)
-    if (b === scheduled.id) return dayById(program, a)
-  }
   return scheduled
-}
-
-function dayById(program: Program, id: string): Day {
-  const day = program.days.find((d) => d.id === id)
-  if (!day) throw new Error(`Program has no day with id ${id}`)
-  return day
 }
 
 /** The seven dates of a program week, Sunday first. */
