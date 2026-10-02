@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.19 · Date: Wednesday, Sep 30, 2026 (v1.18 Sep 30, v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.20 · Date: Thursday, Oct 1, 2026 (v1.19 Sep 30, v1.18 Sep 30, v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -20,7 +20,7 @@ Success test for v2 (MODELED): a person who has never seen the app installs it, 
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default) · security hardening (D-066).
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default) · security hardening (D-066) · navy tab bar, dependable End, quieter Dependabot (D-067) · swap scope and exercise swap prescription (D-068).
 
 ## 3. Inputs (private, never committed)
 
@@ -241,11 +241,18 @@ Served-bytes check: after every merge Auggie runs the one-line command (his choi
 ### Small change 11.6: security hardening (gate: `npm audit` reports 0; no schema compiled in the browser; the built page carries the D-066 policy and every main route works under it on Auggie's iPhone, including one AI call; Actions pinned to SHAs; Dependabot config present)
 D-066. Executor prompt EXEC-11.6; pull request as a draft.
 
+Small change 11.6: merged Oct 1, 2026 (32b935e). Served JS and CSS matched a fresh build of the merge on 10 of 10 fetches each (run on Auggie's Mac). Device gate open: every tab, one import and one AI call on the iPhone under the policy. The push needed the `workflow` token scope for `deploy.yml`; it was granted for the push and removed after (`gh auth status` showed `gist`, `read:org`, `repo`). Future changes under `.github/workflows/` follow the same grant, push, remove cycle. Dependabot's first run opened nine pull requests; they stay unmerged (D-067 rule 3).
+
+Hosting rule (Oct 1, 2026): the fitday fork was deleted (its site returns 404) because it shared the `augustinepaulm.github.io` origin with BYOB-fit, and any code on that origin can read BYOB-fit's storage, including the API key. BYOB-fit is the only GitHub Pages site on the account (`gh api user/repos` listed only BYOB-fit). No other Pages site is published from this account while BYOB-fit lives on that origin; the rule ends when BYOB-fit moves to its own origin in the public release.
+
+### Small change 11.7: navy tab bar, dependable End, quieter Dependabot (gate: on Auggie's iPhone, the navy tab bar in light and dark with the active tab clear; End shows its confirmation every time, with the keyboard open, during rest and scrolled down; Dependabot's next run opens at most one grouped pull request per ecosystem and none for a major version)
+D-067. Executor prompt EXEC-11.7; pull request as a draft. The End defect was not reproduced in chat; the change hardens the likely causes and the device check decides.
+
 ### Phase 12: Day changes, swap and replace (gate: the D-062 acceptance on Auggie's iPhone)
 D-062. Replaces the weekly swap pairs with an assignment per date. Changes stored data, the AI update payload, last week's values, progression and export, so it carries migration and export checks.
 
 ### Phase 13: Add exercise and edit from Log (gate: on Auggie's iPhone, an exercise added today logged and kept in the program; a set edited in Log becomes next week's reference)
-D-056 and D-057. Changes what a session can store, so it carries export and AI payload checks.
+D-056, D-057 and D-068 rule 2 (an exercise swap with its own prescription for today). Changes what a session can store, so it carries export and AI payload checks.
 
 ### Phase 14: Retrospective
 14.1 Write failures and fixes into the project-execution-protocol skill
@@ -262,8 +269,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-066 | b57381eff589bed83c19956532b14e04 |
-| docs/PLAN.md | This file, v1.19 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-068 | 94ab91342298260e73a1ebb499266e80 |
+| docs/PLAN.md | This file, v1.20 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -285,7 +292,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-11.3.md | Executor prompt, small change 11.3 | e72214d98b570ef1cc3f0024556ae2fe |
 | docs/EXEC-11.4.md | Executor prompt, small change 11.4 | 5fe152524c5ca286844a6b7411c8722a |
 | docs/EXEC-11.5.md | Executor prompt, small change 11.5 | de10132a7ab51207d61af2b695433918 |
-| docs/EXEC-11.6.md | Executor prompt, small change 11.6 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-11.6.md | Executor prompt, small change 11.6 | e45b18e1d938aeb95832d0214faae160 |
+| docs/EXEC-11.7.md | Executor prompt, small change 11.7 | recorded in chat at delivery (it checks this file's hash) |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |

@@ -349,3 +349,18 @@ Asked for by Auggie as general caution (Sep 30, 2026), scope chosen by him. Chec
 Known limits: GitHub Pages cannot send response headers, so protections that only work as headers (such as refusing to be framed by another site) are not available; the API key is stored unencrypted on the device by design (bring-your-own-key) and stays out of exports. Turning on Dependabot alerts and secret scanning in the repository's settings is Auggie's step in GitHub, not a file.
 Consequence: small change 11.6.
 
+## D-067 Navy tab bar, a dependable End, quieter Dependabot (FROZEN, Oct 1, 2026)
+1. Tab bar (Auggie's choice, Oct 1, 2026). The tab bar was the page colour (`--tabbar-bg` and `--bg` both `#f5f2ec`, a 1:1 contrast), so users did not notice it. It becomes navy `#1f3a5f` in light and dark appearance. Active tab: white, bold, with a small white marker above its icon. Inactive tabs: `#bcc4cf` (white at 70% over the navy). Contrast, computed in chat: bar against the light page 10.3:1; bar against the dark page 1.6:1 (a hue change, with the top border kept); active label 11.5:1; inactive label 6.5:1.
+2. End (found by Auggie on his iPhone, Oct 1, 2026: tapping End beside Plan during a session did nothing; keyboard state unknown). Not reproduced in chat: on the live build (32b935e) in Chromium at 375, 390 and 430 px, with the rest timer running, End showed the "End this session?" box every time; the focus label has `pointer-events: none`; no hover rule applies. What chat did find: End's button is 40 px wide and touches Plan with no gap. Changes, aimed at causes that only the phone can show:
+   a. Plan and End each get a tap area of at least 44 × 44 px with at least 8 px between them.
+   b. End first takes focus off any set box (closing the keyboard), then shows its confirmation as a dialog over the screen, not as a block at the top of the page that depends on scrolling into view.
+   c. With nothing left undone, End goes straight to the summary, as now.
+   If End still does nothing on the phone, the next step is a screen recording, not another guess.
+3. Dependabot (Claude's proposal, approved by Auggie, Oct 1, 2026). Its first run opened nine pull requests, five of them major versions (TypeScript 7, @types/node 26, and four GitHub Actions). The config changes to: one grouped weekly pull request per ecosystem for minor and patch version updates; major version updates ignored for every dependency, to be planned as changes of their own. Per GitHub's documentation an ignore rule scoped by `update-types` applies only to version updates, so security updates still arrive; they need Dependabot security updates switched on in the repository's settings (Auggie's step). The nine open pull requests are not merged as they stand.
+Consequence: small change 11.7.
+
+## D-068 Swap scope and exercise swap prescription (FROZEN, Oct 1, 2026)
+Stated by Auggie.
+1. Swapping days stays as D-062 rule 1 says: today and future days only. A missed past day is moved with Replace (D-062 rule 6).
+2. A mid-workout exercise swap keeps the original item's prescription today (found Oct 1, 2026: Walking swapped for Plank kept one minutes box). Exercises in the library carry no prescription; it lives on the program item. The swap will let the user set how the new exercise is logged for today (for example 3 × 45 s), filled from the exercise's prescription elsewhere in the program when there is one. It is built with Add exercise in Phase 13, because both store a prescription the program does not hold.
+

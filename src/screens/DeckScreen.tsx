@@ -11,6 +11,7 @@ import { Sheet } from '../builder/ui.tsx'
 import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
 import { getMeta, getProgram, listAllSessions, saveProgram, setMeta } from '../db/index.ts'
 import { readDraft } from '../builder/draft.ts'
+import { blurSetBox, endStep } from '../lib/endFlow.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
@@ -53,6 +54,7 @@ import { useSettings } from '../settings/useSettings.ts'
 import type { Exercise, ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 import { ChevronLeftIcon, PlayIcon } from '../ui/icons.tsx'
+import { Dialog } from '../ui/Dialog.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
 
 const DEMO_SEEN = 'demoSeen'
@@ -470,11 +472,18 @@ export function DeckScreen() {
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
   const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
 
-  /** End, from the header or the plan sheet: asks first when items are not done (7b). */
+  /**
+   * End, from the header or the plan sheet (D-067 rule 2): close the keyboard
+   * first, then confirm in a dialog over the screen when items are not done.
+   */
   const endFlow = () => {
+    blurSetBox(document)
+    if (endStep(notDone) === 'confirm') {
+      setEndAsked(true)
+      return
+    }
     window.scrollTo({ top: 0 })
-    if (notDone > 0) setEndAsked(true)
-    else setPhase('summary')
+    setPhase('summary')
   }
 
   /** D-063 rule 4, D-065 rules 1 and 3: move an item, store today's order, keep the right item current. */
@@ -905,25 +914,6 @@ export function DeckScreen() {
           />
         </div>
       )}
-      {endAsked && (
-        <div className="tl-state">
-          <StateBlock
-            role="alert"
-            mark="?"
-            title="End this session?"
-            body={`${notDone} ${notDone === 1 ? 'exercise is' : 'exercises are'} not done. What you logged is kept.`}
-            primary={{ label: 'Keep going', onClick: () => setEndAsked(false) }}
-            secondary={{
-              label: 'End session',
-              onClick: () => {
-                setEndAsked(false)
-                setPhase('summary')
-                window.scrollTo({ top: 0 })
-              },
-            }}
-          />
-        </div>
-      )}
       {saveFailed && (
         <div className="tl-state">
           <StateBlock
@@ -1170,6 +1160,21 @@ export function DeckScreen() {
         </div>
       </div>
 
+      {endAsked && (
+        <Dialog
+          title="End this session?"
+          body={`${notDone} ${notDone === 1 ? 'exercise is' : 'exercises are'} not done. What you logged is kept.`}
+          cancelLabel="Keep going"
+          confirmLabel="End session"
+          danger
+          onCancel={() => setEndAsked(false)}
+          onConfirm={() => {
+            setEndAsked(false)
+            window.scrollTo({ top: 0 })
+            setPhase('summary')
+          }}
+        />
+      )}
       {planOpen && (
         <PlanSheet
           deck={deck}

@@ -2,6 +2,7 @@ export function Dialog({
   title,
   body,
   confirmLabel,
+  cancelLabel = 'Cancel',
   danger,
   onConfirm,
   onCancel,
@@ -9,6 +10,8 @@ export function Dialog({
   title: string
   body: string
   confirmLabel: string
+  /** The dismissing action's label; it does what the scrim does. */
+  cancelLabel?: string
   danger?: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -26,7 +29,7 @@ export function Dialog({
         <div className="dialog__body">{body}</div>
         <div className="dialog__actions">
           <button type="button" onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </button>
           <button
             type="button"
