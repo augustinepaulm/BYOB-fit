@@ -5520,3 +5520,58 @@ input[type='file'] {
 :root[data-set-focus] .app-notices {
   visibility: hidden;
 }
+
+/* ── Change a day (D-069, EXEC-12) ── */
+
+.wk-row--day {
+  gap: 8px;
+}
+
+.wk-row__open {
+  flex: 1;
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: var(--text);
+}
+
+.wk-row__changed {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.wk-row__actions {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.wk-row__action {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.wk-change-list {
+  margin-top: -6px;
+  border-top: 1.5px solid var(--text);
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.dk-plan__empty {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px;
+  color: var(--muted);
+}

@@ -1,6 +1,7 @@
 // Repository layer. Every read and write to IndexedDB goes through a named
 // function here, so screens never hold a raw database handle.
 
+import { endedAsItStands } from '../lib/dayChanges.ts'
 import type { Program } from '../types/program.ts'
 import type {
   Goals,
@@ -126,6 +127,18 @@ export async function getSessionByDateAndDay(
 ): Promise<Session | undefined> {
   const db = await getDB()
   return db.get('sessions', sessionIdFor(date, dayId))
+}
+
+/**
+ * D-069 rule 4: before a date's day changes, its open session ends as it
+ * stands, as End does. What was logged stays. True when one was ended.
+ */
+export async function endOpenSession(date: string, dayId: string): Promise<boolean> {
+  const db = await getDB()
+  const session = await db.get('sessions', sessionIdFor(date, dayId))
+  if (!session || session.endedAt) return false
+  await db.put('sessions', endedAsItStands(session, new Date()))
+  return true
 }
 
 export async function listSessionsBetween(

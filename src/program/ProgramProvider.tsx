@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { deleteDayChange, getActiveProgram, getDayChanges, putDayChange } from '../db/index.ts'
 import { toISODate } from '../lib/dates.ts'
+import { canChangeDate } from '../lib/dayChanges.ts'
 import { currentWeek, parseISODate } from '../lib/program.ts'
 import type { Program } from '../types/program.ts'
 import type { DayChange } from '../types/stores.ts'
@@ -48,7 +49,7 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
   // D-069 rule 1: from today on only; nothing else moves.
   const setChange = useCallback(
     async (date: string, dayId: string) => {
-      if (!program || date < toISODate(today)) return false
+      if (!program || !canChangeDate(date, toISODate(today))) return false
       const weekday = program.days.find((d) => d.order === parseISODate(date).getDay())
       if (weekday?.id === dayId) await deleteDayChange(date)
       else await putDayChange({ date, dayId, setAt: new Date().toISOString() })

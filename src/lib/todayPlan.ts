@@ -181,3 +181,53 @@ export function keepOrder(program: Program, dayId: string, order: OrderEntry[], 
   })
   return finishDraft(draft, program)
 }
+
+// ── The plan sheet's sections (D-069 rule 11) ──
+
+export interface PlanGroup {
+  sectionId: string
+  title: string
+  items: { deckItem: DeckItem; index: number }[]
+}
+
+/**
+ * Runs of consecutive items in one section, in today's order, plus every
+ * section of the day that has no item today, as an empty group at its program
+ * position: a drop target that never disappears (D-069 rule 11).
+ */
+export function planGroups(deck: DeckItem[], sections: readonly { id: string; title: string }[]): PlanGroup[] {
+  const groups: PlanGroup[] = []
+  deck.forEach((deckItem, index) => {
+    const last = groups[groups.length - 1]
+    if (last && last.sectionId === deckItem.section.id) last.items.push({ deckItem, index })
+    else groups.push({ sectionId: deckItem.section.id, title: deckItem.section.title, items: [{ deckItem, index }] })
+  })
+  const rank = new Map(sections.map((s, i) => [s.id, i]))
+  sections.forEach((section, i) => {
+    if (groups.some((g) => g.sectionId === section.id)) return
+    const at = groups.findIndex((g) => (rank.get(g.sectionId) ?? Infinity) > i)
+    const empty: PlanGroup = { sectionId: section.id, title: section.title, items: [] }
+    if (at < 0) groups.push(empty)
+    else groups.splice(at, 0, empty)
+  })
+  return groups
+}
+
+/**
+ * Move up or down as the plan sheet shows it: within a group the item trades
+ * places; at a group's edge it crosses into the neighbouring group, empty ones
+ * included, keeping its place in today's order. Null when there is nowhere to go.
+ */
+export function stepInGroups(groups: PlanGroup[], itemId: string, direction: 'up' | 'down'): { toIndex: number; toSectionId: string } | null {
+  const g = groups.findIndex((group) => group.items.some((i) => i.deckItem.item.id === itemId))
+  if (g < 0) return null
+  const items = groups[g].items
+  const k = items.findIndex((i) => i.deckItem.item.id === itemId)
+  const flat = items[k].index
+  if (direction === 'up') {
+    if (k > 0) return { toIndex: flat - 1, toSectionId: groups[g].sectionId }
+    return g > 0 ? { toIndex: flat, toSectionId: groups[g - 1].sectionId } : null
+  }
+  if (k < items.length - 1) return { toIndex: flat + 1, toSectionId: groups[g].sectionId }
+  return g < groups.length - 1 ? { toIndex: flat, toSectionId: groups[g + 1].sectionId } : null
+}

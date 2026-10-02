@@ -18,7 +18,6 @@ import {
   newId,
   removeItem,
   reviewChecks,
-  setSwappable,
   swapExercise,
   weeksOfHistory,
   withExercise,
@@ -33,7 +32,7 @@ import type { Session } from '../types/stores.ts'
 import { clearDraft, draftWanted, writeDraft, type BuilderDraft, type DraftStep } from './draft.ts'
 import { ExercisePicker } from './ExercisePicker.tsx'
 import { ItemEditor } from './ItemEditor.tsx'
-import { BuilderBar, CheckMark, ChevronRight, Hero, Sheet, StepBar, SwapArrows } from './ui.tsx'
+import { BuilderBar, CheckMark, ChevronRight, Hero, Sheet, StepBar } from './ui.tsx'
 import { useDragReorder } from './useDragReorder.ts'
 import { useLibrary, useStarterTemplates } from './useLibrary.ts'
 
@@ -367,7 +366,6 @@ export function FormsBuilder({
                 <span className="bd-day__main">
                   <span className={day.rest ? 'bd-day__name bd-day__name--rest' : 'bd-day__name'}>{day.rest ? 'Rest' : day.name}</span>
                 </span>
-                {day.swappableWith ? <SwapArrows /> : <span style={{ width: 16 }} />}
               </button>
               <button type="button" className="ob-rank__move" aria-label={`Move ${DOW[day.order]} up`} disabled={i === 0} onClick={() => setProgram((p) => moveDay(p, i, i - 1))}>
                 ↑
@@ -378,10 +376,6 @@ export function FormsBuilder({
               <ChevronRight />
             </div>
           ))}
-          <div className="bd-legend">
-            <SwapArrows />
-            <span>Swappable: can trade places with another day that week</span>
-          </div>
           {hasDraft && discardLink}
         </div>
         <Dock>
@@ -486,7 +480,6 @@ function DayEditor({
 }) {
   const sections = displaySections(day).filter((s) => activeItems(s).length > 0)
   const missing = SECTION_ORDER.filter((kind) => !sections.some((s) => s.kind === kind))
-  const others = sortedDays(program).filter((d) => d.id !== day.id)
   const setDay = (patch: (d: Day) => Day) => onChange((p) => updateDay(p, day.id, patch))
 
   return (
@@ -541,21 +534,6 @@ function DayEditor({
               })
             }
           />
-        </div>
-        <div className="bd-field" style={{ marginTop: 12 }}>
-          <label className="bd-label" htmlFor="day-swap">
-            Swappable with
-          </label>
-          <div className="bd-input">
-            <select id="day-swap" value={day.swappableWith ?? ''} onChange={(e) => onChange((p) => setSwappable(p, day.id, e.target.value || null))}>
-              <option value="">No other day</option>
-              {others.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {DOW[d.order]} · {d.rest ? 'Rest' : d.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 

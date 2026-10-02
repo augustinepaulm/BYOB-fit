@@ -47,6 +47,7 @@ import {
   setsOverrideWeeks,
 } from '../lib/todayPlan.ts'
 import { ChoiceRow, TickIcon } from '../onboarding/ui.tsx'
+import { ChangeDay } from './ChangeDay.tsx'
 import { PlanSheet } from './PlanSheet.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSession } from '../session/useSession.ts'
@@ -157,8 +158,18 @@ function DemoMedia({ exercise }: { exercise: Exercise | undefined }) {
   return <span className="dk-demo__label">demo · looping clip</span>
 }
 
+/**
+ * D-069 rule 5: the deck is keyed by today's day, so changing today's workout
+ * mid-session starts the new day's deck from its first item.
+ */
 export function DeckScreen() {
-  const { program, today, week, changes, refresh } = useProgram()
+  const { program, today, changes } = useProgram()
+  const dayId = program ? dayForDate(program, changes, today).id : 'none'
+  return <Deck key={dayId} />
+}
+
+function Deck() {
+  const { program, today, week, changes, refresh, setChange } = useProgram()
   const { settings } = useSettings()
   const navigate = useNavigate()
   // Today's Resume button already asked; a reopened deck asks here (7b).
@@ -207,6 +218,8 @@ export function DeckScreen() {
   const [focusLabel, setFocusLabel] = useState<string | null>(null)
   // D-063: the plan sheet; D-065 rule 8: summary Keep controls and the draft check.
   const [planOpen, setPlanOpen] = useState(false)
+  // D-069 rule 5: Change today's workout from the Plan sheet.
+  const [changingDay, setChangingDay] = useState(false)
   const [kept, setKept] = useState<{ sets: Record<string, boolean>; order: boolean }>({ sets: {}, order: false })
   const [keepError, setKeepError] = useState<string | null>(null)
   const [draftWaiting, setDraftWaiting] = useState<boolean | null>(null)
@@ -1188,11 +1201,33 @@ export function DeckScreen() {
             window.scrollTo({ top: 0 })
           }}
           onMove={(itemId, toIndex, toSectionId) => void moveInPlan(itemId, toIndex, toSectionId)}
+          sections={day.sections}
+          onChangeDay={() => {
+            setPlanOpen(false)
+            setChangingDay(true)
+          }}
           onEnd={() => {
             setPlanOpen(false)
             endFlow()
           }}
           onClose={() => setPlanOpen(false)}
+        />
+      )}
+      {changingDay && (
+        <ChangeDay
+          program={program}
+          date={today}
+          current={day}
+          isToday
+          loggedToday={setsLogged > 0}
+          onClose={() => setChangingDay(false)}
+          onConfirm={async (dayId) => {
+            // Rule 4: today's session ends as it stands; what was logged stays.
+            blurSetBox(document)
+            if (api.session) await api.finish()
+            await setChange(todayIso, dayId)
+            window.scrollTo({ top: 0 })
+          }}
         />
       )}
       {sheet === 'felt' && (
