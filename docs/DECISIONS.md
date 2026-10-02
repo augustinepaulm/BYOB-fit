@@ -364,3 +364,32 @@ Stated by Auggie.
 1. Swapping days stays as D-062 rule 1 says: today and future days only. A missed past day is moved with Replace (D-062 rule 6).
 2. A mid-workout exercise swap keeps the original item's prescription today (found Oct 1, 2026: Walking swapped for Plank kept one minutes box). Exercises in the library carry no prescription; it lives on the program item. The swap will let the user set how the new exercise is logged for today (for example 3 × 45 s), filled from the exercise's prescription elsewhere in the program when there is one. It is built with Add exercise in Phase 13, because both store a prescription the program does not hold.
 
+## D-069 Change a day, add and change exercises, edit from Log (FROZEN, Oct 1, 2026)
+Approved by Auggie, Oct 1, 2026, after the design was walked through in chat. Supersedes D-060 and the swap rules of D-062 (rules 1 to 5) and D-068 rule 1; carries D-062 rules 6 to 11 as Change; amends D-056 (where an added exercise comes from) and D-063 (empty sections).
+Change (stated by Auggie: "change instead of swap ... overwriting Friday's plan with Monday's"):
+1. Any date from today on, in any week, can be changed to any day of the active program, rest days and days already done this week included. Nothing else moves: the other day keeps its own workout. Past dates cannot be changed.
+2. A changed date shows its new workout and "Changed (was <day>)", with Restore, which puts its own workout back.
+3. A future day's detail offers "Do this today", which changes today to that day's workout; the future day is unchanged.
+4. If today already has logged sets, Change still works and its confirmation says so: what was logged stays under today, today's session ends as it stands (as End does), and the new workout starts as a second session today.
+5. Mid-workout, the Plan sheet offers "Change today's workout", with the same rule 4 behaviour.
+6. Week's "Swap days" sheet is removed. The builder's swap-partner control is hidden; `swappableWith` stays readable in the program file so older files import.
+Model: one stored record per changed date (date, day id, when set). Dates without one follow their weekday as now. Checked in chat on `main` (691ddb7): converting today's weekly swap pairs into per-date changes gave the same day as the current code on all 21 dates checked per starter (two weeks with swaps, one without) for all three starters.
+Exercises:
+7. Add exercise lists the exercises of the active program, each with its day and prescription ("Plank · Thursday · 3 × 45 s"); an exercise on two days with different prescriptions appears twice. The added exercise goes right after the current one, for today only, with that prescription. "Keep in program" on the summary adds it to today's day at that position (D-056).
+8. Swapping an exercise mid-workout asks how to log it today, filled from that exercise's prescription elsewhere in the program when there is one, otherwise from the item being swapped (D-068 rule 2).
+9. An exercise added today or logged with a prescription of its own is stored on the entry with that prescription and marked added or changed. It is sent to the AI marked so, and a changed prescription does not count toward the program item's progression suggestion (D-047); it is still history for its exercise.
+Edit from Log:
+10. Logged sets can be edited from the exercise history in Log after the session has ended. An edit is typed and confirmed (D-053), records when it was made, becomes the next reference value (D-053) and counts for progression; the AI sees that it was edited. The sent log is never rewritten.
+Sections:
+11. The Plan sheet keeps a section emptied for the day as a drop target. Nothing removes a section from the program, including "Keep this order" (Auggie, Oct 1, 2026).
+Storage and export: the database moves to version 4 (weekly swap pairs converted to per-date changes, then the week-plan store removed); the export envelope moves to version 3 (day changes instead of week plans), and versions 1 and 2 still import, their swaps converted.
+Consequence: Phase 12 (Phases 12 and 13 of PLAN v1.20 combined, Auggie's choice): one contract and one draft pull request built as three commits (data, days, exercises), each with its tests.
+
+## D-070 AI spending limit and usage (FROZEN, Oct 1, 2026)
+Approved by Auggie, Oct 1, 2026; built after Phase 12.
+1. Settings explains setting a monthly spending limit in the Anthropic console, which is the authority, and links to it.
+2. The app counts input and output tokens from each AI reply and shows this month's usage, with an estimated cost.
+3. The estimate uses a per-model price table in Settings, filled with Anthropic's published prices for the selected model when the contract is written (verified then) and editable by the user.
+4. The user can set a monthly budget in dollars; once the estimate reaches it, AI calls stop with a message saying why and how to raise it. Everything is labelled an estimate.
+Consequence: small change 11.8.
+
