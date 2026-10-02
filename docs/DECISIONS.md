@@ -334,3 +334,18 @@ Proposed by Claude for small change 11.5; each closes a gap D-055 or D-063 leave
 7. "Keep in program" for added sets raises the item's base `sets`. Weeks with their own `sets` override keep it exactly (D-042 rule 5), and the summary says so when the item has any.
 8. "Keep in program" and "Keep this order" are not offered while a builder draft exists, because saving that draft later would overwrite them (one draft at a time, D-042 rule 1); the summary says to finish or discard the draft first.
 9. The not-advice banner is hidden while a set box has focus (D-064 rule 2) through a flag on the document root, so the banner component itself does not change.
+
+## D-066 Security hardening (FROZEN, Sep 30, 2026)
+Asked for by Auggie as general caution (Sep 30, 2026), scope chosen by him. Checked in chat on `main` (67ddd3d):
+- `npm audit`: fast-uri 3.1.7 (moderate, GHSA-hrr3-gc8f-f4qj, shipped inside the schema validator) and brace-expansion 5.0.9 (high, development tools only). Neither is reachable in the app: fast-uri's flaw is in host comparison, and the app never decides where to send data from a parsed address. `npm audit fix` changes only `package-lock.json` (fast-uri 3.1.8, brace-expansion 5.0.12), leaves 0 findings, and keeps all 344 tests, lint and the build passing.
+- No API key in the git history (only test placeholders such as `sk-ant-SECRET`); the private seed program was never committed; no raw HTML injection in `src/`; the app connects only to its own files and `https://api.anthropic.com`.
+- A Content-Security-Policy on the production build stops the app from loading: Ajv compiles the program schema at runtime with `new Function`, which a policy without `'unsafe-eval'` refuses. With that one allowance added for the test, all eight main routes rendered, the inline theme script ran, a request to `api.anthropic.com` was allowed and a request to another host was refused.
+- Precompiled ("standalone") Ajv validators contain no `new Function` and gave the same valid and invalid results as the runtime validator on the sample program and all three starters.
+1. Dependencies: apply `npm audit fix` (lockfile only).
+2. Validators: the program schema validators used by import (`importProgram`) and by AI updates (`reprogram`: item and closed item fields) are generated ahead of time by a script and committed; nothing compiles a schema in the browser. `npm run verify` fails if regenerating changes the committed file.
+3. Content-Security-Policy, added to `index.html` at build time only (the dev server keeps working): `default-src 'self'; script-src 'self' 'sha256-<hash of the inline theme script>'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.anthropic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`. The hash is computed from the built file, so editing the inline script cannot silently break the page. `'unsafe-inline'` stays for styles because components set inline style attributes. No `'unsafe-eval'`.
+4. GitHub Actions in `deploy.yml` are pinned to full commit SHAs, each with its tag in a comment.
+5. `.github/dependabot.yml`: weekly checks for npm and GitHub Actions.
+Known limits: GitHub Pages cannot send response headers, so protections that only work as headers (such as refusing to be framed by another site) are not available; the API key is stored unencrypted on the device by design (bring-your-own-key) and stays out of exports. Turning on Dependabot alerts and secret scanning in the repository's settings is Auggie's step in GitHub, not a file.
+Consequence: small change 11.6.
+

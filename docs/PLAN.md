@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.18 · Date: Wednesday, Sep 30, 2026 (v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.19 · Date: Wednesday, Sep 30, 2026 (v1.18 Sep 30, v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -20,7 +20,7 @@ Success test for v2 (MODELED): a person who has never seen the app installs it, 
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default).
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default) · security hardening (D-066).
 
 ## 3. Inputs (private, never committed)
 
@@ -234,6 +234,13 @@ The small change 11.5 "Do this today" in v1.16 is cancelled: D-062 builds it wit
 ### Small change 11.5: plan sheet with reorder, add set, banner hidden while typing (gate: on Auggie's iPhone, Plan opens the sheet, tapping an item jumps to it, moving a Main item into Accessories ahead of another changes the Next tile, moving the current item later makes the next one current, the next session of that day shows the original order unless "Keep this order" was tapped, End from the sheet ends the session; a set added today is logged and absent next week unless kept; the banner is hidden while a set box has focus)
 D-063, D-055, D-064 rule 2 and D-065. Inside the deck and the session summary; today's order and added sets are stored with the session. Executor prompt EXEC-11.5; pull request as a draft. Drafted before the 11.4 device check at Auggie's request (Sep 30, 2026): it touches only the deck and its summary.
 
+Small change 11.5: merged Sep 30, 2026 (67ddd3d). Served JS and CSS matched a fresh build of the merge on 10 of 10 fetches each (run on Auggie's Mac). Device gate open. Executor judgment kept: the banner is hidden with `visibility: hidden`, keeping its space, because removing it made the ✓ tap miss when the banner returned on blur (verified in chat with a real tap). Two gaps against D-061 noted at review, to be scheduled: a section emptied today cannot be moved back into from the sheet, and "Keep this order" can leave an empty section in the program.
+
+Served-bytes check: after every merge Auggie runs the one-line command (his choice, Sep 30, 2026), because chat's sandbox cannot reach github.io.
+
+### Small change 11.6: security hardening (gate: `npm audit` reports 0; no schema compiled in the browser; the built page carries the D-066 policy and every main route works under it on Auggie's iPhone, including one AI call; Actions pinned to SHAs; Dependabot config present)
+D-066. Executor prompt EXEC-11.6; pull request as a draft.
+
 ### Phase 12: Day changes, swap and replace (gate: the D-062 acceptance on Auggie's iPhone)
 D-062. Replaces the weekly swap pairs with an assignment per date. Changes stored data, the AI update payload, last week's values, progression and export, so it carries migration and export checks.
 
@@ -255,8 +262,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-065 | d7549088cce895d96ef38eebebbcf022 |
-| docs/PLAN.md | This file, v1.18 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-066 | b57381eff589bed83c19956532b14e04 |
+| docs/PLAN.md | This file, v1.19 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -277,7 +284,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-11.2.md | Executor prompt, small change 11.2 | 6f42111278e61c51897d40f167889cd6 (as committed on main at ccd5696) |
 | docs/EXEC-11.3.md | Executor prompt, small change 11.3 | e72214d98b570ef1cc3f0024556ae2fe |
 | docs/EXEC-11.4.md | Executor prompt, small change 11.4 | 5fe152524c5ca286844a6b7411c8722a |
-| docs/EXEC-11.5.md | Executor prompt, small change 11.5 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-11.5.md | Executor prompt, small change 11.5 | de10132a7ab51207d61af2b695433918 |
+| docs/EXEC-11.6.md | Executor prompt, small change 11.6 | recorded in chat at delivery (it checks this file's hash) |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |
