@@ -1,12 +1,53 @@
+import { createHash } from 'node:crypto'
+
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/**
+ * D-066 rule 3: a Content-Security-Policy on the production build only (the
+ * dev server needs inline and eval'd modules). The inline theme script is
+ * allowed by the sha256 of its text as it stands in the HTML being built, so
+ * editing it cannot silently break the page. No 'unsafe-eval': the program
+ * schema validators are compiled ahead of time (D-066 rule 2).
+ */
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: 'byob-content-security-policy',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+        if (inline.length !== 1) throw new Error(`CSP: expected one inline script in index.html, found ${inline.length}`)
+        const hash = createHash('sha256').update(inline[0][1]).digest('base64')
+        const policy = [
+          "default-src 'self'",
+          `script-src 'self' 'sha256-${hash}'`,
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob:",
+          "font-src 'self'",
+          "connect-src 'self' https://api.anthropic.com",
+          "worker-src 'self'",
+          "manifest-src 'self'",
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+        ].join('; ')
+        const charset = /<meta charset=[^>]*>/i
+        if (!charset.test(html)) throw new Error('CSP: no <meta charset> in index.html')
+        return html.replace(charset, (tag) => `${tag}\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`)
+      },
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   base: '/BYOB-fit/',
   plugins: [
     react(),
+    contentSecurityPolicy(),
     // EXEC-05 tasks 2 and 3. generateSW, never injectManifest. 'prompt' means a
     // new version waits for the user to tap Reload; nothing reloads mid-session.
     VitePWA({

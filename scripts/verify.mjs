@@ -5,7 +5,8 @@
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 let failed = false
@@ -22,6 +23,25 @@ function step(title, command, args) {
 
 function md5(path) {
   return createHash('md5').update(readFileSync(path)).digest('hex')
+}
+
+// D-066 rule 2: the committed validators must be what the schema generates.
+console.log('\n=== validators ===')
+{
+  const dir = mkdtempSync(join(tmpdir(), 'byob-validators-'))
+  const fresh = join(dir, 'validators.generated.js')
+  const result = spawnSync('node', ['scripts/build-validators.mjs', fresh], { stdio: 'inherit' })
+  const committed = 'src/lib/validators.generated.js'
+  if (result.status !== 0) {
+    console.error('FAIL: scripts/build-validators.mjs did not run')
+    failed = true
+  } else if (readFileSync(fresh, 'utf8') !== readFileSync(committed, 'utf8')) {
+    console.error(`FAIL: ${committed} differs from what scripts/build-validators.mjs generates; run it and commit the result`)
+    failed = true
+  } else {
+    console.log(`${committed} matches a fresh generation`)
+  }
+  rmSync(dir, { recursive: true, force: true })
 }
 
 step('lint', 'npm', ['run', 'lint'])

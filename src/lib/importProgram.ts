@@ -1,23 +1,20 @@
 // Validation and import of a program file. The contract is
-// docs/program.schema.json, imported directly so there is one copy of it.
+// docs/program.schema.json; its validator is compiled ahead of time into
+// validators.generated.js (D-066 rule 2), so nothing compiles in the browser.
 
-import Ajv2020 from 'ajv/dist/2020'
 import type { ErrorObject } from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
 
-import schema from '../../docs/program.schema.json'
 import type { ItemFields, Program } from '../types/program.ts'
 import { parseISODate, upgradeProgram } from './program.ts'
+import { validateProgram } from './validators.generated.js'
 
 export type ImportResult =
   | { ok: true; program: Program }
   | { ok: false; errors: string[] }
 
-const ajv = new Ajv2020({ allErrors: true, strict: false })
-addFormats(ajv)
 // The schema is the contract and src/types/program.ts mirrors it, so the
-// compiled validator is typed as the guard for Program.
-const validate = ajv.compile<Program>(schema as object)
+// precompiled validator is typed as the guard for Program.
+const validate = validateProgram as unknown as ((data: unknown) => data is Program) & { errors?: ErrorObject[] | null }
 
 /** Turn one Ajv error into a line a person can act on, keyed by JSON path. */
 function formatError(error: ErrorObject): string {

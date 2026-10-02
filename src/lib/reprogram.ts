@@ -1,10 +1,6 @@
 // Weekly reprogramming (D-016, EXEC-04 task 5). The model proposes a patch;
 // nothing reaches storage until the diff is approved.
 
-import Ajv2020 from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
-
-import schema from '../../docs/program.schema.json'
 import type {
   Day,
   Exercise,
@@ -15,19 +11,11 @@ import type {
 } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { isSetConfirmed } from './session.ts'
+// D-066 rule 2: compiled ahead of time from docs/program.schema.json. The item
+// and, for D-038, item fields with no other properties (the same closed shape
+// the schema gives byWeek overrides).
+import { validateItem, validateItemFields } from './validators.generated.js'
 
-const SCHEMA_ID = 'https://github.com/augustinepaulm/BYOB-fit/program.schema.json'
-
-const ajv = new Ajv2020({ allErrors: true, strict: false })
-addFormats(ajv)
-ajv.addSchema(schema as object, SCHEMA_ID)
-// D-038: an override carries itemFields properties only, the same closed shape
-// the schema gives byWeek overrides.
-const validateItemFields = ajv.compile({
-  $ref: `${SCHEMA_ID}#/$defs/itemFields`,
-  unevaluatedProperties: false,
-})
-const validateItem = ajv.compile({ $ref: `${SCHEMA_ID}#/$defs/item` })
 
 export interface Override {
   itemId: string
