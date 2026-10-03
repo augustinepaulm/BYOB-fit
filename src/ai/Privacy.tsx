@@ -102,6 +102,52 @@ export function SendPreview({
   onSend: () => void
 }) {
   const [open, setOpen] = useState(false)
+  if (kind === 'meals') {
+    // Frame 3.05: the meals estimate lists exactly the foods it sends.
+    const sent = JSON.parse(payload.message) as { baseline: string; foods: unknown[]; lines: string[] }
+    return (
+      <>
+        <div className="bd-scrim" onClick={onCancel} />
+        <div className="bd-sheet ai-sheet" role="dialog" aria-modal="true" aria-label="Send preview">
+          <div className="bd-sheet__grab" />
+          <h2 className="sheet__title">Estimate with AI</h2>
+          <p className="sheet__body">This is everything that will be sent. Nothing else leaves your phone.</p>
+          <div className="preview-list">
+            {sent.lines.map((line, i) => (
+              <div className="preview-list__row" key={`${line}-${i}`}>
+                {line}
+              </div>
+            ))}
+            {sent.foods.length > 0 && <div className="preview-list__row preview-list__row--muted">Your saved foods, {sent.foods.length} with their numbers</div>}
+            {sent.baseline.trim() !== '' && <div className="preview-list__row preview-list__row--muted">Your notes for the AI</div>}
+          </div>
+          <p className="preview-small">Asking for: calories, protein, fibre, carbohydrate, fat, sodium, saturated fat, added sugars</p>
+          <p className="preview-small">Sent with your own key · counts toward your monthly AI budget</p>
+          {notice && (
+            <div className="ai-budget" role="status">
+              {notice} Estimated.
+            </div>
+          )}
+          <button type="button" className="ai-show" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            Show exactly what’s sent
+            <span style={{ display: 'inline-flex', transform: open ? 'rotate(180deg)' : undefined }}>
+              <ChevronDown />
+            </span>
+          </button>
+          {open && <pre className="ai-raw" aria-label="Exact message">{payload.message}</pre>}
+          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Logging works; AI features need a connection.</p>}
+          <div className="preview-actions">
+            <button type="button" className="btn btn--tertiary" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn--primary" disabled={offline} onClick={onSend}>
+              Send {sent.lines.length} {sent.lines.length === 1 ? 'food' : 'foods'}
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
   return (
     <>
       <div className="bd-scrim" onClick={onCancel} />
@@ -124,7 +170,7 @@ export function SendPreview({
           </span>
         </button>
         {open && <pre className="ai-raw" aria-label="Exact message">{payload.message}</pre>}
-        {level === 'full' && kind !== 'meals' && (
+        {level === 'full' && (
           <div className="bd-toggle-row" style={{ marginTop: 0, borderTop: '1px solid var(--hairline)' }}>
             <span>Include notes</span>
             <Switch label="Include notes" on={includeNotes} onChange={onIncludeNotes} />

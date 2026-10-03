@@ -78,16 +78,16 @@ function goals(main: Goals['items'][number]['type'], stats: Goals['currentStats'
 
 describe('computeTargets (D-046, D-049 rule 4)', () => {
   it('male, 40, 180 cm, 90 kg, active, lose weight → 2,720 kcal, 180 g, no floor', () => {
-    expect(computeTargets(goals('lose_weight', { weight: 90, weightUnit: 'kg', heightCm: 180, age: 40, sex: 'male', activity: 'active' }))).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, resting: { source: 'formula' } })
+    expect(computeTargets(goals('lose_weight', { weight: 90, weightUnit: 'kg', heightCm: 180, age: 40, sex: 'male', activity: 'active' }))).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, floor: 1500, resting: { source: 'formula' } })
   })
   it('female, 60, 150 cm, 50 kg, sitting, lose weight → 1,200 kcal (floor applied), 100 g', () => {
-    expect(computeTargets(goals('lose_weight', { weight: 50, weightUnit: 'kg', heightCm: 150, age: 60, sex: 'female', activity: 'sitting' }))).toEqual({ kcal: 1200, proteinG: 100, floorApplied: true, resting: { source: 'formula' } })
+    expect(computeTargets(goals('lose_weight', { weight: 50, weightUnit: 'kg', heightCm: 150, age: 60, sex: 'female', activity: 'sitting' }))).toEqual({ kcal: 1200, proteinG: 100, floorApplied: true, floor: 1200, resting: { source: 'formula' } })
   })
   it('male, 30, 175 cm, 80 kg, active, build muscle → 3,080 kcal, 130 g', () => {
-    expect(computeTargets(goals('build_muscle', { weight: 80, weightUnit: 'kg', heightCm: 175, age: 30, sex: 'male', activity: 'active' }))).toEqual({ kcal: 3080, proteinG: 130, floorApplied: false, resting: { source: 'formula' } })
+    expect(computeTargets(goals('build_muscle', { weight: 80, weightUnit: 'kg', heightCm: 175, age: 30, sex: 'male', activity: 'active' }))).toEqual({ kcal: 3080, proteinG: 130, floorApplied: false, floor: 1500, resting: { source: 'formula' } })
   })
   it('female, 30, 165 cm, 70 kg, very active, lose body fat → 2,700 kcal, 140 g', () => {
-    expect(computeTargets(goals('lose_fat', { weight: 70, weightUnit: 'kg', heightCm: 165, age: 30, sex: 'female', activity: 'very_active' }))).toEqual({ kcal: 2700, proteinG: 140, floorApplied: false, resting: { source: 'formula' } })
+    expect(computeTargets(goals('lose_fat', { weight: 70, weightUnit: 'kg', heightCm: 165, age: 30, sex: 'female', activity: 'very_active' }))).toEqual({ kcal: 2700, proteinG: 140, floorApplied: false, floor: 1200, resting: { source: 'formula' } })
   })
   it('weight only → protein only; nothing → empty', () => {
     expect(computeTargets(goals('lose_weight', { weight: 90, weightUnit: 'kg' }))).toEqual({ proteinG: 180, floorApplied: false })
@@ -96,6 +96,6 @@ describe('computeTargets (D-046, D-049 rule 4)', () => {
   })
   it('converts lb to kg first', () => {
     // 198.416 lb = 90 kg
-    expect(computeTargets(goals('lose_weight', { weight: 198.416, weightUnit: 'lb', heightCm: 180, age: 40, sex: 'male', activity: 'active' }))).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, resting: { source: 'formula' } })
+    expect(computeTargets(goals('lose_weight', { weight: 198.416, weightUnit: 'lb', heightCm: 180, age: 40, sex: 'male', activity: 'active' }))).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, floor: 1500, resting: { source: 'formula' } })
   })
 })

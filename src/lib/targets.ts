@@ -16,6 +16,8 @@ export interface Targets {
   kcal?: number
   proteinG?: number
   floorApplied: boolean
+  /** The safety floor (D-046), with a calorie target; the energy band starts no lower. */
+  floor?: number
   /** D-078 rule 3: where resting energy came from, when there is a calorie target. */
   resting?: { source: 'bmr'; date: string } | { source: 'formula' }
 }
@@ -56,5 +58,5 @@ export function computeTargets(goals: Goals | null | undefined, bodyEntries: Bod
   const floor = sex === 'male' ? 1500 : 1200
   const floorApplied = daily < floor
   const kcal = Math.round(Math.max(daily, floor) / 10) * 10
-  return { kcal, proteinG, floorApplied, resting: source }
+  return { kcal, proteinG, floorApplied, floor, resting: source }
 }

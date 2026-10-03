@@ -135,7 +135,12 @@ export function buildPayload(
 
   if (kind === 'meals') {
     const lines = data.mealLines ?? []
-    const foods = (data.mealFoods ?? []).map((f) => ({ name: f.name, kcal: f.kcal, ...(f.proteinG !== undefined ? { proteinG: f.proteinG } : {}) }))
+    // D-079 rule 1: a food's own nutrient values go with it, so the model can use them.
+    const foods = (data.mealFoods ?? []).map((f) => {
+      const food: MealFood = { name: f.name, kcal: f.kcal }
+      for (const key of ['proteinG', 'carbsG', 'fatG', 'fibreG', 'sodiumMg', 'addedSugarG', 'satFatG'] as const) if (f[key] !== undefined) food[key] = f[key]
+      return food
+    })
     const baseline = data.mealBaseline?.trim() ?? ''
     return {
       summary: [

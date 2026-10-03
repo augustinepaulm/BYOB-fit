@@ -78,12 +78,12 @@ describe('BMR as resting energy (D-078 rule 3)', () => {
     updatedAt: '2026-09-01T00:00:00Z',
   }
   it('the TARGETS worked example is unchanged without a BMR', () => {
-    expect(computeTargets(goals)).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, resting: { source: 'formula' } })
-    expect(computeTargets(goals, [e('2026-10-01', { weight: 83 })], '2026-10-03')).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, resting: { source: 'formula' } })
+    expect(computeTargets(goals)).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, floor: 1500, resting: { source: 'formula' } })
+    expect(computeTargets(goals, [e('2026-10-01', { weight: 83 })], '2026-10-03')).toEqual({ kcal: 2720, proteinG: 180, floorApplied: false, floor: 1500, resting: { source: 'formula' } })
   })
   it('a BMR within 8 weeks replaces Mifflin-St Jeor; the factor and adjustment still apply', () => {
     // 1800 × 1.76 − 500 = 2668 → 2670
-    expect(computeTargets(goals, [e('2026-08-08', { bmrKcal: 1800 })], '2026-10-03')).toEqual({ kcal: 2670, proteinG: 180, floorApplied: false, resting: { source: 'bmr', date: '2026-08-08' } })
+    expect(computeTargets(goals, [e('2026-08-08', { bmrKcal: 1800 })], '2026-10-03')).toEqual({ kcal: 2670, proteinG: 180, floorApplied: false, floor: 1500, resting: { source: 'bmr', date: '2026-08-08' } })
   })
   it('exactly 8 weeks old still counts; a day older does not', () => {
     expect(recentBmr([e('2026-08-08', { bmrKcal: 1800 })], '2026-10-03')).toEqual({ kcal: 1800, date: '2026-08-08' })
@@ -96,7 +96,7 @@ describe('BMR as resting energy (D-078 rule 3)', () => {
   it('the safety floor still applies', () => {
     const small: Goals = { ...goals, currentStats: { ...goals.currentStats, weight: 50, sex: 'female', activity: 'sitting' } }
     // 900 × 1.53 − 500 = 877 → floor 1200
-    expect(computeTargets(small, [e('2026-10-01', { bmrKcal: 900 })], '2026-10-03')).toMatchObject({ kcal: 1200, floorApplied: true, resting: { source: 'bmr', date: '2026-10-01' } })
+    expect(computeTargets(small, [e('2026-10-01', { bmrKcal: 900 })], '2026-10-03')).toMatchObject({ kcal: 1200, floorApplied: true, floor: 1200, resting: { source: 'bmr', date: '2026-10-01' } })
   })
   it('with a BMR, height and age are not needed; activity and sex still are', () => {
     const noHeight: Goals = { ...goals, currentStats: { weight: 90, weightUnit: 'kg', sex: 'male', activity: 'active' } }
@@ -106,7 +106,7 @@ describe('BMR as resting energy (D-078 rule 3)', () => {
   it('Meals names which source the target used', async () => {
     const { readFileSync } = await import('node:fs')
     const meals = readFileSync(new URL('../screens/MealsScreen.tsx', import.meta.url), 'utf8')
-    expect(meals).toContain('computeTargets(goals, bodyEntries, toISODate(today))')
+    expect(meals).toContain('computeTargets(goals, bodyEntries, todayIso)')
     expect(meals).toContain('Resting energy from your BMR entry of')
     expect(meals).toContain('Resting energy from your height, age and sex')
   })

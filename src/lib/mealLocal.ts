@@ -1,8 +1,13 @@
 // Meal lines matched on the phone (D-049 rule 2). Pure.
 
-import type { MealDay, MealFood, MealSource, ParsedMealLine } from '../types/stores.ts'
+import type { MealDay, MealFood, MealLabel, MealNutrients, MealSource, ParsedMealLine } from '../types/stores.ts'
 
-export interface LineTotals {
+/** D-079 rule 1: the nutrients beyond calories and protein. */
+export const NUTRIENT_KEYS = ['carbsG', 'fatG', 'fibreG', 'sodiumMg', 'addedSugarG', 'satFatG'] as const satisfies readonly (keyof MealNutrients)[]
+
+export type NutrientKey = (typeof NUTRIENT_KEYS)[number]
+
+export interface LineTotals extends MealNutrients {
   kcal: number
   proteinG: number
 }
@@ -11,11 +16,29 @@ function norm(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+const round1 = (v: number) => Math.round(v * 10) / 10
+
+/** A food counted n times; its optional nutrients come along (D-079 rule 1: counted on the phone). */
 function times(food: MealFood, n: number): LineTotals {
-  return {
-    kcal: Math.round(food.kcal * n * 10) / 10,
-    proteinG: Math.round((food.proteinG ?? 0) * n * 10) / 10,
+  const totals: LineTotals = {
+    kcal: round1(food.kcal * n),
+    proteinG: round1((food.proteinG ?? 0) * n),
   }
+  for (const key of NUTRIENT_KEYS) {
+    const value = food[key]
+    if (value !== undefined) totals[key] = round1(value * n)
+  }
+  return totals
+}
+
+/** The saved food a line names, for the friendly list (3.02): exact name, BASE, ADD or SKIP. */
+export function foodForLine(line: string, foods: MealFood[]): MealFood | undefined {
+  const byName = new Map(foods.map((f) => [norm(f.name), f]))
+  const text = norm(line)
+  const direct = byName.get(text)
+  if (direct) return direct
+  const rest = text.replace(/^(base|add|skip) /, '')
+  return byName.get(rest) ?? byName.get(rest.replace(/ \d*\.?\d+$/, ''))
 }
 
 /**
@@ -89,18 +112,42 @@ export function parseLocally(lines: string[], foods: MealFood[], previous: Parse
   return { resolved, waiting }
 }
 
-/** The day's totals: resolved lines only; lines still waiting are excluded. */
+/**
+ * The day's totals: resolved lines only; lines still waiting are excluded.
+ * A nutrient is totalled over the lines that carry it, and is absent when
+ * no line does (differences may be negative, as for kcal).
+ */
 export function dayTotals(items: ParsedMealLine[]): LineTotals {
-  return {
+  const totals: LineTotals = {
     kcal: Math.round(items.reduce((n, i) => n + i.kcal, 0)),
     proteinG: Math.round(items.reduce((n, i) => n + i.proteinG, 0)),
   }
+  for (const key of NUTRIENT_KEYS) {
+    const carrying = items.filter((i) => i[key] !== undefined)
+    if (carrying.length === 0) continue
+    // Sodium in whole milligrams; grams to one decimal.
+    const sum = carrying.reduce((n, i) => n + (i[key] as number), 0)
+    totals[key] = key === 'sodiumMg' ? Math.round(sum) : round1(sum)
+  }
+  return totals
 }
 
-/** A saved day as stored: its lines and the results it has so far. */
-export function toMealDay(date: string, lines: string[], resolved: ParsedMealLine[], now: Date): MealDay {
+/** D-079 rule 1: whether any line behind a value came from the AI, so it is marked "AI estimate". */
+export function aiEstimated(items: ParsedMealLine[], key: NutrientKey | 'kcal' | 'proteinG'): boolean {
+  return items.some((i) => sourceOf(i) === 'ai' && i[key] !== undefined)
+}
+
+/** A saved day as stored: its lines, their meal labels and the results it has so far. */
+export function toMealDay(date: string, lines: string[], resolved: ParsedMealLine[], now: Date, lineMeals?: (MealLabel | null)[]): MealDay {
   const totals = dayTotals(resolved)
-  return { date, lines, parsed: { ...totals, items: resolved }, parsedAt: now.toISOString() }
+  const day: MealDay = { date, lines, parsed: { ...totals, items: resolved }, parsedAt: now.toISOString() }
+  if (lineMeals && lineMeals.some((m) => m !== null)) day.lineMeals = lines.map((_, i) => lineMeals[i] ?? null)
+  return day
+}
+
+/** D-079 rule 4: each line's meal, null when unlabelled (days before Phase 13 have none). */
+export function mealOfLine(day: Pick<MealDay, 'lines' | 'lineMeals'>, index: number): MealLabel | null {
+  return day.lineMeals?.[index] ?? null
 }
 
 /** The lines of a stored day that have no result yet. */
