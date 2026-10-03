@@ -11,10 +11,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Dialog } from '../ui/Dialog.tsx'
-import { blurSetBox, endStep } from './endFlow.ts'
+import { blurSetBox, endDialogBody, endStep } from './endFlow.ts'
 
 const deck = readFileSync(new URL('../screens/DeckScreen.tsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8') + readFileSync(new URL('../ui/v3.css', import.meta.url), 'utf8')
 
 /** Declarations of the first rule that starts with `selector {`. */
 function rule(selector: string): string {
@@ -44,45 +44,56 @@ describe('End (D-067 rule 2)', () => {
     const endFlow = deck.slice(deck.indexOf('const endFlow = () => {'), deck.indexOf('const moveInPlan'))
     expect(endFlow.indexOf('blurSetBox(document)')).toBeGreaterThan(-1)
     expect(endFlow.indexOf('blurSetBox(document)')).toBeLessThan(endFlow.indexOf('endStep(notDone)'))
-    expect(deck).not.toMatch(/StateBlock[\s\S]{0,120}title="End this session\?"/)
-    expect(deck.match(/title="End this session\?"/g)).toHaveLength(1)
-    expect(deck).toMatch(/<Dialog\s+title="End this session\?"/)
+    // EXEC-13-rework: frame 2.11's copy, "End this workout?".
+    expect(deck).not.toMatch(/StateBlock[\s\S]{0,120}title="End this workout\?"/)
+    expect(deck.match(/title="End this workout\?"/g)).toHaveLength(1)
+    expect(deck).toMatch(/<Dialog\s+title="End this workout\?"/)
   })
 
   it('Keep going only closes the dialog, so the deck is unchanged', () => {
-    const start = deck.lastIndexOf('<Dialog', deck.indexOf('title="End this session?"'))
+    const start = deck.lastIndexOf('<Dialog', deck.indexOf('title="End this workout?"'))
     const dialog = deck.slice(start, deck.indexOf('/>', start))
     expect(dialog).toContain('cancelLabel="Keep going"')
     expect(dialog).toContain('onCancel={() => setEndAsked(false)}')
-    expect(dialog).toContain('confirmLabel="End session"')
+    expect(dialog).toContain('confirmLabel="End workout"')
   })
 
-  it('the dialog reads "End this session?" with Keep going and End session', () => {
+  it('the dialog reads "End this workout?" with Keep going and End workout (frame 2.11)', () => {
     const html = renderToStaticMarkup(
       createElement(Dialog, {
-        title: 'End this session?',
-        body: '3 exercises are not done. What you logged is kept.',
+        title: 'End this workout?',
+        body: endDialogBody([{ name: 'rower', warmup: true }, { name: 'bench press', sets: 1 }]),
         cancelLabel: 'Keep going',
-        confirmLabel: 'End session',
+        confirmLabel: 'End workout',
         danger: true,
         onConfirm: () => undefined,
         onCancel: () => undefined,
       }),
     )
     expect(html).toContain('role="dialog"')
-    expect(html).toContain('3 exercises are not done. What you logged is kept.')
-    expect(html.indexOf('Keep going')).toBeLessThan(html.indexOf('End session'))
+    expect(html).toContain('You&#x27;ve done the warm-up and 1 set of bench press. Everything logged so far is kept.')
+    expect(html.indexOf('Keep going')).toBeLessThan(html.indexOf('End workout'))
+  })
+
+  it('the body names what was done, and says when nothing was', () => {
+    expect(endDialogBody([])).toBe('Nothing is logged yet, so ending leaves today open.')
+    expect(endDialogBody([{ name: 'bench press', sets: 3 }, { name: 'plank' }])).toBe("You've done 3 sets of bench press and plank. Everything logged so far is kept.")
+    expect(endDialogBody([{ name: 'a', sets: 2 }, { name: 'b', sets: 3 }, { name: 'c', sets: 1 }, { name: 'd', sets: 4 }, { name: 'w', warmup: true }])).toBe(
+      "You've done 10 sets across 4 exercises, and the warm-up. Everything logged so far is kept.",
+    )
   })
 })
 
 describe('deck header tap areas (D-067 rule 2a)', () => {
   it('Plan and End are at least 44 × 44, and End sits 8 px from Plan', () => {
-    for (const selector of ['.dk-planbtn', '.dk-end']) {
+    // EXEC-13-rework: Plan is the v3 pill (34 px drawn, 44 px tap area); End keeps its rule.
+    expect(rule('.pill-action::after')).toMatch(/inset: -5px 0/)
+    for (const selector of ['.dk-end']) {
       expect(rule(selector)).toMatch(/min-width: 44px/)
       expect(rule(selector)).toMatch(/min-height: 44px/)
     }
     expect(rule('.dk-end')).toMatch(/margin-left: 8px/)
     // In the header, Plan comes right before End.
-    expect(deck.indexOf('className="dk-planbtn"')).toBeLessThan(deck.indexOf('className="dk-end"'))
+    expect(deck.indexOf('className="pill-action" aria-label="Today\'s plan"')).toBeLessThan(deck.indexOf('className="dk-end"'))
   })
 })

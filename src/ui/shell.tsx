@@ -252,3 +252,24 @@ export function EmptyState({
     </div>
   )
 }
+
+export function Tick({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export type RowState = 'todo' | 'done' | 'now'
+
+/** The circle beside each item: empty, done (filled with a tick) or now (a dot). */
+export function Marker({ state }: { state: RowState }) {
+  return (
+    <span className={`marker marker--${state}`} aria-hidden="true">
+      {state === 'done' && <Tick />}
+      {state === 'now' && <span className="marker__dot" />}
+    </span>
+  )
+}
+

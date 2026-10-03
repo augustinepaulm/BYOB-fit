@@ -65,8 +65,8 @@ describe('every way into the summary calls end() (D-075 rule 3)', () => {
   it('End with nothing left (endFlow)', () => {
     expect(before("if (endStep(notDone) === 'confirm') {")).toContain('void api.end()')
   })
-  it('the End dialog’s End session', () => {
-    expect(before('confirmLabel="End session"')).toContain('void api.end()')
+  it('the End dialog’s End workout (frame 2.11 copy)', () => {
+    expect(before('confirmLabel="End workout"')).toContain('void api.end()')
   })
   it('End session on the resume prompt', () => {
     expect(before("label: 'End session',")).toContain('void api.end()')
