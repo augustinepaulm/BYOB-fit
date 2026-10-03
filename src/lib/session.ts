@@ -1,6 +1,6 @@
 // Session shape and rules (EXEC-03 tasks 6, 8, 11). Pure functions only.
 
-import type { Day, Item, ItemFields, Section } from '../types/program.ts'
+import type { Day, Item, ItemFields, ItemType, Section } from '../types/program.ts'
 import type { Entry, Session, SetLog } from '../types/stores.ts'
 import { isActiveOn, isLogged, resolveItem } from './program.ts'
 
@@ -118,15 +118,37 @@ export function sessionState(session: Session | undefined): DayState {
 
 // ── Last-week reference (task 8) ──
 
+/** The type a set was logged as, read from its values (a set stores no type). */
+export function setType(set: SetLog): ItemType {
+  if (set.weight !== undefined) return 'load_reps'
+  if (set.seconds !== undefined) return 'timed_hold'
+  if (set.distanceM !== undefined) return 'distance'
+  if (set.minutes !== undefined) return 'cardio_block'
+  return 'bodyweight_reps'
+}
+
+/**
+ * D-074 rule 5: an entry is a reference only when it is comparable. For a
+ * load-and-reps item, at least one confirmed set carries a weight; for other
+ * types, the entry was logged as the same type.
+ */
+export function isComparableEntry(entry: Entry, type: ItemType | undefined): boolean {
+  const confirmed = entry.sets.filter(isSetConfirmed)
+  if ((type ?? 'load_reps') === 'load_reps') return confirmed.some((set) => set.weight !== undefined)
+  if (confirmed.length === 0) return false
+  return (entry.fields?.type ?? setType(confirmed[0])) === type
+}
+
 /**
  * The set to show and pre-fill from: the most recent finished session for the
- * same day that logged this exercise, falling back to the most recent finished
- * session that logged it on any day.
+ * same day that logged this exercise comparably (D-074 rule 5), falling back
+ * to the most recent finished session that logged it on any day.
  */
 export function findReferenceEntry(
   sessions: Session[],
   dayId: string,
   exerciseId: string,
+  type: ItemType | undefined = 'load_reps',
 ): Entry | undefined {
   const finished = sessions
     .filter((session) => session.endedAt)
@@ -134,7 +156,7 @@ export function findReferenceEntry(
 
   const has = (session: Session) =>
     session.entries.find(
-      (entry) => entry.exerciseId === exerciseId && entry.sets.length > 0,
+      (entry) => entry.exerciseId === exerciseId && entry.sets.length > 0 && isComparableEntry(entry, type),
     )
 
   for (const session of finished) {
@@ -171,8 +193,6 @@ export function referenceSet(
 
 export interface SessionSummary {
   setsConfirmed: number
-  /** One line per unit actually used, no conversion (D-012). */
-  volumeByUnit: { unit: string; volume: number }[]
   durationMin: number | null
   skipped: number
   swapped: boolean
@@ -184,7 +204,6 @@ export function summarise(
 ): SessionSummary {
   let setsConfirmed = 0
   let skipped = 0
-  const volumes = new Map<string, number>()
 
   for (const deckItem of deck) {
     const entry = findEntry(session, deckItem.item.id)
@@ -193,15 +212,6 @@ export function summarise(
       setsConfirmed += confirmed.length
       // D-048: Discomfort marks the entry skipped even with some sets done.
       if (confirmed.length === 0 || entry?.skipped) skipped += 1
-      if (deckItem.resolved.type === 'load_reps') {
-        // D-012: shown as entered, kg unless the item says otherwise.
-        const unit = deckItem.resolved.unit ?? 'kg'
-        for (const set of confirmed) {
-          if (set.weight !== undefined && set.reps !== undefined) {
-            volumes.set(unit, (volumes.get(unit) ?? 0) + set.weight * set.reps)
-          }
-        }
-      }
     } else if (entry?.checked !== true) {
       skipped += 1
     }
@@ -221,10 +231,6 @@ export function summarise(
 
   return {
     setsConfirmed,
-    volumeByUnit: [...volumes.entries()]
-      .filter(([, volume]) => volume > 0)
-      .map(([unit, volume]) => ({ unit, volume }))
-      .sort((a, b) => a.unit.localeCompare(b.unit)),
     durationMin,
     skipped,
     swapped: session?.swapped === true,

@@ -47,9 +47,13 @@ export function shortDate(date: Date): string {
   return SHORT_DATE.format(date)
 }
 
-/** Dates from today on can be changed; past dates cannot (rule 1). Both YYYY-MM-DD. */
-export function canChangeDate(date: string, today: string): boolean {
-  return date >= today
+/**
+ * Dates from today on can be changed; past dates cannot (D-069 rule 1). A date
+ * with a finished session cannot either: a logged session keeps the day it was
+ * logged under (D-074 rule 6). Dates are YYYY-MM-DD.
+ */
+export function canChangeDate(date: string, today: string, sessions: readonly Pick<Session, 'date' | 'endedAt'>[] = []): boolean {
+  return date >= today && !sessions.some((s) => s.date === date && s.endedAt)
 }
 
 /** How a day is named in Week, the list and the confirmation. */

@@ -53,7 +53,7 @@ function PlannedTag() {
  * Frame 3l: a future day. D-059: no badge, each item's cue under its name, and
  * the dock above the tab bar. D-069 rule 3: its only action is "Do this today".
  */
-function PlannedDay({ day, date, week, program, onBack, onDoToday }: { program: Program; day: Day; date: Date; week: number; onBack: () => void; onDoToday: () => void }) {
+function PlannedDay({ day, date, week, program, onBack, onDoToday }: { program: Program; day: Day; date: Date; week: number; onBack: () => void; onDoToday: (() => void) | null }) {
   const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
   return (
     // The tabbed layout already pads by the tab bar's height; this clears the
@@ -85,11 +85,13 @@ function PlannedDay({ day, date, week, program, onBack, onDoToday }: { program: 
           )
         })}
       </div>
-      <div className="ob-dock ob-dock--above-tabbar">
-        <button type="button" className="ob-primary" style={{ justifyContent: 'center' }} onClick={onDoToday}>
-          <span>Do this today</span>
-        </button>
-      </div>
+      {onDoToday && (
+        <div className="ob-dock ob-dock--above-tabbar">
+          <button type="button" className="ob-primary" style={{ justifyContent: 'center' }} onClick={onDoToday}>
+            <span>Do this today</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -174,7 +176,7 @@ export function WeekScreen() {
     if (day)
       return (
         <>
-          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={() => setChanging({ date: today, preset: day })} />
+          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={canChangeDate(todayIso, todayIso, todaySessions) ? () => setChanging({ date: today, preset: day }) : null} />
           {changeSheet}
         </>
       )
@@ -245,7 +247,7 @@ export function WeekScreen() {
             const session = sessionOn(date, day.id)
             const state = day.rest ? restDayState(session, buildDeck(day, viewWeek, date)) : sessionState(session)
             const was = changedFrom(program, changes, date, day)
-            const changeable = canChangeDate(toISODate(date), todayIso)
+            const changeable = canChangeDate(toISODate(date), todayIso, sessions)
             const content = (
               <>
                 <span className={isToday ? 'wk-row__dow wk-row__dow--today' : 'wk-row__dow'}>{formatShortDay(date)}</span>
