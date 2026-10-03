@@ -19,7 +19,7 @@ import { ProfileScreen } from './screens/ProfileScreen.tsx'
 import { SettingsScreen } from './screens/SettingsScreen.tsx'
 import { TodayLoading, TodayScreen } from './screens/TodayScreen.tsx'
 import { WeekScreen } from './screens/WeekScreen.tsx'
-import { BodyPlaceholder } from './screens/BodyScreen.tsx'
+import { BodyEntryScreen, BodyHistoryScreen, BodyScreen } from './screens/BodyScreen.tsx'
 import { AiSettingsScreen, UsageScreen } from './screens/AiSettingsScreens.tsx'
 import { ProgressFrame, ProgressPlaceholder } from './screens/ProgressScreen.tsx'
 import { PlainLayout, TabbedLayout } from './ui/AppShell.tsx'
@@ -51,9 +51,9 @@ export default function App() {
               <Route path="/" element={<TodayScreen />} />
               <Route path="/week" element={<WeekScreen />} />
               <Route path="/meals" element={<MealsScreen />} />
-              <Route path="/body" element={<BodyPlaceholder />} />
-              <Route path="/body/new" element={<BodyPlaceholder />} />
-              <Route path="/body/history" element={<BodyPlaceholder />} />
+              <Route path="/body" element={<BodyScreen />} />
+              <Route path="/body/new" element={<BodyEntryScreen />} />
+              <Route path="/body/history" element={<BodyHistoryScreen />} />
               <Route path="/progress" element={<Navigate replace to="/progress/training" />} />
               <Route path="/progress/training" element={<ProgressFrame view="training"><LogScreen /></ProgressFrame>} />
               <Route path="/progress/training/:exerciseId" element={<ExerciseLogScreen />} />

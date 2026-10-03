@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { Sheet, Switch } from '../builder/ui.tsx'
 import { listSentLog } from '../db/index.ts'
 import { DEFAULT_MODEL, testKey } from '../lib/anthropic.ts'
+import { formatDayDate, formatShortDate, toISODate } from '../lib/dates.ts'
 import { PRIVACY_LEVELS } from '../lib/payload.ts'
 import {
   CONSOLE_LIMITS_URL,
@@ -27,8 +28,6 @@ import { AppHeader, ListGroup, ListRow } from '../ui/shell.tsx'
 import { KEY_HELP_URL } from './SettingsScreen.tsx'
 
 const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long' })
-const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-const SHORT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
 
 function modelName(model: string): string {
   return MODEL_NAMES[model] ?? model
@@ -307,7 +306,7 @@ export function UsageScreen() {
           </div>
         )}
         <div className="usage-card__meta">
-          {usage.sends} {usage.sends === 1 ? 'send' : 'sends'} · resets {SHORT.format(nextMonthStart(now))}
+          {usage.sends} {usage.sends === 1 ? 'send' : 'sends'} · resets {formatShortDate(toISODate(nextMonthStart(now)))}
         </div>
         {state === 'warn' && <div className="usage-card__state usage-card__state--warn">Past {budget.warnPct}% of your budget.</div>}
         {state === 'over' && (
@@ -338,7 +337,7 @@ export function UsageScreen() {
         {recent.length === 0 && <ListRow title="Nothing sent yet" />}
         {recent.map((entry) => {
           const cost = entryCost(entry, prices)
-          return <ListRow key={entry.id} title={KIND_LABEL[entry.kind]} sub={DAY.format(new Date(entry.at))} value={cost === null ? 'No price set' : formatUsd(cost)} />
+          return <ListRow key={entry.id} title={KIND_LABEL[entry.kind]} sub={formatDayDate(toISODate(new Date(entry.at)))} value={cost === null ? 'No price set' : formatUsd(cost)} />
         })}
         <ListRow title={<span className="link-v3">See the full sent log</span>} onClick={() => navigate('/settings/sent-log')} chevron={false} />
       </ListGroup>

@@ -300,6 +300,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .field-v3__label {
@@ -319,6 +320,7 @@ select {
 
 .field-v3__box input {
   flex: 1;
+  width: 100%;
   min-width: 0;
   height: 100%;
   border: none;
@@ -908,7 +910,7 @@ select {
 
 .pair-v3 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1012,4 +1014,190 @@ select {
 
 .bd-switch--on {
   background: var(--sage);
+}
+
+/* ── Body (3.06 to 3.08) ── */
+
+.note-v3--top {
+  margin: 14px 20px 0;
+}
+
+.tiles-v3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+
+.tiles-v3__head {
+  grid-column: span 2;
+  padding: 10px 0 0;
+}
+
+.tile-v3 {
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--sheet);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tile-v3--wide {
+  grid-column: span 2;
+}
+
+.tile-v3__label {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.tile-v3__value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tile-v3__number {
+  font: 700 28px/1.05 var(--font-display);
+}
+
+.tile-v3__unit {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.tile-v3__change {
+  font-weight: 700;
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.tile-v3__change--good {
+  color: var(--sage-text);
+}
+
+.tile-v3__none {
+  font-size: var(--t-secondary);
+  color: var(--ink-2);
+  padding: 6px 0;
+}
+
+.card-v3--row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  text-align: left;
+  color: var(--ink);
+}
+
+.card-v3__title {
+  font-weight: 700;
+  font-size: var(--t-body);
+}
+
+.card-v3__sub {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.card-v3__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-v3__aside {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.actions-v3 {
+  padding: 16px 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.page-v3--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-v3__lead--pad {
+  padding: 0 20px;
+}
+
+.date-chip {
+  position: relative;
+  flex: none;
+}
+
+/* The native date picker sits over the chip, invisible, so a tap opens it. */
+.date-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.form-v3 {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.form-v3--grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.form-v3 .field-v3 {
+  gap: 4px;
+}
+
+.form-v3 .field-v3__box {
+  height: 48px;
+}
+
+.form-v3 .field-v3__box input {
+  font-size: 21px;
+}
+
+.field-v3__box--error {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.field-v3__error {
+  font-size: var(--t-caption);
+  color: var(--danger);
+}
+
+/* A primary action pinned above the tab bar. */
+.screen--dock {
+  padding-bottom: 90px;
+}
+
+.dock-v3 {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--tabbar-h);
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 16px;
+  background: linear-gradient(var(--fade), var(--ground) 30%);
+  z-index: 5;
+}
+
+:root[data-keyboard='open'] .dock-v3 {
+  position: static;
+  background: none;
 }

@@ -7,9 +7,9 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { sendAndLog } from '../ai/send.ts'
 import { useOnline, usePreview } from '../ai/usePreview.tsx'
-import { getGoals, getMealDay, saveMealDay } from '../db/index.ts'
+import { getGoals, getMealDay, listBodyEntries, saveMealDay } from '../db/index.ts'
 import { stripCodeFences } from '../lib/anthropic.ts'
-import { toISODate } from '../lib/dates.ts'
+import { formatShortDate, toISODate } from '../lib/dates.ts'
 import { dayTotals, parseLocally, sourceOf, toMealDay } from '../lib/mealLocal.ts'
 import { mealSystemPrompt, splitLines, validateParsedMeal } from '../lib/meals.ts'
 import { buildPayload, type Payload } from '../lib/payload.ts'
@@ -18,7 +18,7 @@ import { computeTargets } from '../lib/targets.ts'
 import { PrimaryButton, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
-import type { Goals, MealDay, MealSource, ParsedMealLine, PrivacyLevel } from '../types/stores.ts'
+import type { BodyEntry, Goals, MealDay, MealSource, ParsedMealLine, PrivacyLevel } from '../types/stores.ts'
 import { StateBlock } from '../ui/StateBlock.tsx'
 
 /** 7d "Skip" hides the baseline prompt until the next page load. */
@@ -64,6 +64,7 @@ export function MealsScreen() {
   const [day, setDay] = useState<MealDay | null>(null)
   const [text, setText] = useState('')
   const [goals, setGoals] = useState<Goals | null>(null)
+  const [bodyEntries, setBodyEntries] = useState<BodyEntry[]>([])
   const [weekDays, setWeekDays] = useState<MealDay[]>([])
   const [manual, setManual] = useState<Record<string, { kcal: string; proteinG: string }> | null>(null)
   const [send, setSend] = useState<SendState>({ kind: 'idle' })
@@ -75,7 +76,11 @@ export function MealsScreen() {
 
   useEffect(() => {
     let live = true
-    void getGoals().then((g) => live && setGoals(g ?? null))
+    void Promise.all([getGoals(), listBodyEntries()]).then(([g, b]) => {
+      if (!live) return
+      setGoals(g ?? null)
+      setBodyEntries(b)
+    })
     return () => {
       live = false
     }
@@ -169,7 +174,8 @@ export function MealsScreen() {
 
   if (preview.picking) return <>{preview.element}</>
 
-  const targets = computeTargets(goals)
+  // D-078 rule 3: an entered BMR no more than 8 weeks old is the resting energy.
+  const targets = computeTargets(goals, bodyEntries, toISODate(today))
   const eaten = dayTotals(items)
   const saved = weekDays.filter((d) => d.parsed)
   const avg = saved.length
@@ -219,6 +225,13 @@ export function MealsScreen() {
         )}
         {targets.kcal !== undefined && !targets.floorApplied && (
           <div className="ml-note">An estimate from a standard formula. It can be off by 10% or more for some people; adjust by how your weight actually moves.</div>
+        )}
+        {targets.resting && (
+          <div className="ml-note">
+            {targets.resting.source === 'bmr'
+              ? `Resting energy from your BMR entry of ${formatShortDate(targets.resting.date)}.`
+              : 'Resting energy from your height, age and sex (Mifflin-St Jeor).'}
+          </div>
         )}
         {targets.kcal === undefined && targets.proteinG !== undefined && (
           <Link className="ml-note ml-note--link" to="/goal">
