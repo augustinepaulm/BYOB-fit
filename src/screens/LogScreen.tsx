@@ -195,7 +195,7 @@ export function LogScreen() {
         )}
         {rows.length === 0 && query.trim() === '' && indexOnly && <p className="bd-hint">No index lifts in this program.</p>}
         {rows.map((row) => (
-          <Link className="lg-row log-row" to={`/log/${row.id}`} key={row.id}>
+          <Link className="lg-row log-row" to={`/progress/training/${row.id}`} key={row.id}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="lg-row__name log-row__name">{row.name}</div>
               <div className="lg-row__sub">

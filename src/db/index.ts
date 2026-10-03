@@ -13,7 +13,7 @@ import type {
   Settings,
   DayChange,
 } from '../types/stores.ts'
-import { sessionIdFor } from '../lib/session.ts'
+import { isEmptySession, sessionIdFor } from '../lib/session.ts'
 import {
   ACTIVE_PROGRAM_KEY,
   GOALS_KEY,
@@ -129,15 +129,23 @@ export async function getSessionByDateAndDay(
   return db.get('sessions', sessionIdFor(date, dayId))
 }
 
+/** D-086: an ended session with nothing in it is removed, not kept. */
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('sessions', id)
+}
+
 /**
  * D-069 rule 4: before a date's day changes, its open session ends as it
- * stands, as End does. What was logged stays. True when one was ended.
+ * stands, as End does. What was logged stays; a session with nothing logged
+ * is deleted instead (D-086). True when one was ended or deleted.
  */
 export async function endOpenSession(date: string, dayId: string): Promise<boolean> {
   const db = await getDB()
   const session = await db.get('sessions', sessionIdFor(date, dayId))
   if (!session || session.endedAt) return false
-  await db.put('sessions', endedAsItStands(session, new Date()))
+  if (isEmptySession(session)) await db.delete('sessions', session.id)
+  else await db.put('sessions', endedAsItStands(session, new Date()))
   return true
 }
 

@@ -35,6 +35,7 @@ import { compareWithLastWeek, readyToProgress } from '../lib/summary.ts'
 import {
   buildDeck,
   findEntry,
+  sessionIdFor,
   findReferenceEntry,
   findSet,
   isSetConfirmed,
@@ -69,6 +70,7 @@ import { ChangeDay } from './ChangeDay.tsx'
 import { SwapStep } from './SwapStep.tsx'
 import { PlanSheet } from './PlanSheet.tsx'
 import { useProgram } from '../program/useProgram.ts'
+import { clearDeckState, readDeckState, writeDeckState } from '../session/deckState.ts'
 import { useSession } from '../session/useSession.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Exercise, ItemFields } from '../types/program.ts'
@@ -207,6 +209,7 @@ function Deck() {
     [day, todayIso, week, swapped],
   )
   const api = useSession(target)
+  const sessionId = day ? sessionIdFor(todayIso, day.id) : null
   // The program's deck, and today's: the session's order applied (D-063, D-065 rule 1).
   const baseDeck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
   const sessionOrder = api.session?.order
@@ -254,6 +257,29 @@ function Deck() {
   const [discardAsked, setDiscardAsked] = useState(false)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  // D-077 rule 4: the rest timer, typed boxes and position kept from the last visit.
+  const [restored, setRestored] = useState(false)
+  const [restSec, setRestSec] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    let live = true
+    void readDeckState(sessionId).then((kept) => {
+      if (!live) return
+      if (kept) {
+        setDrafts(kept.drafts)
+        if (kept.restUntil && kept.restUntil > Date.now()) {
+          setRestUntil(kept.restUntil)
+          setRestSec(kept.restSec ?? null)
+        }
+        if (kept.position !== null) setPosition(kept.position)
+      }
+      setRestored(true)
+    })
+    return () => {
+      live = false
+    }
+  }, [sessionId])
 
   // D-064 rule 2: the banner flag never outlives the deck.
   useEffect(() => () => void delete document.documentElement.dataset.setFocus, [])
@@ -288,7 +314,8 @@ function Deck() {
   if (!api.loading && startAt === null && deck.length > 0) {
     setStartAt(firstIncomplete === -1 ? Math.max(0, deck.length - 1) : firstIncomplete)
   }
-  const at = position ?? startAt ?? 0
+  // A kept position can outlast an item removed since; stay inside the deck.
+  const at = Math.min(position ?? startAt ?? 0, Math.max(0, deck.length - 1))
   const current: DeckItem | undefined = deck[at]
   const entry = findEntry(api.session ?? undefined, current?.item.id ?? '')
   const exerciseId = entry?.exerciseId ?? current?.resolved.exerciseId ?? ''
@@ -298,6 +325,31 @@ function Deck() {
     [history, day, exerciseId, current?.resolved.type],
   )
   const unit = current?.resolved.unit ?? 'kg'
+
+  // D-077 rules 3 and 4: keep what leaving would lose, and what the in-progress bar shows.
+  const open = Boolean(api.session && !api.session.endedAt)
+  const barLabel = useMemo(() => {
+    if (!exercise?.name) return undefined
+    const next = current?.logged
+      ? setRowsWithAdded(current.resolved, entry?.addedSets).find((row) => !isSetConfirmed(findSet(entry, row)))
+      : undefined
+    return next ? `${exercise.name}, set ${next.n} next` : exercise.name
+  }, [current, entry, exercise])
+  useEffect(() => {
+    if (!restored || !sessionId || !open || phase !== 'deck') return
+    void writeDeckState({
+      sessionId,
+      restUntil,
+      ...(restSec ? { restSec } : {}),
+      drafts,
+      position,
+      ...(barLabel ? { label: barLabel } : {}),
+    })
+  }, [restored, sessionId, open, phase, restUntil, restSec, drafts, position, barLabel])
+  // The summary means the session ended or was discarded: nothing to keep.
+  useEffect(() => {
+    if (phase === 'summary' && sessionId) void clearDeckState(sessionId)
+  }, [phase, sessionId])
 
   // D-033: a New user sees each exercise's demo open the first time it appears.
   const firstView = isNew && seenAtLoad !== null && Boolean(exerciseId) && !seenAtLoad.includes(exerciseId)
@@ -330,7 +382,10 @@ function Deck() {
 
   const startRest = useCallback(() => {
     const restSec = current?.resolved.restSec
-    if (restSec && restSec > 0) setRestUntil(Date.now() + restSec * 1000)
+    if (restSec && restSec > 0) {
+      setRestUntil(Date.now() + restSec * 1000)
+      setRestSec(restSec)
+    }
   }, [current])
 
   /** Weight placeholder: last week's for this set, else the nearest set above saved today. */
@@ -480,10 +535,12 @@ function Deck() {
       const saved = stored && !hasTyped ? true : await saveRow(row, 'done')
       if (!saved) {
         setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
+        setRestSec(current.resolved.restSec ?? null)
         return
       }
     }
     setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
+    setRestSec(current.resolved.restSec ?? null)
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, saveRow, advance])
 
@@ -503,7 +560,7 @@ function Deck() {
   }, [api, navigate])
 
   // Wait for the stored session before choosing where to resume.
-  if (!program || !day || api.loading) return null
+  if (!program || !day || api.loading || !restored) return null
   if (!day.rest && startAt === null) return null
 
   if (day.rest) {
@@ -755,6 +812,27 @@ function Deck() {
   }
 
   // ── 3g Session summary ──
+  // D-086 rule 2: an ended session with nothing in it was deleted; the day stays open.
+  if (phase === 'summary' && (api.discarded || !api.session)) {
+    return (
+      <div className="tl" style={{ paddingBottom: 130 }}>
+        <div className="bd-hero">
+          <h1 className="bd-hero__title" style={{ fontSize: 40 }}>
+            Nothing was logged
+          </h1>
+          <div className="bd-hero__sub">
+            {formatLongDate(today)} · {day.focus ?? day.name} · week {week} of {program.programWeeks}
+          </div>
+        </div>
+        <div className="ob-dock">
+          <button type="button" className="tl-done" onClick={() => navigate('/', { replace: true })}>
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (phase === 'summary') {
     const felt = (api.session?.entries ?? []).filter((e) => e.feltOff)
     const minutes =

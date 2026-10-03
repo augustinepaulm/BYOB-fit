@@ -60,8 +60,8 @@ export default defineConfig({
         short_name: 'BYOB-fit',
         description: 'Build Your Own Body: a bring-your-own-model workout PWA',
         // Dark Ground, PLAN v1.5 section 12 (D-034).
-        theme_color: '#171512',
-        background_color: '#171512',
+        theme_color: '#161816',
+        background_color: '#161816',
         display: 'standalone',
         start_url: '/BYOB-fit/',
         scope: '/BYOB-fit/',
@@ -75,8 +75,9 @@ export default defineConfig({
       workbox: {
         // The app shell: hashed JS and CSS (cache-first via precache), the
         // HTML, and the icons. The manifest is added by the plugin.
-        // Starter programs are precached so onboarding works offline (EXEC-07).
-        globPatterns: ['**/*.{js,css,html,png,svg}', 'templates/*.json'],
+        // Starter programs are precached so onboarding works offline (EXEC-07),
+        // and the bundled fonts so the app never falls back offline (D-083 rule 5).
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}', 'templates/*.json'],
         // The sample program is never precached; it is network-first below.
         globIgnores: ['**/sample-program.json'],
         cleanupOutdatedCaches: true,

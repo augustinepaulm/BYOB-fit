@@ -44,6 +44,35 @@ export function sessionToEnd(stored: Session | null | undefined, now: Date): Ses
   return { ...stored, endedAt: now.toISOString() }
 }
 
+/**
+ * D-086: a session with no confirmed set and no checked item holds nothing,
+ * so ending it deletes it instead and the date stays open.
+ */
+export function isEmptySession(session: Session): boolean {
+  return !session.entries.some((entry) => entry.checked === true || entry.sets.some(isSetConfirmed))
+}
+
+/** What ending a session does: nothing, delete it (D-086), or store it ended. */
+export type EndOutcome = { kind: 'none' } | { kind: 'delete'; session: Session } | { kind: 'end'; session: Session }
+
+/** End (D-075 rule 3, D-086): never creates a session or moves an end time; an empty one is deleted. */
+export function endOutcome(stored: Session | null | undefined, now: Date): EndOutcome {
+  const next = sessionToEnd(stored, now)
+  if (!next) return { kind: 'none' }
+  return isEmptySession(next) ? { kind: 'delete', session: next } : { kind: 'end', session: next }
+}
+
+/**
+ * Finish and the mid-workout Change (D-069 rule 4, D-086): nothing stored
+ * means nothing to end; an open session with nothing in it is deleted; an
+ * end time already set stays.
+ */
+export function finishOutcome(stored: Session | null | undefined, now: Date): EndOutcome {
+  if (!stored) return { kind: 'none' }
+  if (!stored.endedAt && isEmptySession(stored)) return { kind: 'delete', session: stored }
+  return { kind: 'end', session: stored.endedAt ? stored : { ...stored, endedAt: now.toISOString() } }
+}
+
 /** One session per (date, dayId): the pair is the key. */
 export function sessionIdFor(date: string, dayId: string): string {
   return `${date}__${dayId}`

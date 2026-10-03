@@ -14,7 +14,7 @@ import upperLower from '../../public/templates/starter-4day-upper-lower.json'
 import { ExercisePicker } from '../builder/ExercisePicker.tsx'
 import type { Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
-import { sessionToEnd } from './session.ts'
+import { finishOutcome, sessionToEnd } from './session.ts'
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const open: Session = { id: '2026-09-29__tue', date: '2026-09-29', dayId: 'tue', programWeek: 8, startedAt: '2026-09-29T09:00:00.000Z', entries: [] }
@@ -35,15 +35,19 @@ describe('end() (D-075 rule 3)', () => {
   it('reads the stored session from the ref and never calls ensure()', () => {
     const hook = read('../session/useSession.ts')
     const end = hook.slice(hook.indexOf('const end = useCallback'), hook.indexOf('return {', hook.indexOf('const end = useCallback')))
-    expect(end).toContain('sessionToEnd(sessionRef.current, new Date())')
+    // EXEC-13-rework (D-086): the decision moved into endOutcome, which wraps sessionToEnd.
+    expect(end).toContain('endOutcome(sessionRef.current, new Date())')
     expect(end).not.toContain('ensure')
+    expect(read('./session.ts')).toContain('const next = sessionToEnd(stored, now)')
   })
   it('finish() after end() keeps the first endedAt', () => {
-    const hook = read('../session/useSession.ts')
-    expect(hook).toContain('await commit(current.endedAt ? current : { ...current, endedAt: new Date().toISOString() })')
-    const ended = sessionToEnd(open, END)!
-    const finished = ended.endedAt ? ended : { ...ended, endedAt: DONE.toISOString() }
-    expect(finished.endedAt).toBe(END.toISOString())
+    // EXEC-13-rework (D-086): finish() settles finishOutcome, which keeps an end time.
+    expect(read('../session/useSession.ts')).toContain('finishOutcome(sessionRef.current ?? (await read()), new Date())')
+    const logged: Session = { ...open, entries: [{ itemId: 'a', exerciseId: 'bench', sets: [{ n: 1, weight: 60, reps: 8 }] }] }
+    const ended = sessionToEnd(logged, END)!
+    const finished = finishOutcome(ended, DONE)
+    expect(finished.kind).toBe('end')
+    expect(finished.kind === 'end' && finished.session.endedAt).toBe(END.toISOString())
   })
 })
 

@@ -1,34 +1,55 @@
-import { NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
-import {
-  LogIcon,
-  MealsIcon,
-  ProfileIcon,
-  TodayIcon,
-  WeekIcon,
-} from './icons.tsx'
+import { TABS, tabFor, type TabId } from './tabs.ts'
 
-const TABS = [
-  { to: '/', label: 'Today', Icon: TodayIcon },
-  { to: '/week', label: 'Week', Icon: WeekIcon },
-  { to: '/log', label: 'Log', Icon: LogIcon },
-  { to: '/meals', label: 'Meals', Icon: MealsIcon },
-  { to: '/profile', label: 'Profile', Icon: ProfileIcon },
-]
+/** The tab glyphs, drawn as CSS shapes as in the v3 canvas. */
+function Glyph({ id }: { id: TabId }) {
+  switch (id) {
+    case 'train':
+      return (
+        <span className="tg tg--train" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      )
+    case 'meals':
+      return <span className="tg tg--meals" aria-hidden="true" />
+    case 'body':
+      return <span className="tg tg--body" aria-hidden="true" />
+    case 'progress':
+      return (
+        <span className="tg tg--progress" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      )
+    case 'profile':
+      return (
+        <span className="tg tg--profile" aria-hidden="true">
+          <span />
+          <span />
+        </span>
+      )
+  }
+}
 
+/** D-077: Train, Meals, Body, Progress, Profile; navy in every appearance. */
 export function TabBar() {
+  const active = tabFor(useLocation().pathname)
   return (
-    <nav className="tabbar">
-      {TABS.map(({ to, label, Icon }) => (
-        <NavLink
-          key={to}
+    <nav className="tabbar" aria-label="Tabs">
+      {TABS.map(({ id, to, label }) => (
+        <Link
+          key={id}
           to={to}
-          end={to === '/'}
-          className={({ isActive }) => (isActive ? 'tab tab--active' : 'tab')}
+          className={id === active ? 'tab tab--active' : 'tab'}
+          aria-current={id === active ? 'page' : undefined}
         >
-          <Icon />
+          <Glyph id={id} />
           <span>{label}</span>
-        </NavLink>
+        </Link>
       ))}
     </nav>
   )

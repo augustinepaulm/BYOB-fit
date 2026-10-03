@@ -9,18 +9,20 @@ import { useNavigate } from 'react-router-dom'
 import { ReviewBanner } from '../ai/parts.tsx'
 import { BuilderBar, ChevronRight, Hero, Sheet } from '../builder/ui.tsx'
 import { endOpenSession, listSessionsBetween } from '../db/index.ts'
-import { formatShortDay, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
+import { formatShortDay, formatTrainContext, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
 import { canChangeDate, changedFrom, dayLabel } from '../lib/dayChanges.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, resolveItem, weekDates } from '../lib/program.ts'
-import { buildDeck, isSetConfirmed, restDayState, sessionState, type DayState } from '../lib/session.ts'
+import { buildDeck, isSetConfirmed, restDayState, sessionIdFor, sessionState, type DayState } from '../lib/session.ts'
 import { SECTION_ORDER } from '../lib/builder.ts'
 import { SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
+import { clearDeckState } from '../session/deckState.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, ChevronLeftIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { AppHeader, TrainSwitch } from '../ui/shell.tsx'
 import { ChangeDay } from './ChangeDay.tsx'
 
 const DAY_DATE = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -130,6 +132,9 @@ export function WeekScreen() {
     // 7c "Week, no program".
     return (
       <div className="tl" style={{ paddingBottom: 24 }}>
+        <AppHeader context={formatShortDay(today)}>
+          <TrainSwitch view="week" />
+        </AppHeader>
         <div className="bd-hero">
           <h1 className="lg-title">Week</h1>
         </div>
@@ -149,7 +154,10 @@ export function WeekScreen() {
   const loggedToday = todaySessions.some((s) => s.entries.some((e) => e.sets.some(isSetConfirmed)))
   const applyChange = async (date: Date, dayId: string | null) => {
     const iso = toISODate(date)
-    if (iso === todayIso) await endOpenSession(iso, dayForDate(program, changes, date).id)
+    if (iso === todayIso) {
+      const dayId = dayForDate(program, changes, date).id
+      if (await endOpenSession(iso, dayId)) await clearDeckState(sessionIdFor(iso, dayId))
+    }
     if (dayId === null) await restoreDate(iso)
     else await setChange(iso, dayId)
     setReloadKey((k) => k + 1)
@@ -193,6 +201,9 @@ export function WeekScreen() {
 
   return (
     <div className="tl" style={{ paddingBottom: 24 }}>
+      <AppHeader context={formatTrainContext(today, week)}>
+        <TrainSwitch view="week" />
+      </AppHeader>
       <div className="wk-head">
         <button type="button" className="wk-head__arrow" aria-label="Previous week" disabled={viewWeek <= 1} onClick={() => setShown(viewWeek - 1)}>
           <ChevronLeftIcon />

@@ -37,8 +37,8 @@ describe('dark tokens (D-039, EXEC-07.1 task 5)', () => {
 describe('literal colours outside the token blocks (EXEC-11 task 10)', () => {
   it('theme-color values equal the Ground tokens', async () => {
     const { GROUND } = await import('./appearance.ts')
-    expect(declarations(':root {').get('--bg')).toBe(GROUND.light)
-    expect(declarations(':root[data-theme="dark"] {').get('--bg')).toBe(GROUND.dark)
+    expect(declarations(':root {').get('--ground')).toBe(GROUND.light)
+    expect(declarations(':root[data-theme="dark"] {').get('--ground')).toBe(GROUND.dark)
   })
 
   it('no colour literal outside :root and the two dark blocks', () => {

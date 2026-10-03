@@ -21,6 +21,11 @@ export function formatShortDay(date: Date): string {
   return SHORT_DAY.format(date)
 }
 
+/** The Train header's context text (frame 2.01): "Thu · week 6". */
+export function formatTrainContext(date: Date, week: number): string {
+  return `${SHORT_DAY.format(date)} · week ${week}`
+}
+
 /** "Sep 13 – 19", or "Sep 27 – Oct 3" across a month boundary. */
 export function formatWeekRange(dates: Date[]): string {
   const first = dates[0]

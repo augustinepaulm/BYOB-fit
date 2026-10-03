@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { ReviewBanner } from '../ai/parts.tsx'
-import { formatLongDate, toISODate } from '../lib/dates.ts'
+import { formatLongDate, formatShortDay, formatTrainContext, toISODate } from '../lib/dates.ts'
 import { shouldShowBackupNote } from '../lib/notices.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, isLogged, resolveItem } from '../lib/program.ts'
@@ -18,6 +18,7 @@ import type { Program, Section } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
 import { CheckIcon, SwapIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { AppHeader, TrainSwitch } from '../ui/shell.tsx'
 
 /** Frame 7a "Loading": shown while the program is read from the phone. */
 export function TodayLoading() {
@@ -115,6 +116,14 @@ function SectionList({
   )
 }
 
+function TrainHeader({ today, week }: { today: Date; week?: number }) {
+  return (
+    <AppHeader context={week ? formatTrainContext(today, week) : formatShortDay(today)}>
+      <TrainSwitch view="today" />
+    </AppHeader>
+  )
+}
+
 export function TodayScreen() {
   const { program, today, week, changes } = useProgram()
   const navigate = useNavigate()
@@ -137,6 +146,7 @@ export function TodayScreen() {
     // 7a "No program yet": onboarding finished without one, or it was removed.
     return (
       <div className="tl">
+        <TrainHeader today={today} />
         <div className="tl-head">
           <div className="tl-head__meta">
             <span>{formatLongDate(today)}</span>
@@ -177,6 +187,7 @@ export function TodayScreen() {
     const restDone = restDayState(session, deck) === 'done'
     return (
       <div className="tl">
+        <TrainHeader today={today} week={week} />
         {/* With nothing scheduled, the 7a state block carries the words. */}
         {deck.length ? head('Rest day', "Recovery counts as training. Today's daily items:") : head('Today', '')}
         <BackupNote />
@@ -228,6 +239,7 @@ export function TodayScreen() {
 
   return (
     <div className="tl" style={{ paddingBottom: 8 }}>
+      <TrainHeader today={today} week={week} />
       {head(day.focus ?? day.name, sub)}
       <BackupNote />
       <ReviewBanner program={program} />
@@ -246,7 +258,7 @@ export function TodayScreen() {
             {summary.setsConfirmed} sets
             {summary.durationMin !== null ? ` · ${summary.durationMin} min` : ''}
           </span>
-          <Link to="/log">View log</Link>
+          <Link to="/progress/training">View log</Link>
         </div>
       )}
       <div className="tl-dock">
