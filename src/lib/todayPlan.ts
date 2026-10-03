@@ -5,6 +5,7 @@
 import type { Day, Item, Program } from '../types/program.ts'
 import type { Entry, Session } from '../types/stores.ts'
 import { finishDraft, loadDraft } from './builder.ts'
+import { shortDate } from './dayChanges.ts'
 import { isLogged } from './program.ts'
 import { findEntry, findSet, isSetConfirmed, setRowsFor, type DeckItem, type SetRow } from './session.ts'
 
@@ -260,4 +261,26 @@ export function stepInGroups(groups: PlanGroup[], itemId: string, direction: 'up
   }
   if (k < items.length - 1) return { toIndex: flat + 1, toSectionId: groups[g].sectionId }
   return g < groups.length - 1 ? { toIndex: flat, toSectionId: groups[g + 1].sectionId } : null
+}
+
+// ── The draft message on the summary (D-074 rule 7) ──
+
+/** The keep offers that appear once the builder draft is cleared, as one line each. */
+export function keepOfferLines(offers: { sets: { name: string; n: number }[]; exercises: string[]; order: boolean }): string[] {
+  return [
+    ...offers.sets.map(({ name, n }) => `Keep ${n} sets of ${name}`),
+    ...offers.exercises.map((name) => `Keep ${name} in program`),
+    ...(offers.order ? ['Keep this order'] : []),
+  ]
+}
+
+/** The Discard draft confirmation, naming what is discarded. */
+export function discardDraftConfirmation(draft: { mode: 'new' | 'edit'; program: { name: string }; updatedAt: string }): { title: string; body: string } {
+  const name = draft.program.name.trim() || 'Untitled program'
+  const when = draft.updatedAt ? `, last changed ${shortDate(new Date(draft.updatedAt))}` : ''
+  const what =
+    draft.mode === 'edit'
+      ? `Your unsaved builder changes to ${name}${when} are deleted. ${name} stays as it is now.`
+      : `The new program ${name} you started in the builder${when} is deleted. Your current program stays as it is.`
+  return { title: 'Discard your program draft?', body: what }
 }

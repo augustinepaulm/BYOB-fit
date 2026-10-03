@@ -154,6 +154,8 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* D-074 rule 8: the page is not pulled past its ends. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -742,6 +744,8 @@ input[type='file'] {
   display: flex;
   padding: 8px 0 24px;
   z-index: 10;
+  /* D-074 rule 8: navy below the bar too, so a pull shows no page colour under it. */
+  box-shadow: 0 120px 0 var(--tabbar-bg);
 }
 
 .tab {
@@ -5652,4 +5656,11 @@ input[type='file'] {
   font-size: 15px;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
+}
+
+.dk-keep__pending {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 1.5;
 }

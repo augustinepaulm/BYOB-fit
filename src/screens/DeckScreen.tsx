@@ -10,7 +10,7 @@ import { ExercisePicker } from '../builder/ExercisePicker.tsx'
 import { Sheet } from '../builder/ui.tsx'
 import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
 import { getMeta, getProgram, listAllSessions, saveProgram, setMeta } from '../db/index.ts'
-import { readDraft } from '../builder/draft.ts'
+import { clearDraft, readDraft, type BuilderDraft } from '../builder/draft.ts'
 import { blurSetBox, endStep } from '../lib/endFlow.ts'
 import {
   addableItems,
@@ -25,6 +25,7 @@ import {
 } from '../lib/sessionExercises.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
 import { formatLongDate, toISODate } from '../lib/dates.ts'
+import { canChangeDate } from '../lib/dayChanges.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
 import { loadRowOutcome, numberBoxAttributes, repRangeText, singleRowOutcome, type BoxResult, type RowAction } from '../lib/setBoxes.ts'
 import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
@@ -48,9 +49,11 @@ import {
 import {
   applyOrder,
   currentAfterMove,
+  discardDraftConfirmation,
   restAfterDone,
   isDeckItemDone,
   isDeckItemInProgress,
+  keepOfferLines,
   keepOrder,
   keepSets,
   moveItem,
@@ -247,7 +250,8 @@ function Deck() {
   const [swapPick, setSwapPick] = useState<{ id: string; name: string } | null>(null)
   const [kept, setKept] = useState<{ sets: Record<string, boolean>; order: boolean }>({ sets: {}, order: false })
   const [keepError, setKeepError] = useState<string | null>(null)
-  const [draftWaiting, setDraftWaiting] = useState<boolean | null>(null)
+  const [draftWaiting, setDraftWaiting] = useState<BuilderDraft | false | null>(null)
+  const [discardAsked, setDiscardAsked] = useState(false)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -485,7 +489,7 @@ function Deck() {
   useEffect(() => {
     if (phase !== 'summary') return
     let live = true
-    void readDraft().then((draft) => live && setDraftWaiting(draft !== null))
+    void readDraft().then((draft) => live && setDraftWaiting(draft ?? false))
     return () => {
       live = false
     }
@@ -653,7 +657,39 @@ function Deck() {
           <span>Change the program?</span>
         </div>
         {draftWaiting === null ? null : draftWaiting ? (
-          <p className="dk-keep__note">Finish or discard your program draft first to keep these changes.</p>
+          // D-074 rule 7: say what waits on the draft, and let it be opened or discarded here.
+          <>
+            <p className="dk-keep__note">Finish or discard your program draft first to keep these changes. Once it is cleared, you can:</p>
+            <ul className="dk-keep__pending">
+              {keepOfferLines({
+                sets: added.filter(({ deckItem }) => !kept.sets[deckItem.item.id]).map(({ deckItem, n }) => ({ name: nameOf(deckItem.resolved.exerciseId ?? ''), n })),
+                exercises: addedToday.filter((e) => !kept.sets[`added:${e.itemId}`]).map((e) => nameOf(e.exerciseId)),
+                order: orderOffered && !kept.order,
+              }).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <div className="ai-banner__actions">
+              <button type="button" className="ai-btn ai-btn--primary" onClick={() => navigate(draftWaiting.mode === 'edit' ? '/program/edit' : '/program/new')}>
+                Open draft
+              </button>
+              <button type="button" className="ai-btn" onClick={() => setDiscardAsked(true)}>
+                Discard draft
+              </button>
+            </div>
+            {discardAsked && (
+              <Dialog
+                {...discardDraftConfirmation(draftWaiting)}
+                confirmLabel="Discard draft"
+                danger
+                onCancel={() => setDiscardAsked(false)}
+                onConfirm={() => {
+                  setDiscardAsked(false)
+                  void clearDraft().then(() => setDraftWaiting(false))
+                }}
+              />
+            )}
+          </>
         ) : (
           <>
             {added.map(({ deckItem, n, weeks }) => (
@@ -1353,10 +1389,15 @@ function Deck() {
             setPlanOpen(false)
             setAdding(true)
           }}
-          onChangeDay={() => {
-            setPlanOpen(false)
-            setChangingDay(true)
-          }}
+          onChangeDay={
+            // D-074 rule 6: not on a date with a finished session.
+            canChangeDate(todayIso, todayIso, history.filter((s) => s.id !== api.session?.id))
+              ? () => {
+                  setPlanOpen(false)
+                  setChangingDay(true)
+                }
+              : null
+          }
           onEnd={() => {
             setPlanOpen(false)
             endFlow()

@@ -50,7 +50,8 @@ describe('End (D-067 rule 2)', () => {
   })
 
   it('Keep going only closes the dialog, so the deck is unchanged', () => {
-    const dialog = deck.slice(deck.indexOf('<Dialog'), deck.indexOf('/>', deck.indexOf('<Dialog')))
+    const start = deck.lastIndexOf('<Dialog', deck.indexOf('title="End this session?"'))
+    const dialog = deck.slice(start, deck.indexOf('/>', start))
     expect(dialog).toContain('cancelLabel="Keep going"')
     expect(dialog).toContain('onCancel={() => setEndAsked(false)}')
     expect(dialog).toContain('confirmLabel="End session"')

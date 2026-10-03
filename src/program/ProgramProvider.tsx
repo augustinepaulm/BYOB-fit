@@ -46,7 +46,9 @@ export function ProgramProvider({ children }: { children: ReactNode }) {
     setChanges(await getDayChanges())
   }, [])
 
-  // D-069 rule 1: from today on only; nothing else moves.
+  // D-069 rule 1: from today on only; nothing else moves. D-074 rule 6 (no
+  // change on a finished date) is applied where Change is offered: a
+  // mid-workout change ends today's session just before this call (D-069 rule 4).
   const setChange = useCallback(
     async (date: string, dayId: string) => {
       if (!program || !canChangeDate(date, toISODate(today))) return false

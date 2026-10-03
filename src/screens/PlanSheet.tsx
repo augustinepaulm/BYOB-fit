@@ -38,8 +38,8 @@ export function PlanSheet({
   nameOf: (deckItem: DeckItem) => string
   onJump: (index: number) => void
   onMove: (itemId: string, toIndex: number, toSectionId: string) => void
-  /** D-069 rule 5: Change today's workout. */
-  onChangeDay: () => void
+  /** D-069 rule 5: Change today's workout; null when today has a finished session (D-074 rule 6). */
+  onChangeDay: (() => void) | null
   /** D-069 rule 7: Add exercise. */
   onAddExercise: () => void
   onEnd: () => void
@@ -181,9 +181,11 @@ export function PlanSheet({
           <button type="button" className="ob-outline" onClick={onAddExercise}>
             Add exercise
           </button>
-          <button type="button" className="ob-outline" onClick={onChangeDay}>
-            Change today&apos;s workout
-          </button>
+          {onChangeDay && (
+            <button type="button" className="ob-outline" onClick={onChangeDay}>
+              Change today&apos;s workout
+            </button>
+          )}
           <button type="button" className="ob-outline dk-plan__end" onClick={onEnd}>
             End session
           </button>
