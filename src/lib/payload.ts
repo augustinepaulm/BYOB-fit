@@ -21,6 +21,8 @@ export interface WeekReviewData {
   parts: { label: string; value: string; weight?: number }[]
   /** The week's underlying data for the view, already reduced to what may be sent. */
   data: unknown
+  /** How the preview names that data (frame 3.13). */
+  summary?: SummaryLine[]
 }
 
 export interface SummaryLine {
@@ -169,7 +171,7 @@ export function buildPayload(
     { label: 'Logged', value: `${count(sets, 'set')} from ${count(sessions.length, 'session')}` },
     { label: 'Goal', value: goalText },
     { label: 'Your training rules', value: linesOf(rules).length ? count(linesOf(rules).length, 'line') : 'None' },
-  ]
+  ].filter((line) => kind !== 'week_note' || (line.label === 'Program' ? Boolean(program) : line.label === 'Logged' ? sessions.length > 0 : true))
 
   const message: Record<string, unknown> = { task: kind }
   if (kind === 'update') {
@@ -188,6 +190,7 @@ export function buildPayload(
     summary.unshift(
       { label: 'Week', value: `${review.view[0].toUpperCase()}${review.view.slice(1)}, week of ${review.weekStart}` },
       { label: 'Score', value: review.score === null ? 'None yet' : `${review.score} and its ${count(review.parts.length, 'part')}` },
+      ...(review.summary ?? []),
     )
   }
   message.rules = rules.trim() === '' ? 'No rules supplied.' : rules

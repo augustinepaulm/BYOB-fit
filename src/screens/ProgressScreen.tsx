@@ -7,6 +7,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { useWeekReview } from '../ai/useWeekReview.tsx'
 import { Sheet } from '../builder/ui.tsx'
 import { getGoals, listAllSessions, listBodyEntries, listMealDays } from '../db/index.ts'
 import { BODY_FIELDS, formatValue, unitLabel, valueIn, type BodyField } from '../lib/body.ts'
@@ -34,6 +35,7 @@ import {
   type TrainingCounts,
 } from '../lib/scores.ts'
 import { computeTargets } from '../lib/targets.ts'
+import { bodyWeekData, nutritionWeekData, programFor, trainingWeekData, weekSessions } from '../lib/weekNotes.ts'
 import { useProgram } from '../program/useProgram.ts'
 import { unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
@@ -207,10 +209,36 @@ function TrainingView({ program, data, today, current, changes }: { program: Pro
   const review = Math.max(1, current - 1)
   const goal = mainGoal(data.goals)
   const counts = (week: number) => trainingCounts({ program, changes, sessions: data.sessions, week, today })
+  const first = current <= 1
+  const c = counts(first ? 1 : review)
+  const parts = trainingParts(c, goal)
+  const score = first ? null : combine(parts)
+  const w = trainingWords(c)
+  const dates = weekDates(program, review).map(toISODate)
+  // D-081: the week's score, its parts and the underlying data, at the user's level.
+  const ai = useWeekReview({
+    enabled: !first,
+    review: {
+      view: 'training',
+      weekStart: dates[0],
+      programWeek: review,
+      score,
+      parts: [
+        { label: 'Workouts done', value: w.adherence, weight: 40 },
+        { label: 'Sets done', value: w.completeness, weight: 30 },
+        { label: 'Progress', value: w.progression, weight: 30 },
+      ],
+      data: trainingWeekData(c),
+      summary: [
+        { label: 'Training', value: `${w.adherence}, ${w.completeness}, ${w.progression}` },
+        { label: 'Lifts', value: 'Sets logged this week, with dates' },
+      ],
+    },
+    data: { program: programFor('training', program), sessions: weekSessions(data.sessions, dates), goals: data.goals, bodyEntries: data.body },
+  })
+  if (ai.picking) return <>{ai.element}</>
 
-  if (current <= 1) {
-    const c = counts(1)
-    const w = trainingWords(c)
+  if (first) {
     return (
       <>
         <FirstWeek view="training">
@@ -225,14 +253,12 @@ function TrainingView({ program, data, today, current, changes }: { program: Pro
     )
   }
 
-  const c = counts(review)
-  const parts = trainingParts(c, goal)
-  const score = combine(parts)
   const trend = Array.from({ length: review }, (_, i) => combine(trainingParts(counts(i + 1), goal)))
-  const w = trainingWords(c)
   return (
     <>
+      {ai.element}
       <ScoreCard score={score} week={review} view="training" sentence={trendSentence(score, review > 1 ? trend[review - 2] : null)} trend={trend} />
+      {ai.notes}
       <section className="card-v3 parts">
         <PartBar text={w.adherence} value={parts[0].value} />
         <PartBar text={w.completeness} value={parts[1].value} />
@@ -242,6 +268,7 @@ function TrainingView({ program, data, today, current, changes }: { program: Pro
           How this is worked out
         </button>
       </section>
+      {ai.button}
       <TrainingCharts program={program} data={data} today={today} review={review} current={current} changes={changes} />
       <LogScreen embedded />
       {how && <HowItWorks title="How the training score works" rows={TRAINING_HOW} onClose={() => setHow(false)} />}
@@ -360,7 +387,7 @@ function NutritionView({ program, data, today, current }: { program: Program | n
   const score = first ? null : combine(parts)
   const trend = program && !first ? Array.from({ length: review }, (_, i) => combine(nutritionParts(nutritionCounts(nutritionDays(datesOf(i + 1), data.meals, targets, fibre), targets, fibre)))) : undefined
   const weekItems = data.meals.filter((m) => dates.includes(m.date)).flatMap((m) => m.parsed?.items ?? [])
-  const ai = aiEstimated(weekItems, 'fibreG') || aiEstimated(weekItems, 'kcal')
+  const hasAi = aiEstimated(weekItems, 'fibreG') || aiEstimated(weekItems, 'kcal')
   const band = targets.kcal !== undefined ? energyBand(targets.kcal, targets.floor ?? 0) : undefined
   const fullDates = program ? weekDates(program, week) : dates.map((d) => new Date(`${d}T12:00:00`))
   const allDays = nutritionDays(fullDates.map(toISODate), data.meals, targets, fibre)
@@ -389,9 +416,29 @@ function NutritionView({ program, data, today, current }: { program: Program | n
     </>
   )
   const missingAny = !c.hasEnergyTarget || !c.hasProteinTarget || !c.hasFibreTarget
+  const ai = useWeekReview({
+    enabled: !first && Boolean(program),
+    review: {
+      view: 'nutrition',
+      weekStart: fullDates.map(toISODate)[0],
+      ...(program ? { programWeek: week } : {}),
+      score,
+      parts: [
+        { label: 'Days logged', value: `${c.logged} of ${c.days} days logged`, weight: 25 },
+        { label: 'Calorie range', value: c.hasEnergyTarget ? `${c.inBand} days in range` : 'No calorie target', weight: 35 },
+        { label: 'Protein', value: c.hasProteinTarget ? `${c.atProtein} days at protein` : 'No protein target', weight: 25 },
+        { label: 'Fibre', value: c.hasFibreTarget ? `${c.atFibre} days at fibre` : 'No fibre target', weight: 15 },
+      ],
+      data: nutritionWeekData(days, data.meals, targets, fibre),
+      summary: [{ label: 'Nutrition', value: 'Daily calories, protein, fibre and the other nutrients against targets; no food lines' }],
+    },
+    data: { program: null, sessions: [], goals: data.goals, bodyEntries: data.body },
+  })
+  if (ai.picking) return <>{ai.element}</>
 
   return (
     <>
+      {ai.element}
       {first ? (
         <FirstWeek view="nutrition">
           <span className="part__label">So far this week</span>
@@ -400,9 +447,10 @@ function NutritionView({ program, data, today, current }: { program: Program | n
       ) : (
         <>
           <ScoreCard score={score} week={week} view="nutrition" sentence={nutritionSentence(c, parts)} trend={trend} />
+          {ai.notes}
           <section className="card-v3 parts">
             {partRows}
-            {ai && (
+            {hasAi && (
               <p className="parts__note">
                 Includes values marked <span className="ai-tag">AI estimate</span>
               </p>
@@ -419,6 +467,7 @@ function NutritionView({ program, data, today, current }: { program: Program | n
               </button>
             </div>
           )}
+          {ai.button}
         </>
       )}
       <ChartCard
@@ -502,6 +551,20 @@ function BodyView({ program, data, current, units }: { program: Program | null; 
   const muscle = bodySeries(data.body, read('skeletalMuscle'))
   const fat = bodySeries(data.body, read('bodyFatMass'))
   const tape = BODY_FIELDS.filter((f) => f.group === 'tape').map((f) => ({ f, points: bodySeries(data.body, read(f.field)) })).filter((t) => t.points.length > 0)
+  const ai = useWeekReview({
+    enabled: data.body.length > 0 && Boolean(program),
+    review: {
+      view: 'body',
+      weekStart: program ? toISODate(weekDates(program, review)[0]) : '',
+      ...(program ? { programWeek: review } : {}),
+      score,
+      parts: comparison ? shownMeasures(comparison).map((m) => ({ label: MEASURE_NAME[m.measure], value: `${m.change > 0 ? '+' : ''}${m.change} (${m.beyond ? 'beyond' : 'within'} normal day-to-day change)` })) : [],
+      data: bodyWeekData(comparison),
+      summary: [{ label: 'Body', value: comparison ? 'Muscle and fat mass change behind the score' : 'Trends only' }],
+    },
+    data: { program: null, sessions: [], goals: data.goals, bodyEntries: data.body },
+  })
+  if (ai.picking) return <>{ai.element}</>
 
   if (data.body.length === 0) {
     return (
@@ -531,6 +594,7 @@ function BodyView({ program, data, current, units }: { program: Program | null; 
       ) : comparison ? (
         <>
           <ScoreCard score={score} week={review} view="body" sentence={bodySentence(comparison)} />
+          {ai.notes}
           <section className="card-v3 parts">
             {shownMeasures(comparison).map((m) => (
               <span className="part__text" key={m.measure}>
@@ -597,6 +661,8 @@ function BodyView({ program, data, current, units }: { program: Program | null; 
           ))
         )}
       </ChartCard>
+      {ai.button}
+      {ai.element}
       {how && <HowItWorks title="How the body score works" rows={BODY_HOW} onClose={() => setHow(false)} />}
     </>
   )

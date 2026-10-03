@@ -148,6 +148,61 @@ export function SendPreview({
       </>
     )
   }
+  if (kind === 'week_note') {
+    // Frame 3.13, with D-084's never-sent line in place of the canvas's "Not sent" list.
+    const week = JSON.parse(payload.message) as { programWeek?: number }
+    return (
+      <>
+        <div className="bd-scrim" onClick={onCancel} />
+        <div className="bd-sheet ai-sheet" role="dialog" aria-modal="true" aria-label="Send preview">
+          <div className="bd-sheet__grab" />
+          <h2 className="sheet__title">Review {week.programWeek !== undefined ? `week ${week.programWeek}` : 'this week'} with AI</h2>
+          <p className="sheet__body">This is everything that will be sent.</p>
+          <div className="preview-list">
+            {payload.summary.map((line) => (
+              <div className="preview-list__row preview-list__row--pair" key={line.label}>
+                <b>{line.label}</b>
+                <span>{line.value}</span>
+              </div>
+            ))}
+          </div>
+          {level === 'full' && (
+            <div className="bd-toggle-row" style={{ marginTop: 8 }}>
+              <span>Include notes</span>
+              <Switch label="Include notes" on={includeNotes} onChange={onIncludeNotes} />
+            </div>
+          )}
+          <p className="preview-small">
+            {NEVER_SENT} Privacy level: {LEVEL_LABEL[level]}.{' '}
+            <button type="button" className="link-inline" onClick={onChangeLevel}>
+              Change
+            </button>
+          </p>
+          {notice && (
+            <div className="ai-budget" role="status">
+              {notice} Estimated.
+            </div>
+          )}
+          <button type="button" className="ai-show" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            Show exactly what’s sent
+            <span style={{ display: 'inline-flex', transform: open ? 'rotate(180deg)' : undefined }}>
+              <ChevronDown />
+            </span>
+          </button>
+          {open && <pre className="ai-raw" aria-label="Exact message">{payload.message}</pre>}
+          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Logging works; AI features need a connection.</p>}
+          <div className="preview-actions">
+            <button type="button" className="btn btn--tertiary" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn--primary" disabled={offline} onClick={onSend}>
+              Send
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
   return (
     <>
       <div className="bd-scrim" onClick={onCancel} />

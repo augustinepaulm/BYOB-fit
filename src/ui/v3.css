@@ -2132,3 +2132,60 @@ select {
 .log-embedded__head {
   margin: 22px 20px 0;
 }
+
+/* ── Week notes (3.11, 3.13, 4.04) ── */
+
+.note-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-card__date {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.note-card__text {
+  margin: 12px 0 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+.note-card__text--muted {
+  color: var(--ink-2);
+}
+
+.note-card__cancel {
+  padding-left: 0;
+}
+
+.preview-list__row--pair {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-list__row--pair b {
+  font-size: var(--t-secondary);
+}
+
+.preview-list__row--pair span {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.link-inline {
+  font-weight: 700;
+  color: var(--sage-text);
+  min-height: 44px;
+}
+
+/* A tall sheet scrolls inside the screen instead of growing past its top. */
+.sheet,
+.bd-sheet {
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
