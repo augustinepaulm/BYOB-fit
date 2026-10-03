@@ -152,3 +152,11 @@ describe('the tab bar hides while a field has focus (D-077 rule 2)', () => {
     expect(text('./v3.css').match(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/g) ?? []).toEqual([])
   })
 })
+
+describe('the in-progress bar shows on the other tabs (task 4, frame 2.02)', () => {
+  it('stays off the Train tab, where Today and the deck show the workout', () => {
+    const bar = text('./InProgressBar.tsx')
+    expect(bar).toContain("const onTrain = tabFor(pathname) === 'train'")
+    expect(bar).toContain('if (!open || onTrain || !day || day.rest) return null')
+  })
+})

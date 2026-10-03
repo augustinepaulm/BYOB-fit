@@ -260,7 +260,7 @@ export function ExerciseLogScreen() {
 
   return (
     <div className="tl" style={{ paddingBottom: 40 }}>
-      <BuilderBar title="Log" onBack={() => navigate(-1)} />
+      <BuilderBar title="Progress" onBack={() => navigate(-1)} />
       <div style={{ padding: '4px 24px 0' }}>
         <h1 className="dk-title__name">{names.get(exerciseId) ?? exerciseId}</h1>
       </div>

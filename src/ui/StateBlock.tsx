@@ -58,8 +58,8 @@ export function ImportErrorState({ errors, onChoose }: { errors: string[]; onCho
       <StateBlock
         role="alert"
         mark="!"
-        title="This file isn’t a BYOB-fit program"
-        body="Nothing was changed. Try another file."
+        title="This file couldn’t be read"
+        body="It isn’t a BYOB-fit file, or it’s damaged. Nothing on your phone was changed."
         primary={{ label: 'Choose another file', onClick: onChoose }}
       />
       {errors.length > 0 && (

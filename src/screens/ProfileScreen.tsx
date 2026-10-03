@@ -5,16 +5,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getGoals, getProfile, saveProfile } from '../db/index.ts'
+import { getGoals, getProfile, listBodyEntries, listSentLog, saveProfile } from '../db/index.ts'
+import { toISODate } from '../lib/dates.ts'
 import { ACTIVITY_OPTIONS, fromGoals, goalSummary, profileDraft } from '../lib/goals.ts'
-import { LockIcon, SectionHead } from '../onboarding/ui.tsx'
+import { fibreTarget } from '../lib/nutrients.ts'
+import { LEVEL_LABEL } from '../lib/payload.ts'
+import { computeTargets } from '../lib/targets.ts'
+import { budgetOf, formatUsd, monthUsage, pricesOf, sameLocalMonth } from '../lib/usage.ts'
 import { useProgram } from '../program/useProgram.ts'
-import { unitsOf } from '../settings/defaults.ts'
+import { appearanceOf, privacyLevelOf, unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Program } from '../types/program.ts'
-import type { Goals } from '../types/stores.ts'
+import type { BodyEntry, Goals, SentLogEntry } from '../types/stores.ts'
 import { GearIcon } from '../ui/icons.tsx'
-import { StateBlock } from '../ui/StateBlock.tsx'
+import { AppHeader, ListGroup, ListRow } from '../ui/shell.tsx'
 
 interface Row {
   key: string
@@ -41,14 +45,6 @@ function programSpan(program: Pick<Program, 'startDate' | 'programWeeks'>): stri
   return `${MONTH_DAY.format(start)} – ${MONTH_DAY.format(end)}`
 }
 
-function Chevron() {
-  return (
-    <svg className="sx-row__chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  )
-}
-
 /** Current stats as Profile lists them, with D-050 rule 3's line under each. */
 function statRows(goals: Goals | null, unit: 'kg' | 'lb'): { label: string; value: string | null; privacy: string }[] {
   const s = goals?.currentStats
@@ -66,10 +62,12 @@ function statRows(goals: Goals | null, unit: 'kg' | 'lb'): { label: string; valu
 
 export function ProfileScreen() {
   const navigate = useNavigate()
-  const { program, week } = useProgram()
+  const { program, week, today } = useProgram()
   const { settings } = useSettings()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [goals, setGoals] = useState<Goals | null | undefined>(undefined)
+  const [body, setBody] = useState<BodyEntry[]>([])
+  const [log, setLog] = useState<SentLogEntry[]>([])
 
   useEffect(() => {
     let live = true
@@ -77,6 +75,8 @@ export function ProfileScreen() {
       if (live) setRows(rowsFrom(profile?.fields ?? {}))
     })
     void getGoals().then((found) => live && setGoals(found ?? null))
+    void listBodyEntries().then((found) => live && setBody(found))
+    void listSentLog().then((found) => live && setLog(found))
     return () => {
       live = false
     }
@@ -96,95 +96,71 @@ export function ProfileScreen() {
 
   const summary = goals ? goalSummary(fromGoals(goals), goals.timeframeWeeks, (id) => program?.exercises[id]?.name) : null
   const unit = unitsOf(settings)
+  const targets = computeTargets(goals, body, toISODate(today))
+  const fibre = fibreTarget(targets.kcal, goals?.currentStats)
+  const targetLine = [
+    targets.kcal !== undefined ? `Calorie target ${targets.kcal.toLocaleString('en-US')}` : null,
+    targets.proteinG !== undefined ? `protein ${targets.proteinG} g` : null,
+    fibre !== undefined ? `fibre ${fibre} g` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const stats = goals?.currentStats
+  const personal = [stats?.heightCm !== undefined ? (unit === 'lb' ? `${Math.round(stats.heightCm / 2.54)} in` : `${stats.heightCm} cm`) : null, stats?.age, stats?.sex].filter((v) => v !== undefined && v !== null)
+  const usage = monthUsage(log, pricesOf(settings), new Date())
+  const budget = budgetOf(settings)
+  const thisMonth = log.filter((e) => sameLocalMonth(e.at, new Date())).length
 
   return (
-    <div className="tl" style={{ paddingBottom: 24 }}>
-      <div className="pf-head">
-        <h1 className="lg-title">Profile</h1>
-        <button type="button" className="pf-gear" aria-label="Settings" onClick={() => navigate('/settings')}>
-          <GearIcon />
-        </button>
-      </div>
+    <div className="screen">
+      <AppHeader title="Profile" action={<button type="button" className="pf-gear" aria-label="Settings" onClick={() => navigate('/settings')}><GearIcon /></button>} />
 
-      <div className="sx-body">
+      <ListGroup title="Goals">
         {summary ? (
-          <>
-            <SectionHead aside="Edit">Goal</SectionHead>
-            <button type="button" className="pf-goal" onClick={() => navigate('/goal')}>
-              <span>{summary}</span>
-              <Chevron />
-            </button>
-          </>
+          <ListRow title={summary} sub={targetLine || undefined} onClick={() => navigate('/goal')} />
         ) : (
-          <>
-            <SectionHead>Goal</SectionHead>
-            {/* 7e: no goal set */}
-            <div className="pf-state">
-              <StateBlock
-                mark="+"
-                title="No goal yet"
-                body="A goal helps the AI review your program. It’s optional."
-                primary={{ label: 'Set a goal', onClick: () => navigate('/goal') }}
-              />
-            </div>
-          </>
+          <ListRow title="No goal yet" sub="A goal helps the AI review your program. It’s optional." value="Set" onClick={() => navigate('/goal')} />
         )}
+        <ListRow title="Height, age and sex" value={personal.length ? personal.join(', ') : 'Not set'} onClick={() => navigate('/goal')} />
+      </ListGroup>
 
-        <SectionHead>Program</SectionHead>
+      <ListGroup title="Program">
         {program ? (
           <>
-            <button type="button" className="sx-row" onClick={() => navigate('/week')}>
-              <div className="sx-row__main">
-                <div className="pf-program">{program.name}</div>
-                <div className="sx-row__sub">
-                  Week {week} of {program.programWeeks} · {programSpan(program)}
-                </div>
-              </div>
-              <Chevron />
-            </button>
-            <button type="button" className="sx-row pf-action" onClick={() => navigate('/program/edit')}>
-              <span className="sx-row__main">Edit program</span>
-              <Chevron />
-            </button>
-            <button type="button" className="sx-row pf-action" onClick={() => navigate('/program/new')}>
-              <span className="sx-row__main">Start a new program</span>
-              <Chevron />
-            </button>
+            <ListRow title={program.name} sub={`Week ${week} of ${program.programWeeks} · ${programSpan(program)}`} onClick={() => navigate('/week')} />
+            <ListRow title="Edit program" onClick={() => navigate('/program/edit')} />
+            <ListRow title="Start a new program" onClick={() => navigate('/program/new')} />
           </>
         ) : (
-          <div className="pf-state">
-            <StateBlock
-              mark="+"
-              title="No program yet"
-              body="Pick a starter program or build your own. It takes a few minutes."
-              primary={{ label: 'Pick a starter', onClick: () => navigate('/program/new') }}
-              secondary={{ label: 'Build my own', onClick: () => navigate('/program/new', { state: { build: true } }) }}
-            />
-          </div>
+          <>
+            <ListRow title="No program yet" sub="Pick a starter program or build your own." value="Pick" onClick={() => navigate('/program/new')} />
+            <ListRow title="Build my own" onClick={() => navigate('/program/new', { state: { build: true } })} />
+          </>
         )}
+      </ListGroup>
 
-        <div className="ob-sechead">
-          <span>Current stats</span>
-          <span className="pf-lock">
-            <LockIcon />
-            Stored on this phone
-          </span>
-        </div>
+      <ListGroup title="Current stats" aside={<span className="pf-lock">Stored on this phone</span>}>
         {statRows(goals, unit).map((stat) => (
-          <button type="button" className="sx-row" key={stat.label} onClick={() => navigate('/goal')}>
-            <div className="sx-row__main">
-              <div className="sx-row__title">{stat.label}</div>
-              <div className="sx-row__sub">{stat.privacy}</div>
-            </div>
-            {stat.value === null ? <span className="pf-add">Add</span> : <span className="sx-row__value">{stat.value}</span>}
-          </button>
+          <ListRow key={stat.label} title={stat.label} sub={stat.privacy} value={stat.value ?? 'Add'} onClick={() => navigate('/goal')} />
         ))}
+      </ListGroup>
 
-        <SectionHead>Other details</SectionHead>
+      <ListGroup title="Settings">
+        <ListRow title="Units" value={unit} onClick={() => navigate('/settings')} />
+        <ListRow title="Appearance" value={APPEARANCE_WORD[appearanceOf(settings)]} onClick={() => navigate('/settings')} />
+        <ListRow title="AI" value={settings.apiKey ? 'Key saved' : 'Not set up'} onClick={() => navigate('/settings/ai')} />
+        <ListRow title="Privacy level" value={LEVEL_LABEL[privacyLevelOf(settings)]} onClick={() => navigate('/settings/privacy')} />
+        <ListRow title="AI usage and budget" value={budget.monthlyUsd ? `${formatUsd(usage.cost)} of ${formatUsd(budget.monthlyUsd)}` : formatUsd(usage.cost)} onClick={() => navigate('/settings/usage')} />
+        <ListRow title="Export data" onClick={() => navigate('/settings', { state: { export: true } })} />
+        <ListRow title="Import data" onClick={() => navigate('/settings')} />
+        <ListRow title="Sent log" value={`${thisMonth} ${thisMonth === 1 ? 'send' : 'sends'}`} onClick={() => navigate('/settings/sent-log')} />
+        <ListRow title="Privacy" onClick={() => navigate('/settings/privacy-page')} />
+        <ListRow title="All settings" onClick={() => navigate('/settings')} />
+      </ListGroup>
+
+      <ListGroup title="Other details">
         {rows.length === 0 && (
-          <p className="sx-note" style={{ borderBottom: 'none', margin: 0 }}>
-            Nothing here yet. Add the fields you want the reprogramming prompt to know about — a goal, targets, anything you choose to enter.
-          </p>
+          <p className="pf-empty">Nothing here yet. Add the fields you want the reprogramming prompt to know about — a goal, targets, anything you choose to enter.</p>
         )}
         {rows.map((row, i) => (
           <div className="profile-row pf-field" key={row.key}>
@@ -226,7 +202,10 @@ export function ProfileScreen() {
           <span>+</span>
           Add field
         </button>
-      </div>
+      </ListGroup>
+      <p className="note-v3">Everything stays on this phone. BYOB-fit is free and open source.</p>
     </div>
   )
 }
+
+const APPEARANCE_WORD: Record<string, string> = { system: 'Match phone', light: 'Light', dark: 'Dark' }

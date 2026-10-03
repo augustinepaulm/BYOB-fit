@@ -7,13 +7,13 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import pkg from '../../package.json'
 import { Sheet, Switch } from '../builder/ui.tsx'
 import { clearAllStores, getSettings, listSentLog } from '../db/index.ts'
-import { buildBackup, deliverBackup, parseBackup, restoreBackup } from '../lib/backup.ts'
+import { buildBackup, deliverBackup, parseBackup } from '../lib/backup.ts'
 import { LEVEL_LABEL } from '../lib/payload.ts'
-import { recordStoragePersistence } from '../lib/storage.ts'
 import { formatUsd, monthUsage, pricesOf } from '../lib/usage.ts'
 import { BackIcon, Segmented, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { applyAppearance } from '../settings/appearance.ts'
+import { restoreFromText } from '../settings/restore.ts'
 import { appearanceOf, privacyLevelOf, unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
 
@@ -135,13 +135,11 @@ export function SettingsScreen() {
   async function doImport() {
     setOverlay(null)
     if (!pendingImport) return
-    const result = parseBackup(pendingImport)
+    const text = pendingImport
     setPendingImport(null)
+    // The same import the welcome screen runs (D-072 rule 1).
+    const result = await restoreFromText(text)
     if (!result.ok) return
-    await restoreBackup(result.backup)
-    // The restored appearance applies now, not at the next load (EXEC-11 task 4).
-    applyAppearance(appearanceOf(result.backup.settings))
-    await recordStoragePersistence()
     await reload()
     await refresh()
     setDataStatus({ kind: 'ok', text: 'Data replaced from the export.' })

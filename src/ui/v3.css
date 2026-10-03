@@ -3413,3 +3413,567 @@ select {
   background: var(--row-ring);
   margin: 0 auto 14px;
 }
+
+/* ── Onboarding (1a to 1l) and the screens D-083 rule 3 restyles without
+   layout changes: the builder, goal setter, import, Settings sub-pages,
+   sent log, privacy pages, foods and exercise history. Only colour, type,
+   radius and border change here; positions stay. ── */
+
+/* Titles */
+.ob-title,
+.ob-hero__title,
+.bd-hero__title,
+.st-hero__title,
+.lg-title,
+.tl-head__title,
+.wk-head__title,
+.sub-head__title,
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ob-title {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.ob-hero__title {
+  font-size: 40px;
+  line-height: 1.05;
+}
+
+.ob-lede,
+.ob-hero__text,
+.bd-hero__sub {
+  color: var(--ink-2);
+}
+
+/* Step label over the bar (1b): the nav shows it, so the head does not repeat it. */
+.ob-step {
+  display: none;
+}
+
+.ob-nav {
+  height: auto;
+  padding: 10px 16px 0;
+  align-items: flex-start;
+}
+
+.ob-steps {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ob-steps__label {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.ob-steps__bar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.ob-steps__part {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.ob-steps__part--on {
+  background: var(--sage);
+}
+
+.ob-nav__side button {
+  min-height: 44px;
+  color: var(--sage-text);
+  font-weight: 700;
+}
+
+/* Welcome (1a) */
+.ob--welcome .ob-hero {
+  padding-top: 140px;
+}
+
+.ob-welcome__mark {
+  display: inline-block;
+  margin-bottom: 18px;
+  transform: scale(1.45);
+  transform-origin: left center;
+}
+
+.ob-points {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--t-secondary);
+}
+
+.ob-points li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ob-points__tick {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--sage-tint);
+  color: var(--sage-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ob-restore {
+  width: 100%;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.ob-restore-error {
+  margin: 20px 0 0;
+}
+
+.ob-restore-error__detail {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+
+/* Buttons */
+.ob-primary,
+.st-btn--primary {
+  height: 50px;
+  justify-content: center;
+  border: none;
+  border-radius: 25px;
+  background: var(--sage);
+  color: var(--on-sage);
+  font-size: var(--t-body);
+  font-weight: 700;
+}
+
+.ob-primary:disabled {
+  opacity: 0.45;
+}
+
+.ob-outline,
+.st-btn {
+  height: 50px;
+  border: none;
+  border-radius: 25px;
+  background: var(--sage-tint);
+  color: var(--sage-text);
+  font-size: var(--t-body);
+  font-weight: 700;
+}
+
+.st-btn {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.bd-danger {
+  height: 50px;
+  border-radius: 25px;
+  background: var(--danger-tint);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.bd-link,
+.ob-link,
+.sx-link {
+  color: var(--sage-text);
+  font-weight: 700;
+}
+
+.ob-dock {
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(var(--fade), var(--ground) 30%);
+}
+
+/* Option cards (1b, 1e, 1f, 1i, 1k) */
+.ob-list {
+  margin: 20px 16px 0;
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ob-row {
+  min-height: 64px;
+  padding: 12px 16px 12px 18px;
+  border: none;
+  border-radius: var(--r-row);
+  background: var(--sheet);
+}
+
+.ob-row[aria-checked='true'] {
+  background: var(--sage-tint);
+  box-shadow: inset 0 0 0 1.5px var(--sage);
+}
+
+.ob-row--compact {
+  min-height: 52px;
+}
+
+.ob-row__title {
+  font-size: var(--t-body);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.ob-row__title--on {
+  color: var(--sage-text);
+}
+
+.ob-row__sub {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.ob-mark {
+  width: 26px;
+  height: 26px;
+  border: none;
+  box-shadow: inset 0 0 0 2px var(--tick-ring);
+}
+
+.ob-mark--on {
+  background: var(--sage);
+  color: var(--on-sage);
+  box-shadow: none;
+}
+
+.ob-badge {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  background: var(--chip);
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+/* Segmented (1b Yes or No, Settings units and appearance) */
+.ob-seg {
+  gap: 0;
+  padding: 3px;
+  border-radius: 22px;
+  background: var(--chip);
+}
+
+.ob-seg__opt {
+  height: 38px;
+  border: none;
+  border-radius: 19px;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t-secondary);
+  font-weight: 400;
+}
+
+.ob-seg__opt--on {
+  background: var(--sheet);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-seg);
+}
+
+.ob-q {
+  font-size: var(--t-body);
+}
+
+.ob-sechead {
+  border-bottom: none;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Fields */
+.ob-field,
+.bd-input,
+.bd-search,
+.sx-model {
+  border: none;
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.bd-input:focus-within,
+.ob-field:focus-within,
+.bd-search:focus-within {
+  box-shadow: inset 0 0 0 2px var(--sage);
+}
+
+.bd-input--error {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.bd-input input,
+.bd-input select,
+.bd-input textarea,
+.ob-field input {
+  color: var(--ink);
+}
+
+.bd-input input::placeholder,
+.bd-input textarea::placeholder,
+.ob-field input::placeholder,
+.bd-search input::placeholder {
+  color: var(--placeholder);
+}
+
+.bd-label,
+.sx-label {
+  color: var(--ink-2);
+}
+
+.ob-stepper button {
+  border: none;
+  border-radius: 50%;
+  background: var(--sheet);
+}
+
+.ob-stepper__value {
+  font-family: var(--font-display);
+}
+
+.bd-chip {
+  height: 44px;
+  border: none;
+  border-radius: 22px;
+  background: var(--chip);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.bd-chip--on {
+  background: var(--sage);
+  color: var(--on-sage);
+}
+
+/* App bars of full-screen flows (builder, import) and older pages */
+.ob-appbar__back,
+.ob-appbar__save {
+  color: var(--sage-text);
+}
+
+.bd-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 19px;
+}
+
+/* Rows of Settings, sent log, privacy and foods */
+.sx-row,
+.bd-simple,
+.bd-ex,
+.bd-day,
+.ml-line,
+.lg-row,
+.log-row {
+  border-bottom: none;
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.sx-row__title--danger {
+  color: var(--danger);
+}
+
+.sx-row__chev {
+  color: var(--muted);
+}
+
+.bd-day {
+  background: var(--sheet);
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+/* State blocks (4.01, 4.05, 4.07): a card with one primary action */
+.tl-state,
+.lg-state {
+  margin: 12px 16px 0;
+}
+
+.st-block {
+  padding: 20px;
+  border-radius: var(--r-card-v3);
+  background: var(--sheet);
+  box-shadow: var(--shadow-card);
+}
+
+.st-block__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.st-block__body {
+  color: var(--ink-2);
+}
+
+.st-block__mark {
+  color: var(--sage);
+}
+
+.st-block__actions {
+  gap: 8px;
+}
+
+/* Heavy rules from the old layout become hairlines */
+.dk-compare,
+.ob-goalbox,
+.ob-summary {
+  border-color: var(--line);
+}
+
+/* Offline (4.08) */
+.st-offline {
+  margin: 12px 16px 0;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  background: var(--chip);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.st-offline svg {
+  display: none;
+}
+
+.st-offline::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 2px var(--ink-2);
+}
+
+.btn--offline {
+  width: 100%;
+  height: 50px;
+  background: var(--chip);
+  color: var(--ink-2);
+}
+
+.btn--offline:disabled {
+  opacity: 1;
+}
+
+/* Import (4.05, 4.07) and Profile (3.15) */
+.import-v3__actions {
+  gap: 8px;
+}
+
+.import-v3__file {
+  cursor: pointer;
+}
+
+.import-busy .lrow__sub {
+  margin: 4px 0 0;
+}
+
+.st-import__list {
+  margin: 8px 16px 0;
+  font-size: 12px;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+
+.pf-gear {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+}
+
+.pf-lock {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.pf-empty {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.lgroup__card .profile-row {
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.lgroup__card .ob-add {
+  min-height: 52px;
+  color: var(--sage-text);
+  font-weight: 700;
+}
+
+/* The builder's week rows got a card background, so they get side padding. */
+.bd-day {
+  padding: 0 12px 0 14px;
+  margin-bottom: 6px;
+}
+
+/* With a workout open elsewhere, bottom docks sit above the in-progress bar too. */
+.app--tabbed:has(.inprogress) .dock-v3,
+.app--tabbed:has(.inprogress) .ob-dock,
+.app--tabbed:has(.inprogress) .dk-foot {
+  bottom: calc(var(--tabbar-h) + var(--inprogress-h) + 16px);
+}
+
+:root[data-keyboard='open'] .app--tabbed:has(.inprogress) .dock-v3,
+:root[data-keyboard='open'] .app--tabbed:has(.inprogress) .ob-dock {
+  bottom: 0;
+}
+
+/* 1k: the key's Test button as a chip, and the tip in the AI tint. */
+.ob-keybtn {
+  height: 52px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 26px;
+  background: var(--chip);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ob-tip {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--ai-tint);
+  color: var(--navy);
+}

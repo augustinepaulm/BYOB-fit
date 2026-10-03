@@ -53,7 +53,6 @@ import {
 import {
   ChoiceRow,
   Dock,
-  LockIcon,
   PrimaryButton,
   Segmented,
   StepHead,
@@ -61,6 +60,8 @@ import {
 } from '../onboarding/ui.tsx'
 import type { LoadUnit, Program } from '../types/program.ts'
 import type { PrivacyLevel } from '../types/stores.ts'
+import { checkBackup, restoreFromText } from '../settings/restore.ts'
+import { Tick, Wordmark } from '../ui/shell.tsx'
 
 type Step = '1a' | '1b' | '1c' | '1d' | 'forms' | '1e' | '2a' | '1f' | '1g' | '1h' | '1i' | '1j' | '1k' | '1l'
 
@@ -107,6 +108,7 @@ export function OnboardingScreen() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [today] = useState(() => new Date())
+  const [restore, setRestore] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'error'; errors: string[] }>({ kind: 'idle' })
 
   const step = path[path.length - 1]
   const set = (patch: Partial<Answers>) => setAnswers((a) => ({ ...a, ...patch }))
@@ -202,31 +204,75 @@ export function OnboardingScreen() {
     }
   }
 
+  /** 1a: restore every store from an export, then open the app (D-072 rule 1). */
+  async function onRestoreFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setRestore({ kind: 'busy' })
+    const text = await file.text()
+    const checked = checkBackup(text)
+    if (!checked.ok) {
+      setRestore({ kind: 'error', errors: checked.errors })
+      return
+    }
+    const result = await restoreFromText(text)
+    if (!result.ok) {
+      setRestore({ kind: 'error', errors: result.errors })
+      return
+    }
+    // A backup made before onboarding finished still opens the app.
+    const settings = (await getSettings()) ?? {}
+    if (!settings.onboarding?.completedAt) await saveSettings({ ...settings, onboarding: { ...settings.onboarding, completedAt: new Date().toISOString() } })
+    await refresh()
+    navigate('/', { replace: true })
+  }
+
   const n = STEP_NUMBER[step]
 
   // ── 1a Welcome ──
   if (step === '1a') {
     return (
-      <div className="ob">
-        <StepNav step={1} />
+      <div className="ob ob--welcome">
         <div className="ob-hero">
+          <span className="ob-welcome__mark">
+            <Wordmark />
+          </span>
           <h1 className="ob-hero__title">Build your own body</h1>
           <div className="ob-hero__text">
             BYOB-fit shows today&apos;s workout as a checklist and logs every set as you go. It can
             also track meals and, if you want, ask an AI to adjust your program.
           </div>
-          <div className="ob-lockrow">
-            <span className="ob-lockrow__icon">
-              <LockIcon />
-            </span>
-            <div>
-              <div className="ob-lockrow__title">Your data stays on this phone.</div>
-              <div className="ob-lockrow__sub">No account, no sign-in.</div>
-            </div>
-          </div>
+          <ul className="ob-points">
+            <li>
+              <span className="ob-points__tick" aria-hidden="true">
+                <Tick size={12} />
+              </span>
+              Your data stays on this phone.
+            </li>
+            <li>
+              <span className="ob-points__tick" aria-hidden="true">
+                <Tick size={12} />
+              </span>
+              No account, no sign-in.
+            </li>
+          </ul>
+          {restore.kind === 'error' && (
+            // 4.07: the file was not a BYOB-fit export, or it is damaged.
+            <section className="card-v3 card-v3--danger ob-restore-error" role="alert">
+              <h2 className="card-v3__danger-title">This file couldn&apos;t be read</h2>
+              <p className="card-v3__warn-body">It isn&apos;t a BYOB-fit file, or it&apos;s damaged. Nothing on your phone was changed.</p>
+              <p className="ob-restore-error__detail">{restore.errors.join(' · ')}</p>
+            </section>
+          )}
         </div>
         <Dock>
           <PrimaryButton onClick={() => go('1b')}>Get started</PrimaryButton>
+          {/* D-072 rule 1, D-083 rule 3: the same import as Settings, on a fresh install. */}
+          <label className="btn btn--tertiary ob-restore">
+            {restore.kind === 'busy' ? 'Restoring…' : restore.kind === 'error' ? 'Choose another file' : 'Restore from a backup'}
+            <input type="file" accept=".json,application/json" className="visually-hidden" onChange={(event) => void onRestoreFile(event)} />
+          </label>
         </Dock>
       </div>
     )

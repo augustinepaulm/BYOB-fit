@@ -226,10 +226,10 @@ export function TodayScreen() {
       <div className="screen">
         <TrainHeader today={today} />
         <BackupNote />
-        <EmptyState title="No program yet" body="Pick a starter program or build your own. It takes a few minutes." action={{ label: 'Pick a starter', onClick: () => navigate('/program/new') }} />
+        <EmptyState title="No program yet" body="Pick a starter, or build your own with forms. You can change everything later." action={{ label: 'Choose a program', onClick: () => navigate('/program/new') }} />
         <div className="actions-v3">
-          <button type="button" className="btn btn--secondary" onClick={() => navigate('/program/new', { state: { build: true } })}>
-            Build my own
+          <button type="button" className="btn btn--secondary" onClick={() => navigate('/import')}>
+            Import a program file
           </button>
         </div>
       </div>

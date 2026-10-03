@@ -135,7 +135,7 @@ export function SendPreview({
             </span>
           </button>
           {open && <pre className="ai-raw" aria-label="Exact message">{payload.message}</pre>}
-          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Logging works; AI features need a connection.</p>}
+          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Everything works except AI.</p>}
           <div className="preview-actions">
             <button type="button" className="btn btn--tertiary" onClick={onCancel}>
               Cancel
@@ -190,7 +190,7 @@ export function SendPreview({
             </span>
           </button>
           {open && <pre className="ai-raw" aria-label="Exact message">{payload.message}</pre>}
-          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Logging works; AI features need a connection.</p>}
+          {offline && <p className="preview-small preview-small--warn">You&apos;re offline. Everything works except AI.</p>}
           <div className="preview-actions">
             <button type="button" className="btn btn--tertiary" onClick={onCancel}>
               Cancel
@@ -245,7 +245,7 @@ export function SendPreview({
             {notice} Estimated.
           </div>
         )}
-        {offline && <div className="ai-never" style={{ color: 'var(--warn)', marginTop: 8 }}>You're offline. Logging works; AI features need a connection.</div>}
+        {offline && <div className="ai-never" style={{ color: 'var(--warn)', marginTop: 8 }}>You're offline. Everything works except AI.</div>}
         <div className="ai-pair" style={{ marginTop: 16 }}>
           <button type="button" className="ob-outline" onClick={onCancel}>
             Cancel

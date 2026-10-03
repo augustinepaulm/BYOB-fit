@@ -11,6 +11,7 @@ import { toISODate } from '../lib/dates.ts'
 import { dayForDate } from '../lib/program.ts'
 import { sessionIdFor } from '../lib/session.ts'
 import { useProgram } from '../program/useProgram.ts'
+import { tabFor } from './tabs.ts'
 import { onDeckStateChange, readDeckState, type DeckState } from '../session/deckState.ts'
 
 interface Open {
@@ -28,12 +29,13 @@ export function InProgressBar() {
 
   const day = program ? dayForDate(program, changes, today) : null
   const date = toISODate(today)
-  const onDeck = pathname === '/deck'
+  // Task 4: the bar shows on the other tabs; Train has the deck and Today's own card (2.02).
+  const onTrain = tabFor(pathname) === 'train'
 
   useEffect(() => onDeckStateChange(() => setVersion((v) => v + 1)), [])
 
   useEffect(() => {
-    if (!day || day.rest || onDeck) return
+    if (!day || day.rest || onTrain) return
     let live = true
     void Promise.all([getSessionByDateAndDay(date, day.id), readDeckState(sessionIdFor(date, day.id))]).then(
       ([session, kept]) => {
@@ -45,7 +47,7 @@ export function InProgressBar() {
     return () => {
       live = false
     }
-  }, [day, date, onDeck, pathname, version])
+  }, [day, date, onTrain, pathname, version])
 
   const restUntil = open?.kept?.restUntil ?? null
   const resting = restUntil !== null && restUntil > now
@@ -55,7 +57,7 @@ export function InProgressBar() {
     return () => window.clearInterval(id)
   }, [resting])
 
-  if (!open || onDeck || !day || day.rest) return null
+  if (!open || onTrain || !day || day.rest) return null
   const remaining = resting ? (restUntil - now) / 1000 : 0
   const total = open.kept?.restSec ?? 0
   const fraction = resting && total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0

@@ -12,7 +12,7 @@ import { WEEK_NOTE_SYSTEM, newWeekNote, notesFor } from '../lib/weekNotes.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { PrivacyLevel, WeekNote } from '../types/stores.ts'
 import { sendAndLog } from './send.ts'
-import { usePreview } from './usePreview.tsx'
+import { useOnline, usePreview } from './usePreview.tsx'
 
 type State = { kind: 'idle' } | { kind: 'sending' } | { kind: 'error'; text: string }
 
@@ -37,6 +37,7 @@ export function useWeekReview(input: {
   const [notes, setNotes] = useState<WeekNote[]>([])
   const [state, setState] = useState<State>({ kind: 'idle' })
   const cancelled = useRef(false)
+  const online = useOnline()
   const { weekStart, view, programWeek } = input.review
 
   useEffect(() => {
@@ -118,7 +119,12 @@ export function useWeekReview(input: {
 
   const button = input.enabled ? (
     <div className="actions-v3">
-      {settings.apiKey ? (
+      {!online ? (
+        // 4.08: everything works offline except AI.
+        <button type="button" className="btn btn--offline" disabled>
+          Review this week when back online
+        </button>
+      ) : settings.apiKey ? (
         <button type="button" className="btn btn--secondary" disabled={state.kind === 'sending'} onClick={() => preview.open()}>
           Review this week
         </button>
