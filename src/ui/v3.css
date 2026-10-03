@@ -837,3 +837,179 @@ select {
     opacity: 1;
   }
 }
+
+/* ── Pages with a large title (3.16, 3.17) ── */
+
+.page-v3 {
+  padding: 16px 20px 0;
+}
+
+.page-v3__title {
+  margin: 0;
+  font: 700 30px/1.1 var(--font-display);
+}
+
+.page-v3__lead {
+  margin: 8px 0 0;
+  font-size: var(--t-secondary);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.lrow__title--strong {
+  font-weight: 700;
+}
+
+.lrow--actions {
+  gap: 4px;
+  margin-left: -8px;
+}
+
+.radio-v3 {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 13px;
+  box-shadow: inset 0 0 0 2px var(--tick-ring);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--on-sage);
+}
+
+.radio-v3--on {
+  background: var(--sage);
+  box-shadow: none;
+}
+
+.key-v3 {
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.key-v3__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-v3 {
+  font-weight: 700;
+  font-size: var(--t-secondary);
+  color: var(--sage-text);
+  text-decoration: none;
+}
+
+.note-v3--danger {
+  color: var(--danger);
+}
+
+.pair-v3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Thin progress bars (2.18, 3.09) and the thicker budget bar (3.17). */
+.bar-v3 {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chip);
+  overflow: hidden;
+}
+
+.bar-v3--thick {
+  height: 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+}
+
+.bar-v3__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--sage);
+}
+
+.bar-v3__fill--warn {
+  background: var(--warning);
+}
+
+.bar-v3__fill--danger {
+  background: var(--danger);
+}
+
+.usage-card__label {
+  font-size: var(--t-caption);
+  color: var(--ink-2);
+}
+
+.usage-card__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.usage-card__cost {
+  font: 700 40px/1 var(--font-display);
+}
+
+.usage-card__of {
+  font-size: var(--t-secondary);
+  color: var(--ink-2);
+}
+
+.usage-card__meta {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin-top: 10px;
+}
+
+.usage-card__state {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.usage-card__state--warn {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.usage-card__state--danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+/* The budget notice inside the send preview (D-085 rule 4). */
+.ai-budget {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--warning-tint);
+  color: var(--warning);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Switch (3.17): sage when on, a light knob in both appearances. */
+.bd-switch {
+  background: var(--chip);
+}
+
+.bd-switch span {
+  background: var(--tab-active);
+  box-shadow: 0 1px 3px var(--shadow-strong);
+}
+
+.bd-switch--on {
+  background: var(--sage);
+}

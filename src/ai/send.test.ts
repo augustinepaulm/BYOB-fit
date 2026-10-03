@@ -83,3 +83,45 @@ describe('sendAndLog status (D-050 rule 1)', () => {
     expect(sentStatusOf({ ...old, status: 'failed', error: 'x' })).toBe('failed')
   })
 })
+
+describe('model and usage on the sent log (D-085 rule 1)', () => {
+  function withUsageStore() {
+    const entries = new Map<string, SentLogEntry>()
+    const store: SendLogStore = {
+      append: async (entry) => void entries.set(entry.id, entry),
+      setStatus: async (id, status, error, usage) => {
+        const entry = entries.get(id)!
+        entries.set(id, { ...entry, status, ...(error !== undefined ? { error } : {}), ...usage })
+      },
+    }
+    return { store, entries }
+  }
+
+  it('stores the model and the reply’s usage', async () => {
+    const { store, entries } = withUsageStore()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }], usage: { input_tokens: 12000, output_tokens: 1500 } }), { status: 200 })))
+    await sendAndLog(input, store)
+    const [entry] = [...entries.values()]
+    expect(entry.model).toBe('claude-sonnet-5')
+    expect(entry.usage).toEqual({ inputTokens: 12000, outputTokens: 1500 })
+    expect(entry.usageMissing).toBeUndefined()
+  })
+
+  it('a reply with no usage counts as zero and is marked so', async () => {
+    const { store, entries } = withUsageStore()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }), { status: 200 })))
+    await sendAndLog(input, store)
+    const [entry] = [...entries.values()]
+    expect(entry.usage).toBeUndefined()
+    expect(entry.usageMissing).toBe(true)
+  })
+
+  it('a call that never reached the API records no usage', async () => {
+    const { store, entries } = withUsageStore()
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    await sendAndLog(input, store)
+    const [entry] = [...entries.values()]
+    expect(entry.usage).toBeUndefined()
+    expect(entry.usageMissing).toBeUndefined()
+  })
+})

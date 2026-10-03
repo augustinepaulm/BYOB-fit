@@ -20,10 +20,16 @@ export interface MessageRequest {
   messages: Message[]
 }
 
+/** D-085 rule 1: the tokens a reply reports. */
+export interface Usage {
+  inputTokens: number
+  outputTokens: number
+}
+
 export type MessageResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; usage?: Usage }
   /** `reached`: the API answered with a success status, but the reply was unusable. */
-  | { ok: false; error: string; reached?: true }
+  | { ok: false; error: string; reached?: true; usage?: Usage }
 
 /** The exact request the client sends. Pure, so it can be tested without a network. */
 export function buildRequest(request: MessageRequest): {
@@ -50,11 +56,22 @@ export function buildRequest(request: MessageRequest): {
   }
 }
 
-/** Pull the text out of a Messages response, or say why we cannot. */
+/** The reply's `usage.input_tokens` and `usage.output_tokens`, when it has them. */
+export function readUsage(payload: unknown): Usage | undefined {
+  const usage = (payload as { usage?: { input_tokens?: unknown; output_tokens?: unknown } })?.usage
+  const input = usage?.input_tokens
+  const output = usage?.output_tokens
+  if (typeof input !== 'number' || typeof output !== 'number' || !Number.isFinite(input) || !Number.isFinite(output)) return undefined
+  return { inputTokens: input, outputTokens: output }
+}
+
+/** Pull the text out of a Messages response, or say why we cannot. Usage comes with it when the reply reports it. */
 export function readResponseText(payload: unknown): MessageResult {
+  const usage = readUsage(payload)
+  const withUsage = <T extends MessageResult>(result: T): T => (usage ? { ...result, usage } : result)
   const content = (payload as { content?: unknown })?.content
   if (!Array.isArray(content)) {
-    return { ok: false, error: 'The model returned no content.' }
+    return withUsage({ ok: false, error: 'The model returned no content.' })
   }
   const text = content
     .filter(
@@ -66,8 +83,8 @@ export function readResponseText(payload: unknown): MessageResult {
     )
     .map((block) => block.text)
     .join('')
-  if (text === '') return { ok: false, error: 'The model returned no text.' }
-  return { ok: true, text }
+  if (text === '') return withUsage({ ok: false, error: 'The model returned no text.' })
+  return withUsage({ ok: true, text })
 }
 
 /** Turn an error response body into something worth showing a person. */

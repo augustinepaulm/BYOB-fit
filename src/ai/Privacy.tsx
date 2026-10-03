@@ -7,13 +7,18 @@ import { CALL_LABEL, LEVEL_LABEL, PRIVACY_LEVELS, type CallKind, type Payload } 
 import { ChevronDown, ChoiceRow } from '../onboarding/ui.tsx'
 import type { PrivacyLevel } from '../types/stores.ts'
 
+// D-044 as amended by D-084: body entries and a week's score go at every level.
 const TABLE: { label: string; cells: ('yes' | 'no' | 'opt')[] }[] = [
   { label: 'Workouts, program, goal, your rules', cells: ['yes', 'yes', 'yes'] },
+  { label: 'Body entries; a week review\'s score and parts', cells: ['yes', 'yes', 'yes'] },
   { label: 'Experience level, "felt off" flags', cells: ['no', 'yes', 'yes'] },
-  { label: 'Age range, sex, current weight', cells: ['no', 'no', 'yes'] },
+  { label: 'Current weight', cells: ['no', 'no', 'yes'] },
   { label: 'Free-text session notes', cells: ['no', 'no', 'opt'] },
-  { label: 'Name, date of birth, body stats history', cells: ['no', 'no', 'no'] },
+  { label: 'Name, date of birth, height, age, sex, API key', cells: ['no', 'no', 'no'] },
 ]
+
+/** D-084 rule 3. */
+export const NEVER_SENT = 'Never sent: name, date of birth, height, age, sex or your API key.'
 
 /** Frame 5e. */
 export function PrivacyLevelPicker({
@@ -79,6 +84,7 @@ export function SendPreview({
   onIncludeNotes,
   payload,
   offline,
+  notice,
   onChangeLevel,
   onCancel,
   onSend,
@@ -89,6 +95,8 @@ export function SendPreview({
   onIncludeNotes: (on: boolean) => void
   payload: Payload
   offline: boolean
+  /** D-085 rule 4: the budget warning, when the month is near or over it. */
+  notice?: string
   onChangeLevel: () => void
   onCancel: () => void
   onSend: () => void
@@ -130,7 +138,12 @@ export function SendPreview({
             Change
           </button>
         </div>
-        <div className="ai-never">Never sent: name, date of birth, body stats history.</div>
+        <div className="ai-never">{NEVER_SENT}</div>
+        {notice && (
+          <div className="ai-budget" role="status">
+            {notice} Estimated.
+          </div>
+        )}
         {offline && <div className="ai-never" style={{ color: 'var(--warn)', marginTop: 8 }}>You're offline. Logging works; AI features need a connection.</div>}
         <div className="ai-pair" style={{ marginTop: 16 }}>
           <button type="button" className="ob-outline" onClick={onCancel}>

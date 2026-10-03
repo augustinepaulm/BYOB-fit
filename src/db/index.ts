@@ -225,12 +225,20 @@ export async function appendSentLog(entry: SentLogEntry): Promise<void> {
   await db.add('sentLog', entry)
 }
 
-/** Records how a logged call ended; nothing else in the entry changes (D-050 rule 1). */
-export async function setSentLogStatus(id: string, status: 'sent' | 'failed', error?: string): Promise<void> {
+/**
+ * Records how a logged call ended, and the tokens its reply reported (D-050
+ * rule 1, D-085 rule 1); nothing else in the entry changes.
+ */
+export async function setSentLogStatus(
+  id: string,
+  status: 'sent' | 'failed',
+  error?: string,
+  usage?: Pick<SentLogEntry, 'usage' | 'usageMissing'>,
+): Promise<void> {
   const db = await getDB()
   const entry = await db.get('sentLog', id)
   if (!entry) return
-  const next: SentLogEntry = { ...entry, status }
+  const next: SentLogEntry = { ...entry, status, ...usage }
   if (error !== undefined) next.error = error
   await db.put('sentLog', next)
 }

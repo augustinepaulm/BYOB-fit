@@ -20,6 +20,7 @@ import { SettingsScreen } from './screens/SettingsScreen.tsx'
 import { TodayLoading, TodayScreen } from './screens/TodayScreen.tsx'
 import { WeekScreen } from './screens/WeekScreen.tsx'
 import { BodyPlaceholder } from './screens/BodyScreen.tsx'
+import { AiSettingsScreen, UsageScreen } from './screens/AiSettingsScreens.tsx'
 import { ProgressFrame, ProgressPlaceholder } from './screens/ProgressScreen.tsx'
 import { PlainLayout, TabbedLayout } from './ui/AppShell.tsx'
 
@@ -61,6 +62,8 @@ export default function App() {
               <Route path="/profile" element={<ProfileScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
               <Route path="/goal" element={<GoalScreen />} />
+              <Route path="/settings/ai" element={<AiSettingsScreen />} />
+              <Route path="/settings/usage" element={<UsageScreen />} />
               <Route path="/settings/privacy" element={<PrivacyLevelScreen />} />
               <Route path="/settings/sent-log" element={<SentLogScreen />} />
               <Route path="/settings/foods" element={<FoodsScreen />} />
