@@ -249,10 +249,12 @@ describe('backup round trip (D-065 rules 1 and 5)', () => {
       meta: {},
       goals: null,
       sentLog: [],
+      bodyEntries: [],
+      weekNotes: [],
     })
     expect(file.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
-    // D-069 moved the envelope to version 3; order and addedSets need no change.
-    expect(BACKUP_SCHEMA_VERSION).toBe(3)
+    // D-069 moved the envelope to version 3 and Phase 13 to 4; order and addedSets need no change.
+    expect(BACKUP_SCHEMA_VERSION).toBe(4)
     const back = parseBackup(JSON.stringify(file))
     expect(back.ok).toBe(true)
     if (back.ok) expect(back.backup.sessions).toEqual([session])

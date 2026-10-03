@@ -30,7 +30,7 @@ export function PrivacyLevelScreen() {
 const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long' })
 const MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' })
 const SHORT_MONTH = new Intl.DateTimeFormat('en-US', { month: 'short' })
-const TITLE: Record<SentLogEntry['kind'], string> = { review: 'Review', update: 'Update', meals: 'Meals' }
+const TITLE: Record<SentLogEntry['kind'], string> = { review: 'Review', update: 'Update', meals: 'Meals', week_note: 'Week review' }
 
 function summaryPairs(text: string): [string, string][] {
   return text.split(' · ').map((part) => {

@@ -1,13 +1,16 @@
+// Fixture: src/db/database.ts exactly as at main 974ddbf (version 4), with
+// its import paths pointed at src/. Used to write a version 4 database that
+// this build then upgrades (EXEC-13-rework task 9).
+
 // IndexedDB schema for BYOB-fit. All data stays on the device; nothing here
 // touches localStorage or sessionStorage.
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 
-import { dayChangesFromWeekPlans, type LegacyWeekPlan } from '../lib/dayChanges.ts'
-import { upgradeProgram } from '../lib/program.ts'
-import type { Program } from '../types/program.ts'
+import { dayChangesFromWeekPlans, type LegacyWeekPlan } from '../../src/lib/dayChanges.ts'
+import { upgradeProgram } from '../../src/lib/program.ts'
+import type { Program } from '../../src/types/program.ts'
 import type {
-  BodyEntry,
   DayChange,
   Goals,
   MealDay,
@@ -16,11 +19,10 @@ import type {
   SentLogEntry,
   Session,
   Settings,
-  WeekNote,
-} from '../types/stores.ts'
+} from '../../src/types/stores.ts'
 
 export const DB_NAME = 'byob-fit'
-export const DB_VERSION = 5
+export const DB_VERSION = 4
 
 /** The single record keys for the one-row stores. */
 export const PROFILE_KEY = 'me'
@@ -44,10 +46,6 @@ export interface ByobDB extends DBSchema {
   meta: { key: string; value: string }
   goals: { key: string; value: Goals }
   sentLog: { key: string; value: SentLogEntry; indexes: { at: string } }
-  /** D-078: one entry per date, keyed by date. Added at version 5. */
-  bodyEntries: { key: string; value: BodyEntry }
-  /** D-081: notes on a week, by id, indexed by the week's Sunday. Added at version 5. */
-  weekNotes: { key: string; value: WeekNote; indexes: { weekStart: string } }
 }
 
 let dbPromise: Promise<IDBPDatabase<ByobDB>> | null = null
@@ -108,14 +106,6 @@ export function getDB(): Promise<IDBPDatabase<ByobDB>> {
             for (const change of changes) await transaction.objectStore('dayChanges').put(change)
             db.deleteObjectStore('weekPlans' as never)
           })()
-        }
-        if (oldVersion < 5) {
-          // PLAN v1.26 section 5: two new stores. Nothing existing is touched;
-          // the new optional fields on meals, foods, settings and the sent log
-          // need no rewrite.
-          db.createObjectStore('bodyEntries', { keyPath: 'date' })
-          const notes = db.createObjectStore('weekNotes', { keyPath: 'id' })
-          notes.createIndex('weekStart', 'weekStart')
         }
       },
     })

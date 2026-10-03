@@ -5,6 +5,7 @@
 import { readAllStores, replaceAllStores } from '../db/index.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  BodyEntry,
   DayChange,
   Goals,
   MealDay,
@@ -13,16 +14,17 @@ import type {
   SentLogEntry,
   Session,
   Settings,
+  WeekNote,
 } from '../types/stores.ts'
 import { dayChangesFromWeekPlans, type LegacyWeekPlan } from './dayChanges.ts'
 import { upgradeProgram } from './program.ts'
 import { withoutDeviceStorage } from './storage.ts'
 
-/** The envelope version this build writes (PLAN v1.5 section 5). */
-export const BACKUP_SCHEMA_VERSION = 3
+/** The envelope version this build writes (PLAN v1.26 section 5). */
+export const BACKUP_SCHEMA_VERSION = 4
 
 /** Every envelope version this build reads. Anything else is refused. */
-const READABLE_VERSIONS = [1, 2, 3]
+const READABLE_VERSIONS = [1, 2, 3, 4]
 
 export interface BackupFile {
   app: 'BYOB-fit'
@@ -40,6 +42,10 @@ export interface BackupFile {
   meta: Record<string, string>
   goals: Goals | null
   sentLog: SentLogEntry[]
+  /** D-078: version 4. Earlier versions restore with none. */
+  bodyEntries: BodyEntry[]
+  /** D-081: version 4. Earlier versions restore with none. */
+  weekNotes: WeekNote[]
 }
 
 type StoreData = Awaited<ReturnType<typeof readAllStores>>
@@ -70,11 +76,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Check the envelope before anything touches a store. Versions 1, 2 and 3 are
- * read and come back as version 3: a version 1 file has no goals and an empty
- * sent log, and the week plans of versions 1 and 2 become day changes against
- * the file's active program (D-069). An unknown or missing schemaVersion is
- * refused, never guessed at.
+ * Check the envelope before anything touches a store. Versions 1 to 4 are
+ * read and come back as version 4: a version 1 file has no goals and an empty
+ * sent log, the week plans of versions 1 and 2 become day changes against
+ * the file's active program (D-069), and files before version 4 have no body
+ * entries or week notes. An unknown or missing schemaVersion is refused,
+ * never guessed at.
  */
 export function validateBackup(value: unknown): BackupResult {
   if (!isObject(value)) {
@@ -102,13 +109,13 @@ export function validateBackup(value: unknown): BackupResult {
       ],
     }
   }
-  const version = value.schemaVersion as 1 | 2 | 3
+  const version = value.schemaVersion as 1 | 2 | 3 | 4
 
   const errors: string[] = []
   if (typeof value.exportedAt !== 'string' || Number.isNaN(Date.parse(value.exportedAt))) {
     errors.push('/exportedAt: must be an ISO date-time string')
   }
-  for (const key of ['programs', 'sessions', version === 3 ? 'dayChanges' : 'weekPlans', 'meals', 'reprograms'] as const) {
+  for (const key of ['programs', 'sessions', version >= 3 ? 'dayChanges' : 'weekPlans', 'meals', 'reprograms'] as const) {
     if (!Array.isArray(value[key])) errors.push(`/${key}: must be an array`)
   }
   for (const key of ['profile', 'settings'] as const) {
@@ -123,12 +130,17 @@ export function validateBackup(value: unknown): BackupResult {
     }
     if (!Array.isArray(value.sentLog)) errors.push('/sentLog: must be an array')
   }
+  if (version >= 4) {
+    for (const key of ['bodyEntries', 'weekNotes'] as const) {
+      if (!Array.isArray(value[key])) errors.push(`/${key}: must be an array`)
+    }
+  }
   if (errors.length > 0) return { ok: false, errors }
 
   const backup = value as unknown as BackupFile & { weekPlans?: LegacyWeekPlan[] }
   const active = backup.programs.find((p) => p.id === backup.meta.activeProgramId) ?? backup.programs[0]
   const dayChanges =
-    version === 3 ? backup.dayChanges : dayChangesFromWeekPlans(active, backup.weekPlans ?? [], backup.exportedAt)
+    version >= 3 ? backup.dayChanges : dayChangesFromWeekPlans(active, backup.weekPlans ?? [], backup.exportedAt)
   return {
     ok: true,
     backup: {
@@ -145,6 +157,8 @@ export function validateBackup(value: unknown): BackupResult {
       meta: backup.meta,
       goals: version >= 2 ? backup.goals : null,
       sentLog: version >= 2 ? backup.sentLog : [],
+      bodyEntries: version >= 4 ? backup.bodyEntries : [],
+      weekNotes: version >= 4 ? backup.weekNotes : [],
     },
   }
 }
@@ -177,6 +191,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
     meta: backup.meta,
     goals: backup.goals,
     sentLog: backup.sentLog,
+    bodyEntries: backup.bodyEntries,
+    weekNotes: backup.weekNotes,
   })
 }
 

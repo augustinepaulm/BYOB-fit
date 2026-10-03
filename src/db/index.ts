@@ -4,6 +4,7 @@
 import { endedAsItStands } from '../lib/dayChanges.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  BodyEntry,
   Goals,
   MealDay,
   Profile,
@@ -12,6 +13,7 @@ import type {
   Session,
   Settings,
   DayChange,
+  WeekNote,
 } from '../types/stores.ts'
 import { isEmptySession, sessionIdFor } from '../lib/session.ts'
 import {
@@ -239,6 +241,44 @@ export async function listSentLog(): Promise<SentLogEntry[]> {
   return db.getAllFromIndex('sentLog', 'at')
 }
 
+// ── Body entries (D-078) ──
+
+/** Every body entry, oldest first. */
+export async function listBodyEntries(): Promise<BodyEntry[]> {
+  const db = await getDB()
+  return db.getAll('bodyEntries')
+}
+
+export async function getBodyEntry(date: string): Promise<BodyEntry | undefined> {
+  const db = await getDB()
+  return db.get('bodyEntries', date)
+}
+
+/** One entry per date: a new entry for the same date replaces it (D-078 rule 1). */
+export async function putBodyEntry(entry: BodyEntry): Promise<void> {
+  const db = await getDB()
+  await db.put('bodyEntries', entry)
+}
+
+export async function deleteBodyEntry(date: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('bodyEntries', date)
+}
+
+// ── Week notes (D-081) ──
+
+export async function addWeekNote(note: WeekNote): Promise<void> {
+  const db = await getDB()
+  await db.add('weekNotes', note)
+}
+
+/** Notes for one week, newest first. */
+export async function listWeekNotes(weekStart: string): Promise<WeekNote[]> {
+  const db = await getDB()
+  const notes = await db.getAllFromIndex('weekNotes', 'weekStart', weekStart)
+  return notes.sort((a, b) => b.at.localeCompare(a.at))
+}
+
 /** Everything the export contains, and everything Reset and Import replace. */
 export const DATA_STORES = [
   'programs',
@@ -251,6 +291,8 @@ export const DATA_STORES = [
   'meta',
   'goals',
   'sentLog',
+  'bodyEntries',
+  'weekNotes',
 ] as const
 
 export async function clearAllStores(): Promise<void> {
@@ -272,6 +314,8 @@ export async function readAllStores(): Promise<{
   meta: Record<string, string>
   goals: Goals | null
   sentLog: SentLogEntry[]
+  bodyEntries: BodyEntry[]
+  weekNotes: WeekNote[]
 }> {
   const db = await getDB()
   const metaKeys = await db.getAllKeys('meta')
@@ -291,6 +335,8 @@ export async function readAllStores(): Promise<{
     meta,
     goals: (await db.get('goals', GOALS_KEY)) ?? null,
     sentLog: await db.getAllFromIndex('sentLog', 'at'),
+    bodyEntries: await db.getAll('bodyEntries'),
+    weekNotes: await db.getAll('weekNotes'),
   }
 }
 
@@ -306,6 +352,8 @@ export async function replaceAllStores(data: {
   meta: Record<string, string>
   goals: Goals | null
   sentLog: SentLogEntry[]
+  bodyEntries: BodyEntry[]
+  weekNotes: WeekNote[]
 }): Promise<void> {
   const db = await getDB()
   const tx = db.transaction(DATA_STORES, 'readwrite')
@@ -322,5 +370,7 @@ export async function replaceAllStores(data: {
   }
   if (data.goals) await tx.objectStore('goals').put(data.goals, GOALS_KEY)
   for (const entry of data.sentLog) await tx.objectStore('sentLog').put(entry)
+  for (const entry of data.bodyEntries) await tx.objectStore('bodyEntries').put(entry)
+  for (const note of data.weekNotes) await tx.objectStore('weekNotes').put(note)
   await tx.done
 }

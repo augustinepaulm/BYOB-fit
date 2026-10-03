@@ -98,9 +98,12 @@ describe('export envelope version 3 (D-069)', () => {
       meta: { activeProgramId: program.id },
       goals: null,
       sentLog: [],
+      bodyEntries: [],
+      weekNotes: [],
     }
     const file = backupFromData(data, new Date('2026-09-29T10:00:00Z'))
-    expect(file.schemaVersion).toBe(3)
+    // EXEC-13-rework: the envelope is version 4 now; day changes are unchanged.
+    expect(file.schemaVersion).toBe(4)
     const back = parseBackup(JSON.stringify(file))
     expect(back.ok && back.backup.dayChanges).toEqual(data.dayChanges)
   })
@@ -125,7 +128,7 @@ describe('export envelope version 3 (D-069)', () => {
     const back = parseBackup(JSON.stringify(v2))
     expect(back.ok).toBe(true)
     if (!back.ok) return
-    expect(back.backup.schemaVersion).toBe(3)
+    expect(back.backup.schemaVersion).toBe(4)
     for (const date of weekDates(program, 8)) {
       expect(dayForDate(program, back.backup.dayChanges, date).id).toBe(legacyDayForDate(program, plan, date).id)
     }
@@ -135,9 +138,10 @@ describe('export envelope version 3 (D-069)', () => {
 
 describe('database version 4 wiring', () => {
   const source = readFileSync(new URL('../db/database.ts', import.meta.url), 'utf8')
-  const v4 = source.slice(source.indexOf('if (oldVersion < 4)'))
+  const v4 = source.slice(source.indexOf('if (oldVersion < 4)'), source.indexOf('if (oldVersion < 5)'))
   it('creates dayChanges keyed by date, converts against the active program, then deletes weekPlans', () => {
-    expect(source).toContain('export const DB_VERSION = 4')
+    // EXEC-13-rework: version 5 follows; the version 4 step is unchanged.
+    expect(source).toContain('export const DB_VERSION = 5')
     expect(v4).toContain("db.createObjectStore('dayChanges', { keyPath: 'date' })")
     expect(v4).toContain("objectStore('weekPlans').getAll()")
     expect(v4).toContain("objectStore('meta').get(ACTIVE_PROGRAM_KEY)")
