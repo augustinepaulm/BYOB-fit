@@ -1390,8 +1390,8 @@ function Deck() {
             setAdding(true)
           }}
           onChangeDay={
-            // D-074 rule 6: not on a date with a finished session.
-            canChangeDate(todayIso, todayIso, history.filter((s) => s.id !== api.session?.id))
+            // D-074 rule 6, D-075 rule 1: not when today's current workout has ended.
+            canChangeDate(todayIso, todayIso, history.filter((s) => s.id !== api.session?.id), day.id)
               ? () => {
                   setPlanOpen(false)
                   setChangingDay(true)

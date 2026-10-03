@@ -48,12 +48,18 @@ export function shortDate(date: Date): string {
 }
 
 /**
- * Dates from today on can be changed; past dates cannot (D-069 rule 1). A date
- * with a finished session cannot either: a logged session keeps the day it was
- * logged under (D-074 rule 6). Dates are YYYY-MM-DD.
+ * Dates from today on can be changed; past dates cannot (D-069 rule 1). A
+ * finished date cannot either (D-074 rule 6): one whose current workout,
+ * `dayId`, has an ended session there (D-075 rule 1). An ended session of a
+ * workout the date was changed away from does not count. Dates are YYYY-MM-DD.
  */
-export function canChangeDate(date: string, today: string, sessions: readonly Pick<Session, 'date' | 'endedAt'>[] = []): boolean {
-  return date >= today && !sessions.some((s) => s.date === date && s.endedAt)
+export function canChangeDate(
+  date: string,
+  today: string,
+  sessions: readonly Pick<Session, 'date' | 'dayId' | 'endedAt'>[] = [],
+  dayId?: string,
+): boolean {
+  return date >= today && !sessions.some((s) => s.date === date && s.dayId === dayId && s.endedAt)
 }
 
 /** How a day is named in Week, the list and the confirmation. */

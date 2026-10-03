@@ -5,33 +5,60 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
+import upperLower from '../../public/templates/starter-4day-upper-lower.json'
+import type { Program } from '../types/program.ts'
 import { canChangeDate } from './dayChanges.ts'
+import { dayForDate } from './program.ts'
 import { discardDraftConfirmation, keepOfferLines } from './todayPlan.ts'
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const TODAY = '2026-09-29'
 
-describe('no change on a finished date (D-074 rule 6)', () => {
-  const finished = [{ date: TODAY, endedAt: '2026-09-29T10:00:00.000Z' }]
-  const open = [{ date: TODAY }]
+describe('no change on a finished date (D-074 rule 6, D-075 rules 1 and 2)', () => {
+  const program = { ...(upperLower as unknown as Program), startDate: '2026-08-09', programWeeks: 12 }
+  const today = new Date(2026, 8, 29)
+  const finished = [{ date: TODAY, dayId: 'tue', endedAt: '2026-09-29T10:00:00.000Z' }]
+  const open = [{ date: TODAY, dayId: 'tue' }]
   it('finished today: neither Change nor Do this today', () => {
-    expect(canChangeDate(TODAY, TODAY, finished)).toBe(false)
+    expect(canChangeDate(TODAY, TODAY, finished, 'tue')).toBe(false)
   })
   it('unfinished today: still offered', () => {
-    expect(canChangeDate(TODAY, TODAY, open)).toBe(true)
+    expect(canChangeDate(TODAY, TODAY, open, 'tue')).toBe(true)
     expect(canChangeDate(TODAY, TODAY)).toBe(true)
   })
+  it('an ended session of another workout on today leaves Change offered', () => {
+    // A mid-workout change ended Lower A (D-069 rule 4); today now shows Upper B.
+    const changes = [{ date: TODAY, dayId: 'thu', setAt: '2026-09-29T09:30:00.000Z' }]
+    expect(canChangeDate(TODAY, TODAY, finished, dayForDate(program, changes, today).id)).toBe(true)
+  })
+  it('an ended session of the workout the date shows hides it', () => {
+    expect(canChangeDate(TODAY, TODAY, finished, dayForDate(program, [], today).id)).toBe(false)
+  })
+  it('after Restore to the ended workout, the date is finished again (D-075 rule 2)', () => {
+    const changes = [{ date: TODAY, dayId: 'thu', setAt: '2026-09-29T09:30:00.000Z' }]
+    const both = [...finished, { date: TODAY, dayId: 'thu' }]
+    expect(canChangeDate(TODAY, TODAY, both, dayForDate(program, changes, today).id)).toBe(true)
+    const restored = changes.filter((c) => c.date !== TODAY)
+    expect(canChangeDate(TODAY, TODAY, both, dayForDate(program, restored, today).id)).toBe(false)
+  })
   it('tomorrow: offered, even with today finished', () => {
-    expect(canChangeDate('2026-09-30', TODAY, finished)).toBe(true)
+    expect(canChangeDate('2026-09-30', TODAY, finished, 'wed')).toBe(true)
   })
   it('past: never', () => {
-    expect(canChangeDate('2026-09-28', TODAY, [])).toBe(false)
+    expect(canChangeDate('2026-09-28', TODAY, [], 'mon')).toBe(false)
   })
-  it('Week rows, Do this today and the deck’s Change today’s workout use it with sessions', () => {
+  it('Week rows, Do this today and the deck’s Change today’s workout pass the workout the date shows', () => {
     const week = read('../screens/WeekScreen.tsx')
-    expect(week).toContain('canChangeDate(toISODate(date), todayIso, sessions)')
-    expect(week).toContain('onDoToday={canChangeDate(todayIso, todayIso, todaySessions) ?')
-    expect(read('../screens/DeckScreen.tsx')).toContain('canChangeDate(todayIso, todayIso, history.filter((s) => s.id !== api.session?.id))')
+    expect(week).toContain('canChangeDate(toISODate(date), todayIso, sessions, day.id)')
+    expect(week).toContain('onDoToday={canChangeDate(todayIso, todayIso, todaySessions, dayForDate(program, changes, today).id) ?')
+    expect(read('../screens/DeckScreen.tsx')).toContain('canChangeDate(todayIso, todayIso, history.filter((s) => s.id !== api.session?.id), day.id)')
+    expect(read('../program/ProgramProvider.tsx')).toContain('!canChangeDate(date, toISODate(today))) return false')
+  })
+  it('Restore sits inside the same condition as Change', () => {
+    const week = read('../screens/WeekScreen.tsx')
+    const block = week.slice(week.indexOf('{changeable && ('), week.indexOf('Restore\n'))
+    expect(block).toContain('aria-label={`Change ${formatShortDay(date)}`}')
+    expect(block).toContain('aria-label={`Restore ${formatShortDay(date)}`}')
   })
 })
 
