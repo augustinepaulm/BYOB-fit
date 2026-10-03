@@ -4,6 +4,7 @@
 import { endedAsItStands } from '../lib/dayChanges.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  BodyEntry,
   Goals,
   MealDay,
   Profile,
@@ -12,8 +13,9 @@ import type {
   Session,
   Settings,
   DayChange,
+  WeekNote,
 } from '../types/stores.ts'
-import { sessionIdFor } from '../lib/session.ts'
+import { isEmptySession, sessionIdFor } from '../lib/session.ts'
 import {
   ACTIVE_PROGRAM_KEY,
   GOALS_KEY,
@@ -129,15 +131,23 @@ export async function getSessionByDateAndDay(
   return db.get('sessions', sessionIdFor(date, dayId))
 }
 
+/** D-086: an ended session with nothing in it is removed, not kept. */
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('sessions', id)
+}
+
 /**
  * D-069 rule 4: before a date's day changes, its open session ends as it
- * stands, as End does. What was logged stays. True when one was ended.
+ * stands, as End does. What was logged stays; a session with nothing logged
+ * is deleted instead (D-086). True when one was ended or deleted.
  */
 export async function endOpenSession(date: string, dayId: string): Promise<boolean> {
   const db = await getDB()
   const session = await db.get('sessions', sessionIdFor(date, dayId))
   if (!session || session.endedAt) return false
-  await db.put('sessions', endedAsItStands(session, new Date()))
+  if (isEmptySession(session)) await db.delete('sessions', session.id)
+  else await db.put('sessions', endedAsItStands(session, new Date()))
   return true
 }
 
@@ -168,6 +178,12 @@ export async function saveProfile(profile: Profile): Promise<void> {
 export async function getMealDay(date: string): Promise<MealDay | undefined> {
   const db = await getDB()
   return db.get('meals', date)
+}
+
+/** Every stored meal day, in date order. */
+export async function listMealDays(): Promise<MealDay[]> {
+  const db = await getDB()
+  return db.getAll('meals')
 }
 
 export async function saveMealDay(meal: MealDay): Promise<void> {
@@ -215,12 +231,20 @@ export async function appendSentLog(entry: SentLogEntry): Promise<void> {
   await db.add('sentLog', entry)
 }
 
-/** Records how a logged call ended; nothing else in the entry changes (D-050 rule 1). */
-export async function setSentLogStatus(id: string, status: 'sent' | 'failed', error?: string): Promise<void> {
+/**
+ * Records how a logged call ended, and the tokens its reply reported (D-050
+ * rule 1, D-085 rule 1); nothing else in the entry changes.
+ */
+export async function setSentLogStatus(
+  id: string,
+  status: 'sent' | 'failed',
+  error?: string,
+  usage?: Pick<SentLogEntry, 'usage' | 'usageMissing'>,
+): Promise<void> {
   const db = await getDB()
   const entry = await db.get('sentLog', id)
   if (!entry) return
-  const next: SentLogEntry = { ...entry, status }
+  const next: SentLogEntry = { ...entry, status, ...usage }
   if (error !== undefined) next.error = error
   await db.put('sentLog', next)
 }
@@ -229,6 +253,44 @@ export async function setSentLogStatus(id: string, status: 'sent' | 'failed', er
 export async function listSentLog(): Promise<SentLogEntry[]> {
   const db = await getDB()
   return db.getAllFromIndex('sentLog', 'at')
+}
+
+// ── Body entries (D-078) ──
+
+/** Every body entry, oldest first. */
+export async function listBodyEntries(): Promise<BodyEntry[]> {
+  const db = await getDB()
+  return db.getAll('bodyEntries')
+}
+
+export async function getBodyEntry(date: string): Promise<BodyEntry | undefined> {
+  const db = await getDB()
+  return db.get('bodyEntries', date)
+}
+
+/** One entry per date: a new entry for the same date replaces it (D-078 rule 1). */
+export async function putBodyEntry(entry: BodyEntry): Promise<void> {
+  const db = await getDB()
+  await db.put('bodyEntries', entry)
+}
+
+export async function deleteBodyEntry(date: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('bodyEntries', date)
+}
+
+// ── Week notes (D-081) ──
+
+export async function addWeekNote(note: WeekNote): Promise<void> {
+  const db = await getDB()
+  await db.add('weekNotes', note)
+}
+
+/** Notes for one week, newest first. */
+export async function listWeekNotes(weekStart: string): Promise<WeekNote[]> {
+  const db = await getDB()
+  const notes = await db.getAllFromIndex('weekNotes', 'weekStart', weekStart)
+  return notes.sort((a, b) => b.at.localeCompare(a.at))
 }
 
 /** Everything the export contains, and everything Reset and Import replace. */
@@ -243,6 +305,8 @@ export const DATA_STORES = [
   'meta',
   'goals',
   'sentLog',
+  'bodyEntries',
+  'weekNotes',
 ] as const
 
 export async function clearAllStores(): Promise<void> {
@@ -264,6 +328,8 @@ export async function readAllStores(): Promise<{
   meta: Record<string, string>
   goals: Goals | null
   sentLog: SentLogEntry[]
+  bodyEntries: BodyEntry[]
+  weekNotes: WeekNote[]
 }> {
   const db = await getDB()
   const metaKeys = await db.getAllKeys('meta')
@@ -283,6 +349,8 @@ export async function readAllStores(): Promise<{
     meta,
     goals: (await db.get('goals', GOALS_KEY)) ?? null,
     sentLog: await db.getAllFromIndex('sentLog', 'at'),
+    bodyEntries: await db.getAll('bodyEntries'),
+    weekNotes: await db.getAll('weekNotes'),
   }
 }
 
@@ -298,6 +366,8 @@ export async function replaceAllStores(data: {
   meta: Record<string, string>
   goals: Goals | null
   sentLog: SentLogEntry[]
+  bodyEntries: BodyEntry[]
+  weekNotes: WeekNote[]
 }): Promise<void> {
   const db = await getDB()
   const tx = db.transaction(DATA_STORES, 'readwrite')
@@ -314,5 +384,7 @@ export async function replaceAllStores(data: {
   }
   if (data.goals) await tx.objectStore('goals').put(data.goals, GOALS_KEY)
   for (const entry of data.sentLog) await tx.objectStore('sentLog').put(entry)
+  for (const entry of data.bodyEntries) await tx.objectStore('bodyEntries').put(entry)
+  for (const note of data.weekNotes) await tx.objectStore('weekNotes').put(note)
   await tx.done
 }

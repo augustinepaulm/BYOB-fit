@@ -75,15 +75,16 @@ export function StepNav({
           </button>
         )}
       </div>
-      <div className="ob-dots" aria-label={`Step ${step} of ${TOTAL_STEPS}`}>
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-          <span
-            key={i}
-            className={
-              i + 1 === step ? 'ob-dot ob-dot--current' : i + 1 < step ? 'ob-dot ob-dot--done' : 'ob-dot'
-            }
-          />
-        ))}
+      {/* v3 (1b): "Step N of 8" over a bar of eight parts, the done ones filled. */}
+      <div className="ob-steps" role="img" aria-label={`Step ${step} of ${TOTAL_STEPS}`}>
+        <span className="ob-steps__label" aria-hidden="true">
+          Step {step} of {TOTAL_STEPS}
+        </span>
+        <span className="ob-steps__bar" aria-hidden="true">
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+            <span key={i} className={i + 1 <= step ? 'ob-steps__part ob-steps__part--on' : 'ob-steps__part'} />
+          ))}
+        </span>
       </div>
       <div className="ob-nav__side ob-nav__side--end">
         {onSkip && (
@@ -248,7 +249,6 @@ export function PrimaryButton({
   return (
     <button type="button" className="ob-primary" onClick={onClick} disabled={disabled}>
       <span>{children}</span>
-      <ArrowIcon />
     </button>
   )
 }

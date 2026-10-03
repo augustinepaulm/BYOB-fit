@@ -11,7 +11,7 @@ import { Sheet } from '../builder/ui.tsx'
 import { useLibrary, useStarterTemplates } from '../builder/useLibrary.ts'
 import { getMeta, getProgram, listAllSessions, saveProgram, setMeta } from '../db/index.ts'
 import { clearDraft, readDraft, type BuilderDraft } from '../builder/draft.ts'
-import { blurSetBox, endStep } from '../lib/endFlow.ts'
+import { blurSetBox, endDialogBody, endStep, type DoneItem } from '../lib/endFlow.ts'
 import {
   addableItems,
   addedDeckItems,
@@ -24,17 +24,18 @@ import {
   swapPrefill,
 } from '../lib/sessionExercises.ts'
 import { howToSteps, lowerFirst } from '../lib/builder.ts'
-import { formatLongDate, toISODate } from '../lib/dates.ts'
+import { formatTrainContext, toISODate } from '../lib/dates.ts'
 import { canChangeDate } from '../lib/dayChanges.ts'
 import { parseSet, type ParsedFields } from '../lib/parseSet.ts'
 import { loadRowOutcome, numberBoxAttributes, repRangeText, singleRowOutcome, type BoxResult, type RowAction } from '../lib/setBoxes.ts'
-import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
+import { entryLine, formatClock, formatRest, formatSetValue, prescriptionSentence, prescriptionText } from '../lib/prescription.ts'
 import { dayForDate } from '../lib/program.ts'
 import { suggestProgression, suggestionText } from '../lib/progression.ts'
 import { compareWithLastWeek, readyToProgress } from '../lib/summary.ts'
 import {
   buildDeck,
   findEntry,
+  sessionIdFor,
   findReferenceEntry,
   findSet,
   isSetConfirmed,
@@ -69,13 +70,15 @@ import { ChangeDay } from './ChangeDay.tsx'
 import { SwapStep } from './SwapStep.tsx'
 import { PlanSheet } from './PlanSheet.tsx'
 import { useProgram } from '../program/useProgram.ts'
+import { clearDeckState, readDeckState, writeDeckState } from '../session/deckState.ts'
 import { useSession } from '../session/useSession.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Exercise, ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
-import { ChevronLeftIcon, PlayIcon } from '../ui/icons.tsx'
+import { ChevronLeftIcon } from '../ui/icons.tsx'
 import { Dialog } from '../ui/Dialog.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { AppHeader, ProgressRing, Tick } from '../ui/shell.tsx'
 
 const DEMO_SEEN = 'demoSeen'
 
@@ -84,6 +87,7 @@ const FELT: { value: FeltOff; title: string; sub?: string }[] = [
   { value: 'hard', title: 'Too hard' },
   { value: 'discomfort', title: 'Discomfort', sub: 'Skips the rest of this exercise today' },
 ]
+const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'long' })
 const FELT_WORD: Record<FeltOff, string> = { easy: 'too easy', hard: 'too hard', discomfort: 'discomfort' }
 
 function rowKey(itemId: string, row: SetRow): string {
@@ -122,7 +126,7 @@ const SINGLE: Record<string, { kind: 'reps' | 'seconds' | 'meters' | 'minutes'; 
 /**
  * D-054 rule 2: after a box takes focus, wait for the keyboard (the visual
  * viewport's next resize) or 350 ms, whichever is first, then put the set's
- * row at the centre of the visible area.
+ * row in the upper part of the visible area (above the midline, 4.09).
  */
 function afterKeyboard(): Promise<void> {
   const viewport = window.visualViewport
@@ -144,9 +148,13 @@ async function centreInVisibleArea(row: HTMLElement) {
   if (!row.isConnected) return
   const viewport = window.visualViewport
   const rect = row.getBoundingClientRect()
-  const visibleCentre = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) / 2
-  window.scrollBy({ top: rect.top + rect.height / 2 - visibleCentre, behavior: 'smooth' })
+  // 4.09: the active set sits above the visible area's midline, so the keyboard never covers it.
+  const target = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) * ROW_TARGET
+  window.scrollBy({ top: rect.top + rect.height / 2 - target, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
 }
+
+/** Where the focused set's centre lands in the visible area, from its top: above the midline (frame 4.09). */
+export const ROW_TARGET = 0.38
 
 /** D-054 rule 4: the focused box's name, pinned to the top of the visible area. */
 function FocusLabel({ text }: { text: string }) {
@@ -192,7 +200,10 @@ function Deck() {
   const { settings } = useSettings()
   const navigate = useNavigate()
   // Today's Resume button already asked; a reopened deck asks here (7b).
-  const fromToday = (useLocation().state as { fromToday?: boolean } | null)?.fromToday === true
+  const routeState = useLocation().state as { fromToday?: boolean; summary?: boolean } | null
+  const fromToday = routeState?.fromToday === true
+  // Today's "See summary" (2.03) opens a finished session's summary directly.
+  const summaryFirst = routeState?.summary === true
   const { templates } = useStarterTemplates()
   const library = useLibrary(program, templates)
 
@@ -207,6 +218,7 @@ function Deck() {
     [day, todayIso, week, swapped],
   )
   const api = useSession(target)
+  const sessionId = day ? sessionIdFor(todayIso, day.id) : null
   // The program's deck, and today's: the session's order applied (D-063, D-065 rule 1).
   const baseDeck = useMemo(() => (day ? buildDeck(day, week, today) : []), [day, week, today])
   const sessionOrder = api.session?.order
@@ -222,7 +234,7 @@ function Deck() {
   const [position, setPosition] = useState<number | null>(null)
   // Where Resume dropped them, decided once when the stored session arrives.
   const [startAt, setStartAt] = useState<number | null>(null)
-  const [phase, setPhase] = useState<'deck' | 'summary'>('deck')
+  const [phase, setPhase] = useState<'deck' | 'summary'>(summaryFirst ? 'summary' : 'deck')
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [restUntil, setRestUntil] = useState<number | null>(null)
   const [holdStart, setHoldStart] = useState<Record<string, number>>({})
@@ -254,6 +266,31 @@ function Deck() {
   const [discardAsked, setDiscardAsked] = useState(false)
   const seen = useRef<string[]>([])
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  // D-077 rule 4: the rest timer, typed boxes and position kept from the last visit.
+  const [restored, setRestored] = useState(false)
+  const [restSec, setRestSec] = useState<number | null>(null)
+  // The set opened for typing or editing; null follows the first set still waiting (2.04).
+  const [editingN, setEditingN] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!sessionId) return
+    let live = true
+    void readDeckState(sessionId).then((kept) => {
+      if (!live) return
+      if (kept) {
+        setDrafts(kept.drafts)
+        if (kept.restUntil && kept.restUntil > Date.now()) {
+          setRestUntil(kept.restUntil)
+          setRestSec(kept.restSec ?? null)
+        }
+        if (kept.position !== null) setPosition(kept.position)
+      }
+      setRestored(true)
+    })
+    return () => {
+      live = false
+    }
+  }, [sessionId])
 
   // D-064 rule 2: the banner flag never outlives the deck.
   useEffect(() => () => void delete document.documentElement.dataset.setFocus, [])
@@ -288,7 +325,8 @@ function Deck() {
   if (!api.loading && startAt === null && deck.length > 0) {
     setStartAt(firstIncomplete === -1 ? Math.max(0, deck.length - 1) : firstIncomplete)
   }
-  const at = position ?? startAt ?? 0
+  // A kept position can outlast an item removed since; stay inside the deck.
+  const at = Math.min(position ?? startAt ?? 0, Math.max(0, deck.length - 1))
   const current: DeckItem | undefined = deck[at]
   const entry = findEntry(api.session ?? undefined, current?.item.id ?? '')
   const exerciseId = entry?.exerciseId ?? current?.resolved.exerciseId ?? ''
@@ -298,6 +336,31 @@ function Deck() {
     [history, day, exerciseId, current?.resolved.type],
   )
   const unit = current?.resolved.unit ?? 'kg'
+
+  // D-077 rules 3 and 4: keep what leaving would lose, and what the in-progress bar shows.
+  const open = Boolean(api.session && !api.session.endedAt)
+  const barLabel = useMemo(() => {
+    if (!exercise?.name) return undefined
+    const next = current?.logged
+      ? setRowsWithAdded(current.resolved, entry?.addedSets).find((row) => !isSetConfirmed(findSet(entry, row)))
+      : undefined
+    return next ? `${exercise.name}, set ${next.n} next` : exercise.name
+  }, [current, entry, exercise])
+  useEffect(() => {
+    if (!restored || !sessionId || !open || phase !== 'deck') return
+    void writeDeckState({
+      sessionId,
+      restUntil,
+      ...(restSec ? { restSec } : {}),
+      drafts,
+      position,
+      ...(barLabel ? { label: barLabel } : {}),
+    })
+  }, [restored, sessionId, open, phase, restUntil, restSec, drafts, position, barLabel])
+  // The summary means the session ended or was discarded: nothing to keep.
+  useEffect(() => {
+    if (phase === 'summary' && sessionId) void clearDeckState(sessionId)
+  }, [phase, sessionId])
 
   // D-033: a New user sees each exercise's demo open the first time it appears.
   const firstView = isNew && seenAtLoad !== null && Boolean(exerciseId) && !seenAtLoad.includes(exerciseId)
@@ -330,7 +393,10 @@ function Deck() {
 
   const startRest = useCallback(() => {
     const restSec = current?.resolved.restSec
-    if (restSec && restSec > 0) setRestUntil(Date.now() + restSec * 1000)
+    if (restSec && restSec > 0) {
+      setRestUntil(Date.now() + restSec * 1000)
+      setRestSec(restSec)
+    }
   }, [current])
 
   /** Weight placeholder: last week's for this set, else the nearest set above saved today. */
@@ -364,6 +430,7 @@ function Deck() {
       }
       setSaveFailed(null)
       clearBoxes(rowKey(current.item.id, row))
+      setEditingN(null)
       // Done starts rest once, after all its saves (D-074 rule 3).
       if (action === 'done') savedByDone.current += 1
       else startRest()
@@ -452,6 +519,7 @@ function Deck() {
         return
       }
       setPosition(from + 1)
+      setEditingN(null)
       window.scrollTo({ top: 0 })
     },
     [deck.length, api],
@@ -480,10 +548,12 @@ function Deck() {
       const saved = stored && !hasTyped ? true : await saveRow(row, 'done')
       if (!saved) {
         setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
+        setRestSec(current.resolved.restSec ?? null)
         return
       }
     }
     setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
+    setRestSec(current.resolved.restSec ?? null)
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, saveRow, advance])
 
@@ -503,7 +573,7 @@ function Deck() {
   }, [api, navigate])
 
   // Wait for the stored session before choosing where to resume.
-  if (!program || !day || api.loading) return null
+  if (!program || !day || api.loading || !restored) return null
   if (!day.rest && startAt === null) return null
 
   if (day.rest) {
@@ -525,6 +595,15 @@ function Deck() {
   const notDone = deck.length - doneIds.size
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
   const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
+  // Frame 2.11: what the End dialog says has been done.
+  const doneForEnd: DoneItem[] = deck
+    .filter((d) => doneIds.has(d.item.id))
+    .map((d) => {
+      const e = findEntry(api.session ?? undefined, d.item.id)
+      const name = lowerFirst(nameOf(e?.exerciseId ?? d.resolved.exerciseId ?? ''))
+      if (d.section.kind === 'warmup') return { name, warmup: true }
+      return d.logged && d.resolved.type !== 'check' ? { name, sets: (e?.sets ?? []).filter(isSetConfirmed).length } : { name }
+    })
 
   /**
    * End, from the header or the plan sheet (D-067 rule 2): close the keyboard
@@ -561,38 +640,53 @@ function Deck() {
     return (
       <>
         {(counted > 0 || compared.newIds.length > 0) && (
-          <div className="dk-compare">
-            <div className="ob-sechead">
-              <span>Compared with last week</span>
-            </div>
+          <section className="card-v3 compare">
+            <h2 className="compare__title">Compared with last week</h2>
             {counted > 0 && (
-              <div className="dk-compare__counts">
-                Up {compared.up} · Same {compared.same} · Down {compared.down}
+              <div className="compare__tiles">
+                <div className="compare__tile compare__tile--up">
+                  <b>{compared.up}</b>
+                  <span>Up</span>
+                </div>
+                <div className="compare__tile">
+                  <b>{compared.same}</b>
+                  <span>Same</span>
+                </div>
+                <div className="compare__tile">
+                  <b>{compared.down}</b>
+                  <span>Down</span>
+                </div>
               </div>
             )}
             {compared.upLines.map((line) => (
-              <div className="dk-compare__line" key={line.exerciseId}>
-                {nameOf(line.exerciseId)}: {line.today}, last week {line.last}
+              <div className="compare__line" key={line.exerciseId}>
+                <span className="compare__name">{nameOf(line.exerciseId)}</span>
+                <span className="compare__values">
+                  <b>{line.today}</b>
+                  <span>was {line.last}</span>
+                </span>
               </div>
             ))}
             {compared.newIds.length > 0 && (
-              <div className="dk-compare__line">
-                <span style={{ color: 'var(--secondary)' }}>New:</span> {compared.newIds.map((id) => nameOf(id)).join(', ')}
+              <div className="compare__line">
+                <span className="compare__name">New</span>
+                <span className="compare__values">
+                  <span>{compared.newIds.map((id) => nameOf(id)).join(', ')}</span>
+                </span>
               </div>
             )}
-          </div>
+          </section>
         )}
         {ready.length > 0 && (
-          <div className="dk-compare">
-            <div className="ob-sechead">
-              <span>Ready to progress</span>
-            </div>
+          // D-083 rule 2: the suggestion as text; it never applies itself (D-047).
+          <section className="card-v3 compare">
+            <h2 className="compare__title">Ready to progress</h2>
             {ready.map((r) => (
-              <div className="dk-compare__line" key={r.exerciseId}>
+              <p className="compare__text" key={r.exerciseId}>
                 {nameOf(r.exerciseId)}: {r.text}
-              </div>
+              </p>
             ))}
-          </div>
+          </section>
         )}
       </>
     )
@@ -655,10 +749,8 @@ function Deck() {
     }
 
     return (
-      <div className="dk-keep">
-        <div className="ob-sechead">
-          <span>Change the program?</span>
-        </div>
+      <section className="card-v3 dk-keep">
+        <h2 className="compare__title">Change the program?</h2>
         {draftWaiting === null ? null : draftWaiting ? (
           // D-074 rule 7: say what waits on the draft, and let it be opened or discarded here.
           <>
@@ -673,10 +765,10 @@ function Deck() {
               ))}
             </ul>
             <div className="ai-banner__actions">
-              <button type="button" className="ai-btn ai-btn--primary" onClick={() => navigate(draftWaiting.mode === 'edit' ? '/program/edit' : '/program/new')}>
+              <button type="button" className="chip chip--on" onClick={() => navigate(draftWaiting.mode === 'edit' ? '/program/edit' : '/program/new')}>
                 Open draft
               </button>
-              <button type="button" className="ai-btn" onClick={() => setDiscardAsked(true)}>
+              <button type="button" className="chip" onClick={() => setDiscardAsked(true)}>
                 Discard draft
               </button>
             </div>
@@ -707,7 +799,7 @@ function Deck() {
                 {kept.sets[deckItem.item.id] ? (
                   <span className="dk-keep__kept">Kept</span>
                 ) : (
-                  <button type="button" className="ai-btn" onClick={() => void keepAdded(deckItem.item.id, n)}>
+                  <button type="button" className="chip" onClick={() => void keepAdded(deckItem.item.id, n)}>
                     Keep {n} sets in program
                   </button>
                 )}
@@ -722,7 +814,7 @@ function Deck() {
                 {kept.sets[`added:${e.itemId}`] ? (
                   <span className="dk-keep__kept">Kept</span>
                 ) : (
-                  <button type="button" className="ai-btn" onClick={() => void keepAddedExercise(e)}>
+                  <button type="button" className="chip" onClick={() => void keepAddedExercise(e)}>
                     Keep {nameOf(e.exerciseId)} in program
                   </button>
                 )}
@@ -737,7 +829,7 @@ function Deck() {
                 {kept.order ? (
                   <span className="dk-keep__kept">Kept</span>
                 ) : (
-                  <button type="button" className="ai-btn" onClick={() => void keepTodaysOrder()}>
+                  <button type="button" className="chip" onClick={() => void keepTodaysOrder()}>
                     Keep this order
                   </button>
                 )}
@@ -750,57 +842,59 @@ function Deck() {
             )}
           </>
         )}
-      </div>
+      </section>
     )
   }
 
   // ── 3g Session summary ──
+  // D-086 rule 2: an ended session with nothing in it was deleted; the day stays open.
+  if (phase === 'summary' && (api.discarded || !api.session)) {
+    return (
+      <div className="screen screen--dock">
+        <AppHeader context={formatTrainContext(today, week)} title={day.focus ?? day.name} aside="Summary" />
+        <section className="card-v3 today-card">
+          <div className="today-card__meta">
+            {WEEKDAY.format(today)} · week {week}
+          </div>
+          <h1 className="today-card__title">Nothing was logged</h1>
+          <p className="today-card__sub">The workout is still open for today.</p>
+        </section>
+        <div className="dock-v3">
+          <button type="button" className="btn btn--primary tl-done" onClick={() => navigate('/', { replace: true })}>
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (phase === 'summary') {
     const felt = (api.session?.entries ?? []).filter((e) => e.feltOff)
     const minutes =
       summary.durationMin ?? Math.max(0, Math.round((now - new Date(api.session?.startedAt ?? now).getTime()) / 60000))
+    const totalSets = deck.filter((d) => d.logged && d.resolved.type !== 'check').reduce((n, d) => n + setRowsWithAdded(d.resolved, findEntry(api.session ?? undefined, d.item.id)?.addedSets).length, 0)
     return (
-      <div className="tl" style={{ paddingBottom: 130 }}>
-        <div className="dk-progress dk-progress--done" style={{ marginTop: 8 }}>
-          <span style={{ width: '100%' }} />
-        </div>
-        <div className="bd-hero">
-          <h1 className="bd-hero__title" style={{ fontSize: 40 }}>
-            Session complete
-          </h1>
-          <div className="bd-hero__sub">
-            {formatLongDate(today)} · {day.focus ?? day.name} · week {week} of {program.programWeeks}
+      <div className="screen screen--dock">
+        <AppHeader context={formatTrainContext(today, week)} title={day.focus ?? day.name} aside="Summary" />
+        <section className="card-v3 today-card">
+          <div className="today-card__meta">
+            {WEEKDAY.format(today)} · week {week} of {program.programWeeks}
           </div>
-        </div>
-        <div style={{ margin: '20px 24px 0', borderTop: '1.5px solid var(--text)' }}>
-          <div className="dk-stat">
-            <span className="dk-stat__label">Sets done</span>
-            <span className="dk-stat__value">{summary.setsConfirmed}</span>
-          </div>
-          <div className="dk-stat">
-            <span className="dk-stat__label">Time</span>
-            <span className="dk-stat__value">{minutes} min</span>
-          </div>
-          <div className="dk-stat">
-            <span className="dk-stat__label">Skipped</span>
-            <span className="dk-stat__value">{summary.skipped}</span>
-          </div>
-        </div>
+          <h1 className="today-card__title">{day.focus ?? day.name} done</h1>
+          <p className="today-card__sub">
+            {summary.setsConfirmed} of {totalSets} sets · {minutes} min{summary.skipped > 0 ? ` · ${summary.skipped} skipped` : ''}
+          </p>
+        </section>
+        {swapped && <p className="note-v3">Logged as {day.name}&apos;s session (days changed)</p>}
         {renderProgress()}
         {felt.length > 0 && (
-          <div style={{ margin: '16px 24px 0', fontSize: 15, lineHeight: 1.45 }}>
-            <span style={{ color: 'var(--secondary)' }}>Felt off:</span>{' '}
-            {felt.map((e) => `${lowerFirst(nameOf(e.exerciseId))}, ${FELT_WORD[e.feltOff!]}`).join('; ')}.
-          </div>
-        )}
-        {swapped && (
-          <div className="banner" style={{ marginTop: 12 }}>
-            <span>Logged as {day.name}&apos;s session (days swapped)</span>
-          </div>
+          <p className="note-v3">
+            Felt off: {felt.map((e) => `${lowerFirst(nameOf(e.exerciseId))}, ${FELT_WORD[e.feltOff!]}`).join('; ')}.
+          </p>
         )}
         {renderKeep()}
-        <div className="ob-dock">
-          <button type="button" className="tl-done" onClick={() => void finish()}>
+        <div className="dock-v3">
+          <button type="button" className="btn btn--primary tl-done" onClick={() => void finish()}>
             Finish
           </button>
         </div>
@@ -870,14 +964,6 @@ function Deck() {
   const alternateId = current.resolved.alternateExerciseId
   const onAlternate = alternateId !== undefined && exerciseId === alternateId
   const swapTo = onAlternate ? current.resolved.exerciseId : alternateId
-  const prescription = [
-    prescriptionText(current.resolved),
-    current.resolved.tempo ? `tempo ${current.resolved.tempo}` : null,
-    current.resolved.restSec ? `rest ${formatRest(current.resolved.restSec)}` : null,
-    current.resolved.rpe ? `RPE ${current.resolved.rpe}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   const isCheckTile = !current.logged || current.resolved.type === 'check'
   const isCardioTile = current.logged && current.resolved.type === 'cardio_block'
@@ -1016,36 +1102,6 @@ function Deck() {
     )
   }
 
-  function renderHoldButton(row: SetRow) {
-    if (!current) return null
-    const key = rowKey(current.item.id, row)
-    const startedAt = holdStart[key]
-    return (
-      <button
-        type="button"
-        className={startedAt ? 'dk-hold dk-hold--running' : 'dk-hold'}
-        aria-label={startedAt ? 'Stop hold timer' : 'Start hold timer'}
-        onClick={() => {
-          if (startedAt) {
-            const seconds = Math.round((Date.now() - startedAt) / 1000)
-            setHoldStart((h) => {
-              const nextHolds = { ...h }
-              delete nextHolds[key]
-              return nextHolds
-            })
-            void api
-              .writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), seconds })
-              .then(() => startRest())
-          } else {
-            setHoldStart((h) => ({ ...h, [key]: Date.now() }))
-          }
-        }}
-      >
-        {startedAt ? <span /> : <PlayIcon />}
-      </button>
-    )
-  }
-
   // D-065 rule 5: today's rows include the sets added during the session.
   const addedSets = entry?.addedSets ?? 0
   const baseSets = Math.max(1, current.resolved.sets ?? 1)
@@ -1067,32 +1123,150 @@ function Deck() {
     setDrafts((d) => ({ ...d, ...fills }))
   }
 
-  return (
-    <div className="tl" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div className="dk-head">
-        <span className="dk-head__section">
-          {current.section.title} · {current.position} of {deck.length}
-        </span>
-        {restRemaining > 0 && (
-          <span className="dk-rest">
-            <span className="dk-rest__label">rest</span>
-            <span className="dk-rest__value">{formatClock(restRemaining)}</span>
-          </span>
+  const restTotal = restSec ?? current.resolved.restSec ?? 0
+  const lastDone = [...setNumbers].reverse().find((n) => {
+    const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
+    return rows.every((row) => isSetConfirmed(findSet(entry, row)))
+  })
+  const restWords =
+    isCheckTile || isCardioTile
+      ? `Breathe. ${exercise?.name ?? 'This one'} is next.`
+      : pendingN !== undefined
+        ? lastDone
+          ? `${lastDone === 1 ? 'Good first set' : `Set ${lastDone} done`}. Breathe, set ${pendingN} is next.`
+          : `Breathe. Set ${pendingN} is next.`
+        : `Breathe. ${next ? `${nameOf(next.resolved.exerciseId ?? '')} is next.` : 'That was the last one.'}`
+  const referenceLine = referenceEntry ? entryLine(referenceEntry.sets.filter(isSetConfirmed), unit) : ''
+  const activeN = editingN ?? pendingN
+  const cardioKey = boxKey(rowKey(current.item.id, { n: 1 }), 'v')
+  const cardioValue = drafts[cardioKey] ?? (findSet(entry, { n: 1 })?.minutes !== undefined ? String(findSet(entry, { n: 1 })?.minutes) : '')
+  const cardioMinutes = Number(cardioValue || current.resolved.minutes || 0)
+  const setCardio = (minutes: number) => setDrafts((d) => ({ ...d, [cardioKey]: String(Math.max(0, minutes)) }))
+
+  /** One set (2.04, 2.05): done rows fold to a line, the active one opens with its boxes, later ones show last week. */
+  function renderSet(n: number) {
+    if (!current) return null
+    const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
+    const flaggedRow = rows.find((row) => isSetFlagged(findSet(entry, row)))
+    const typed = rows.some((row) => (['w', 'r', 'v'] as Box[]).some((box) => drafts[boxKey(rowKey(current.item.id, row), box)] !== undefined || errors[boxKey(rowKey(current.item.id, row), box)] !== undefined))
+    const allConfirmed = rows.every((row) => isSetConfirmed(findSet(entry, row)))
+    const setRef = (element: HTMLDivElement | null) => {
+      rowRefs.current[`${current.item.id}:${n}`] = element
+    }
+    // D-054 rule 5: the last-week cell only when this exact row has last week's value.
+    const refCell = (row: SetRow) => {
+      const reference = exactReference(row)
+      return reference ? <span className="dk-set__ref">{formatSetValue(reference)}</span> : null
+    }
+    const isLoad = (current.resolved.type ?? 'load_reps') === 'load_reps'
+    const active = n === activeN || typed || flaggedRow !== undefined || holdStart[rowKey(current.item.id, rows[0])] !== undefined
+    const extra = (
+      <>
+        {flaggedRow && <div className="dk-flag">Couldn&apos;t read this. Tap to fix.</div>}
+        {/* D-065 rule 5: the last added set, with nothing saved, can be removed. */}
+        {n === baseSets + addedSets && n > baseSets && !rows.some((row) => findSet(entry, row)) && (
+          <button
+            type="button"
+            className="dk-addset dk-addset--remove"
+            onClick={() => {
+              for (const row of rows) clearBoxes(rowKey(current.item.id, row))
+              void api.changeAddedSets(current.item.id, exerciseId, -1)
+            }}
+          >
+            Remove set {n}
+          </button>
         )}
-        <button type="button" className="dk-planbtn" aria-label="Today's plan" onClick={() => setPlanOpen(true)}>
-          Plan
-        </button>
-        <button
-          type="button"
-          className="dk-end"
-          onClick={endFlow}
-        >
-          End
-        </button>
+        {n === pendingN && suggestion && (
+          suggestion.kind === 'weight' ? (
+            <button type="button" className="dk-chip" onClick={applySuggestion}>
+              ↑ {suggestionText(suggestion)}
+            </button>
+          ) : (
+            <div className="dk-chip dk-chip--note">{suggestionText(suggestion)}</div>
+          )
+        )}
+      </>
+    )
+    if (allConfirmed && !active) {
+      const text = rows.map((row) => {
+        const set = findSet(entry, row)!
+        const value = set.weight !== undefined && set.reps !== undefined ? `${set.weight} ${unit} × ${set.reps}` : formatSetValue(set)
+        return row.side ? `${row.side} ${value}` : value
+      })
+      return (
+        <div className="dk-set" key={n}>
+          <button type="button" className="set-done" onClick={() => setEditingN(n)} aria-label={`Set ${n}: ${text.join(', ')}. Edit`}>
+            <span className="set-done__n">Set {n}</span>
+            <span className="set-done__value">{text.join(' · ')}</span>
+            <span className="set-done__tick" aria-hidden="true">
+              <Tick />
+            </span>
+          </button>
+          {extra}
+        </div>
+      )
+    }
+    if (!active) {
+      const reference = rows.map((row) => exactReference(row)).find(Boolean)
+      return (
+        <div className="dk-set" key={n}>
+          <button type="button" className="set-later" onClick={() => setEditingN(n)}>
+            <span className="set-later__n">Set {n}</span>
+            <span className="set-later__ref">{reference ? `Last week ${formatSetValue(reference)}` : isLoad && n > 1 ? 'Same weight' : prescriptionPlaceholder(current.resolved)}</span>
+          </button>
+          {extra}
+        </div>
+      )
+    }
+    return (
+      <div className="dk-set" key={n}>
+        <div className="set-active">
+          {isLoad ? (
+            // D-051: Weight and Reps side by side; one line per side for per-side items.
+            rows.map((row, i) => (
+              <div className="dk-set__row dk-set__row--boxes dk-set__row--load" key={row.side ?? 'set'} ref={i === 0 ? setRef : undefined}>
+                <span className="dk-set__n">{i === 0 ? `Set ${n}` : ''}</span>
+                {refCell(row)}
+                {renderBox(row, 'w')}
+                {renderBox(row, 'r')}
+                {renderTick([row])}
+              </div>
+            ))
+          ) : (
+            <div className="dk-set__row dk-set__row--boxes" ref={setRef}>
+              <span className="dk-set__n">Set {n}</span>
+              {!current.resolved.perSide && refCell(rows[0])}
+              {current.resolved.perSide ? <div className="dk-pair">{rows.map((row) => renderBox(row, 'v'))}</div> : renderBox(rows[0], 'v')}
+              {renderTick(rows)}
+            </div>
+          )}
+        </div>
+        {extra}
       </div>
-      <div className="dk-progress">
-        <span style={{ width: `${(current.position / deck.length) * 100}%` }} />
-      </div>
+    )
+  }
+
+  const holdKey = current.resolved.type === 'timed_hold' && activeN !== undefined ? rowKey(current.item.id, current.resolved.perSide ? { n: activeN, side: 'L' } : { n: activeN }) : null
+  const holdStarted = holdKey ? holdStart[holdKey] : undefined
+  const holdTarget = current.resolved.holdSec ?? 0
+
+  return (
+    <div className="screen screen--deck">
+      <AppHeader
+        context={formatTrainContext(today, week)}
+        title={day.focus ?? day.name}
+        aside={isCheckTile && !current.logged ? current.section.title : `${current.position} of ${deck.length}`}
+        action={
+          <>
+            <button type="button" className="pill-action" aria-label="Today's plan" onClick={() => setPlanOpen(true)}>
+              Plan
+            </button>
+            <button type="button" className="dk-end" onClick={endFlow}>
+              End
+            </button>
+          </>
+        }
+      />
       {!resumeAsked && setsLogged > 0 && (
         <div className="tl-state">
           <StateBlock
@@ -1126,18 +1300,173 @@ function Deck() {
         </div>
       )}
 
-      <div className="dk-title">
-        <h1 className="dk-title__name">
+      <section className="card-v3 ex-card">
+        <span className="ex-card__section">{current.section.title}</span>
+        <h1 className="ex-card__name">
           {exercise?.name ?? exerciseId}
           {current.resolved.index && <span className="tl-tag">index</span>}
         </h1>
-        {prescription && <div className="dk-title__sub">{prescription}</div>}
-        {current.resolved.cue && <div className="dk-title__cue">{current.resolved.cue}</div>}
-      </div>
+        <span className="ex-card__sub">
+          {isCheckTile && !current.logged ? 'Tick it when it’s done' : prescriptionSentence(current.resolved)}
+          {referenceLine && !isCheckTile ? ` · last week ${referenceLine}` : ''}
+          {current.resolved.tempo ? ` · tempo ${current.resolved.tempo}` : ''}
+          {current.resolved.restSec && !isCheckTile ? ` · rest ${formatRest(current.resolved.restSec)}` : ''}
+          {current.resolved.rpe ? ` · RPE ${current.resolved.rpe}` : ''}
+        </span>
+        {current.resolved.cue && <span className="ex-card__cue">{current.resolved.cue}</span>}
 
-      <div style={{ flex: 1, paddingBottom: 24 }}>
-        {demoExpanded && (
-          <div style={{ margin: '0 24px' }}>
+        {restRemaining > 0 && (
+          <div className="rest-panel">
+            <ProgressRing value={restTotal > 0 ? restRemaining / restTotal : 0} size={96} stroke={8} label={`Rest ${formatClock(restRemaining)}`}>
+              <span className="dk-rest__value rest-panel__clock">{formatClock(restRemaining)}</span>
+            </ProgressRing>
+            <div className="rest-panel__side">
+              <span className="rest-panel__words">{restWords}</span>
+              <div className="rest-panel__buttons">
+                <button type="button" className="rest-btn" onClick={() => {
+                  setRestUntil((until) => (until ?? Date.now()) + 15000)
+                  setRestSec((sec) => (sec ?? restTotal) + 15)
+                }}>
+                  +15 s
+                </button>
+                <button type="button" className="rest-btn" onClick={() => setRestUntil(null)}>
+                  Skip
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {holdKey && !entry?.skipped && (
+          <div className="hold-panel">
+            <ProgressRing value={holdTarget > 0 && holdStarted ? Math.min(1, (now - holdStarted) / 1000 / holdTarget) : 0} size={176} stroke={8} label="Hold timer">
+              <span className="hold-panel__clock">{formatClock(holdStarted ? (now - holdStarted) / 1000 : 0)}</span>
+              {holdTarget > 0 && <span className="hold-panel__of">of {formatClock(holdTarget)}</span>}
+            </ProgressRing>
+            <span className="hold-panel__words">{holdStarted ? `Holding, set ${activeN}. Keep breathing.` : `Set ${activeN}. Start when you're in position.`}</span>
+          </div>
+        )}
+        {holdKey && !entry?.skipped && activeN !== undefined && (
+          <div className="ex-card__actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                const row: SetRow = current.resolved.perSide ? { n: activeN, side: 'L' } : { n: activeN }
+                const key = rowKey(current.item.id, row)
+                if (holdStart[key]) {
+                  const seconds = Math.round((Date.now() - holdStart[key]) / 1000)
+                  setHoldStart((h) => {
+                    const nextHolds = { ...h }
+                    delete nextHolds[key]
+                    return nextHolds
+                  })
+                  void api.writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), seconds }).then(() => {
+                    setEditingN(null)
+                    startRest()
+                  })
+                } else {
+                  setHoldStart((h) => ({ ...h, [key]: Date.now() }))
+                }
+              }}
+            >
+              {holdStarted ? 'Stop and log' : 'Start the timer'}
+            </button>
+            {holdTarget > 0 && !holdStarted && (
+              <button
+                type="button"
+                className="btn btn--tertiary"
+                onClick={() => {
+                  const row: SetRow = current.resolved.perSide ? { n: activeN, side: 'L' } : { n: activeN }
+                  void writeRow(row, { seconds: holdTarget }).then(() => setEditingN(null))
+                }}
+              >
+                Log {holdTarget} s without the timer
+              </button>
+            )}
+          </div>
+        )}
+
+        {isCardioTile && !entry?.skipped && (
+          <>
+            <div className="cardio-panel">
+              <button type="button" className="cardio-panel__step" aria-label="One minute less" onClick={() => setCardio(cardioMinutes - 1)}>
+                −
+              </button>
+              <div className="cardio-panel__value">
+                {cardioStart ? (
+                  <span className="cardio-panel__clock">{formatClock((now - cardioStart) / 1000)}</span>
+                ) : (
+                  <input
+                    {...numberBoxAttributes('box-cardio-min')}
+                    className="cardio-panel__input"
+                    inputMode="numeric"
+                    aria-label="Minutes"
+                    value={cardioValue}
+                    placeholder={String(current.resolved.minutes ?? '')}
+                    onChange={(event) => setDrafts((d) => ({ ...d, [cardioKey]: event.target.value }))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur()
+                    }}
+                    onBlur={(event) => {
+                      if (event.target.value.trim() === '') return
+                      void saveRow({ n: 1 })
+                    }}
+                  />
+                )}
+                <span className="cardio-panel__unit">minutes</span>
+              </div>
+              <button type="button" className="cardio-panel__step" aria-label="One minute more" onClick={() => setCardio(cardioMinutes + 1)}>
+                +
+              </button>
+            </div>
+            <div className="ex-card__actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() =>
+                  void (async () => {
+                    // The stepper's minutes are what Done saves; with none, Done behaves as before.
+                    const stored = findSet(entry, { n: 1 })?.minutes
+                    if (cardioMinutes > 0 && (drafts[cardioKey] !== undefined || stored === undefined)) {
+                      if (await writeRow({ n: 1 }, { minutes: cardioMinutes }, 'done')) advance(deck.indexOf(current))
+                      return
+                    }
+                    await done()
+                  })()
+                }
+              >
+                Done{cardioMinutes > 0 ? `, ${cardioMinutes} min` : ''}
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                aria-label={cardioStart ? 'Stop timer' : 'Start timer'}
+                onClick={() => {
+                  if (cardioStart) {
+                    const minutes = Math.max(1, Math.round((Date.now() - cardioStart) / 60000))
+                    setCardioStart(null)
+                    setDrafts((d) => ({ ...d, [cardioKey]: String(minutes) }))
+                  } else {
+                    setCardioStart(Date.now())
+                  }
+                }}
+              >
+                {cardioStart ? `Stop the timer, ${formatClock((now - cardioStart) / 1000)}` : `Start a ${current.resolved.minutes ?? cardioMinutes} min timer`}
+              </button>
+            </div>
+            <textarea
+              className="dk-note"
+              placeholder="Note"
+              aria-label="Session note"
+              defaultValue={entry?.note ?? ''}
+              onBlur={(event) => void api.setNote(current.item.id, exerciseId, event.target.value)}
+            />
+          </>
+        )}
+
+        {demoExpanded ? (
+          <div className="ex-card__demo">
             <div className="dk-demo">
               <DemoMedia exercise={exercise} />
               <button type="button" className="dk-demo__hide" onClick={() => setDemoOpen((d) => ({ ...d, [at]: false }))}>
@@ -1151,197 +1480,74 @@ function Deck() {
               </div>
             ))}
           </div>
+        ) : (
+          <button type="button" className="ex-card__demo-link" onClick={() => setDemoOpen((d) => ({ ...d, [at]: true }))}>
+            Show demo and how-to
+          </button>
+        )}
+      </section>
+
+      <div className="dk-body">
+        {entry?.skipped ? (
+          <p className="note-v3">Skipped today: discomfort.</p>
+        ) : isCheckTile ? (
+          <button
+            type="button"
+            className={checked ? 'check-row check-row--on' : 'check-row'}
+            aria-pressed={checked}
+            aria-label={checked ? 'Checked' : 'Not checked'}
+            onClick={() => void api.setChecked(current.item.id, exerciseId, !checked)}
+          >
+            <span className="check-row__text">
+              <span className="check-row__name">{exercise?.name ?? exerciseId}</span>
+              {prescriptionText(current.resolved) && <span className="check-row__sub">{prescriptionText(current.resolved)}</span>}
+            </span>
+            <span className="check-row__mark" aria-hidden="true">
+              {checked && <Tick />}
+            </span>
+          </button>
+        ) : isCardioTile ? null : (
+          setNumbers.map((n) => renderSet(n))
         )}
 
-        <div className="dk-body" style={demoExpanded ? { marginTop: 14 } : undefined}>
-          {!demoExpanded && (
-            <button type="button" className="dk-demo-row" onClick={() => setDemoOpen((d) => ({ ...d, [at]: true }))}>
-              <span className="bd-demo" aria-hidden="true">
-                <span>demo</span>
-              </span>
-              <span className="dk-demo-row__label">Show demo and how-to</span>
-            </button>
-          )}
-
-          {entry?.skipped ? (
-            <div className="dk-check">
-              <span className="dk-check__label">Skipped today: discomfort.</span>
-            </div>
-          ) : isCheckTile ? (
-            <div className="dk-check">
-              <span className="dk-check__label">Tap when done</span>
-              <button
-                type="button"
-                className={checked ? 'dk-checkbox dk-checkbox--on' : 'dk-checkbox'}
-                aria-label={checked ? 'Checked' : 'Not checked'}
-                onClick={() => void api.setChecked(current.item.id, exerciseId, !checked)}
-              >
-                <TickIcon />
-              </button>
-            </div>
-          ) : isCardioTile ? (
-            <>
-              <div className="dk-cardio">
-                <span className="dk-cardio__clock">{formatClock(cardioStart ? (now - cardioStart) / 1000 : 0)}</span>
-                <div className="dk-cardio__of">
-                  <span>of</span>
-                  <input
-                    {...numberBoxAttributes('box-cardio-min')}
-                    inputMode="numeric"
-                    aria-label="Minutes"
-                    value={
-                      drafts[boxKey(rowKey(current.item.id, { n: 1 }), 'v')] ??
-                      (findSet(entry, { n: 1 })?.minutes !== undefined ? String(findSet(entry, { n: 1 })?.minutes) : '')
-                    }
-                    placeholder={String(current.resolved.minutes ?? '')}
-                    onChange={(event) => setDrafts((d) => ({ ...d, [boxKey(rowKey(current.item.id, { n: 1 }), 'v')]: event.target.value }))}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') event.currentTarget.blur()
-                    }}
-                    onBlur={(event) => {
-                      if (event.target.value.trim() === '') return
-                      void saveRow({ n: 1 })
-                    }}
-                  />
-                  <span>min</span>
-                </div>
-                <button
-                  type="button"
-                  className={cardioStart ? 'dk-hold dk-hold--running' : 'dk-hold'}
-                  aria-label={cardioStart ? 'Stop timer' : 'Start timer'}
-                  onClick={() => {
-                    if (cardioStart) {
-                      const minutes = Math.max(1, Math.round((Date.now() - cardioStart) / 60000))
-                      setCardioStart(null)
-                      setDrafts((d) => ({ ...d, [boxKey(rowKey(current.item.id, { n: 1 }), 'v')]: String(minutes) }))
-                    } else {
-                      setCardioStart(Date.now())
-                    }
-                  }}
-                >
-                  {cardioStart ? <span /> : <PlayIcon />}
-                </button>
-              </div>
-              <textarea
-                className="dk-note"
-                placeholder="Note"
-                aria-label="Session note"
-                defaultValue={entry?.note ?? ''}
-                onBlur={(event) => void api.setNote(current.item.id, exerciseId, event.target.value)}
-              />
-            </>
-          ) : (
-            setNumbers.map((n) => {
-              const rows: SetRow[] = current.resolved.perSide ? [{ n, side: 'L' }, { n, side: 'R' }] : [{ n }]
-              const flaggedRow = rows.find((row) => isSetFlagged(findSet(entry, row)))
-              const holdRow =
-                current.resolved.type === 'timed_hold'
-                  ? (rows.find((row) => !isSetConfirmed(findSet(entry, row))) ?? rows[rows.length - 1])
-                  : null
-              const setRef = (element: HTMLDivElement | null) => {
-                rowRefs.current[`${current.item.id}:${n}`] = element
-              }
-              // D-054 rule 5: the last-week cell only when this exact row has last week's value.
-              const refCell = (row: SetRow) => {
-                const reference = exactReference(row)
-                return reference ? <span className="dk-set__ref">{formatSetValue(reference)}</span> : null
-              }
-              const isLoad = (current.resolved.type ?? 'load_reps') === 'load_reps'
-              return (
-                <div className="dk-set" key={n}>
-                  {isLoad ? (
-                    // D-051: Weight and Reps side by side; one line per side for per-side items.
-                    rows.map((row, i) => (
-                      <div className="dk-set__row dk-set__row--boxes dk-set__row--load" key={row.side ?? 'set'} ref={i === 0 ? setRef : undefined}>
-                        <span className="dk-set__n">{i === 0 ? n : ''}</span>
-                        {refCell(row)}
-                        {renderBox(row, 'w')}
-                        {renderBox(row, 'r')}
-                        {renderTick([row])}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="dk-set__row dk-set__row--boxes" ref={setRef}>
-                      <span className="dk-set__n">{n}</span>
-                      {!current.resolved.perSide && refCell(rows[0])}
-                      {current.resolved.perSide ? <div className="dk-pair">{rows.map((row) => renderBox(row, 'v'))}</div> : renderBox(rows[0], 'v')}
-                      {holdRow ? renderHoldButton(holdRow) : renderTick(rows)}
-                    </div>
-                  )}
-                  {flaggedRow && <div className="dk-flag">Couldn&apos;t read this. Tap to fix.</div>}
-                  {/* D-065 rule 5: the last added set, with nothing saved, can be removed. */}
-                  {n === baseSets + addedSets && n > baseSets && !rows.some((row) => findSet(entry, row)) && (
-                    <button
-                      type="button"
-                      className="dk-addset dk-addset--remove"
-                      onClick={() => {
-                        for (const row of rows) clearBoxes(rowKey(current.item.id, row))
-                        void api.changeAddedSets(current.item.id, exerciseId, -1)
-                      }}
-                    >
-                      Remove set {n}
-                    </button>
-                  )}
-                  {n === pendingN && suggestion && (
-                    suggestion.kind === 'weight' ? (
-                      <button type="button" className="dk-chip" onClick={applySuggestion}>
-                        ↑ {suggestionText(suggestion)}
-                      </button>
-                    ) : (
-                      <div className="dk-chip dk-chip--note">{suggestionText(suggestion)}</div>
-                    )
-                  )}
-                </div>
-              )
-            })
-          )}
+        <div className="dk-tools">
           {!entry?.skipped && !isCheckTile && !isCardioTile && (
-            <button type="button" className="dk-addset" onClick={() => void api.changeAddedSets(current.item.id, exerciseId, 1)}>
+            <button type="button" className="chip dk-addset" onClick={() => void api.changeAddedSets(current.item.id, exerciseId, 1)}>
               + Add set
             </button>
           )}
-
-          <div className="dk-tools">
-            <button
-              type="button"
-              className={entry?.feltOff ? 'dk-tool dk-tool--on' : 'dk-tool'}
-              onClick={() => {
-                setFeltChoice(entry?.feltOff ?? null)
-                setSheet('felt')
-              }}
-            >
-              {entry?.feltOff ? `Felt off: ${FELT_WORD[entry.feltOff]}` : 'Felt off'}
+          <button type="button" className="chip dk-tool" onClick={() => setSheet('swap')}>
+            Swap
+          </button>
+          <button
+            type="button"
+            className={entry?.feltOff ? 'chip chip--on dk-tool dk-tool--on' : 'chip dk-tool'}
+            onClick={() => {
+              setFeltChoice(entry?.feltOff ?? null)
+              setSheet('felt')
+            }}
+          >
+            {entry?.feltOff ? `Felt off: ${FELT_WORD[entry.feltOff]}` : 'Felt off'}
+          </button>
+          {swapTo && (
+            <button type="button" className="chip dk-tool" onClick={() => void api.chooseExercise(current.item.id, swapTo)}>
+              Use {nameOf(swapTo)} instead
             </button>
-            <button type="button" className="dk-tool" onClick={() => setSheet('swap')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M7 8h10M14 4.5L17.5 8 14 11.5M17 16H7M10 12.5L6.5 16l3.5 3.5" />
-              </svg>
-              Swap
-            </button>
-            <button type="button" className="dk-tool" onClick={() => setAdding(true)}>
-              + Add exercise
-            </button>
-            {swapTo && (
-              <button type="button" className="dk-tool" onClick={() => void api.chooseExercise(current.item.id, swapTo)}>
-                Use {nameOf(swapTo)} instead
-              </button>
-            )}
-          </div>
+          )}
         </div>
+
+        {next && (
+          <section className="card-v3 up-next">
+            <span className="ex-card__section">Up next</span>
+            <span className="up-next__name">{nameOf(next.resolved.exerciseId ?? '')}</span>
+            <span className="ex-card__sub">{prescriptionSentence(next.resolved)}</span>
+          </section>
+        )}
       </div>
 
       {focusLabel && <FocusLabel text={focusLabel} />}
       <div className={focusLabel ? 'dk-foot dk-foot--flow' : 'dk-foot'}>
-        {next && (
-          <div className="dk-next">
-            <span className="dk-next__name">
-              <span className="dk-next__label">Next · </span>
-              <b>{nameOf(next.resolved.exerciseId ?? '')}</b>
-            </span>
-            <span className="dk-next__label">{prescriptionText(next.resolved)}</span>
-          </div>
-        )}
-        <div className="dk-actions" style={next ? undefined : { paddingTop: 10 }}>
+        <div className="dk-actions">
           <button
             type="button"
             className="dk-back"
@@ -1349,23 +1555,24 @@ function Deck() {
             disabled={at === 0}
             onClick={() => {
               setPosition(Math.max(0, at - 1))
+              setEditingN(null)
               window.scrollTo({ top: 0 })
             }}
           >
             <ChevronLeftIcon />
           </button>
           <button type="button" className="dk-donebtn deck-done" onClick={() => void done()}>
-            Done
+            {next ? 'Done' : 'Finish workout'}
           </button>
         </div>
       </div>
 
       {endAsked && (
         <Dialog
-          title="End this session?"
-          body={`${notDone} ${notDone === 1 ? 'exercise is' : 'exercises are'} not done. What you logged is kept.`}
+          title="End this workout?"
+          body={endDialogBody(doneForEnd)}
           cancelLabel="Keep going"
-          confirmLabel="End session"
+          confirmLabel="End workout"
           danger
           onCancel={() => setEndAsked(false)}
           onConfirm={() => {
@@ -1386,6 +1593,7 @@ function Deck() {
           nameOf={(d) => nameOf(findEntry(api.session ?? undefined, d.item.id)?.exerciseId ?? d.resolved.exerciseId ?? '')}
           onJump={(index) => {
             setPlanOpen(false)
+            setEditingN(null)
             setPosition(index)
             window.scrollTo({ top: 0 })
           }}
@@ -1417,6 +1625,7 @@ function Deck() {
           date={today}
           current={day}
           isToday
+          week={week}
           loggedToday={setsLogged > 0}
           onClose={() => setChangingDay(false)}
           onConfirm={async (dayId) => {

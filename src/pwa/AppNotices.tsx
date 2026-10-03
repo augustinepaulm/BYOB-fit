@@ -29,7 +29,7 @@ export function OfflineBar() {
   return (
     <div className="st-offline" role="status">
       <OfflineIcon />
-      <span>You're offline. Logging works; AI features need a connection.</span>
+      <span>You're offline. Everything works except AI.</span>
     </div>
   )
 }

@@ -46,7 +46,9 @@ export function useSettings(): SettingsApi {
   }, [read])
 
   const update = useCallback(async (patch: Partial<Settings>) => {
-    const next = { ...ref.current, ...patch }
+    const next: Settings = { ...ref.current, ...patch }
+    // A field patched to undefined is removed (Remove key, Restore published prices).
+    for (const key of Object.keys(patch) as (keyof Settings)[]) if (patch[key] === undefined) delete next[key]
     ref.current = next
     await saveSettings(next)
     setSettings(next)

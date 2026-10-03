@@ -27,17 +27,28 @@ export function Dialog({
       >
         <div className="dialog__title">{title}</div>
         <div className="dialog__body">{body}</div>
+        {/* Frame 2.11: stacked buttons. A destructive confirm sits under the
+            primary way out; otherwise the confirm is primary and Cancel is text. */}
         <div className="dialog__actions">
-          <button type="button" onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={danger ? 'is-danger' : undefined}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </button>
+          {danger ? (
+            <>
+              <button type="button" className="btn btn--primary" onClick={onCancel}>
+                {cancelLabel}
+              </button>
+              <button type="button" className="btn btn--destructive is-danger" onClick={onConfirm}>
+                {confirmLabel}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn btn--primary" onClick={onConfirm}>
+                {confirmLabel}
+              </button>
+              <button type="button" className="btn btn--tertiary" onClick={onCancel}>
+                {cancelLabel}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

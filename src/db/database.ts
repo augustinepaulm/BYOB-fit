@@ -7,6 +7,7 @@ import { dayChangesFromWeekPlans, type LegacyWeekPlan } from '../lib/dayChanges.
 import { upgradeProgram } from '../lib/program.ts'
 import type { Program } from '../types/program.ts'
 import type {
+  BodyEntry,
   DayChange,
   Goals,
   MealDay,
@@ -15,10 +16,11 @@ import type {
   SentLogEntry,
   Session,
   Settings,
+  WeekNote,
 } from '../types/stores.ts'
 
 export const DB_NAME = 'byob-fit'
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 /** The single record keys for the one-row stores. */
 export const PROFILE_KEY = 'me'
@@ -42,6 +44,10 @@ export interface ByobDB extends DBSchema {
   meta: { key: string; value: string }
   goals: { key: string; value: Goals }
   sentLog: { key: string; value: SentLogEntry; indexes: { at: string } }
+  /** D-078: one entry per date, keyed by date. Added at version 5. */
+  bodyEntries: { key: string; value: BodyEntry }
+  /** D-081: notes on a week, by id, indexed by the week's Sunday. Added at version 5. */
+  weekNotes: { key: string; value: WeekNote; indexes: { weekStart: string } }
 }
 
 let dbPromise: Promise<IDBPDatabase<ByobDB>> | null = null
@@ -102,6 +108,14 @@ export function getDB(): Promise<IDBPDatabase<ByobDB>> {
             for (const change of changes) await transaction.objectStore('dayChanges').put(change)
             db.deleteObjectStore('weekPlans' as never)
           })()
+        }
+        if (oldVersion < 5) {
+          // PLAN v1.26 section 5: two new stores. Nothing existing is touched;
+          // the new optional fields on meals, foods, settings and the sent log
+          // need no rewrite.
+          db.createObjectStore('bodyEntries', { keyPath: 'date' })
+          const notes = db.createObjectStore('weekNotes', { keyPath: 'id' })
+          notes.createIndex('weekStart', 'weekStart')
         }
       },
     })

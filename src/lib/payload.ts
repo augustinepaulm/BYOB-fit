@@ -3,11 +3,27 @@
 // Pure: no storage, no clock.
 
 import type { Program } from '../types/program.ts'
-import type { Goals, MealFood, PrivacyLevel, Session, Settings } from '../types/stores.ts'
+import type { BodyEntry, Goals, MealFood, PrivacyLevel, ProgressView, Session, Settings } from '../types/stores.ts'
 import { fromGoals, goalSummary } from './goals.ts'
 import { compactSessions } from './reprogram.ts'
 
-export type CallKind = 'review' | 'update' | 'meals'
+export type CallKind = 'review' | 'update' | 'meals' | 'week_note'
+
+/** D-081, D-084 rule 2: what a week review carries besides the program data. */
+export interface WeekReviewData {
+  view: ProgressView
+  /** The Sunday that starts the week, YYYY-MM-DD. */
+  weekStart: string
+  programWeek?: number
+  /** The week's score, or null when there is none yet. */
+  score: number | null
+  /** Each part as shown, in words, with its weight. */
+  parts: { label: string; value: string; weight?: number }[]
+  /** The week's underlying data for the view, already reduced to what may be sent. */
+  data: unknown
+  /** How the preview names that data (frame 3.13). */
+  summary?: SummaryLine[]
+}
 
 export interface SummaryLine {
   label: string
@@ -35,6 +51,10 @@ export interface PayloadData {
   mealLines?: string[]
   mealFoods?: MealFood[]
   mealBaseline?: string
+  /** D-078 rule 4, D-084 rule 2: body entries go at every level. */
+  bodyEntries?: BodyEntry[]
+  /** D-081: the week being reviewed. */
+  weekReview?: WeekReviewData
 }
 
 export const LEVEL_LABEL: Record<PrivacyLevel, string> = {
@@ -47,6 +67,7 @@ export const CALL_LABEL: Record<CallKind, string> = {
   review: 'AI review of your program',
   update: 'Program update',
   meals: 'Meal estimate',
+  week_note: 'Review this week',
 }
 
 function count(n: number, one: string, many = `${one}s`): string {
@@ -87,6 +108,17 @@ function sessionsFor(sessions: Session[], withNotes: boolean) {
   }))
 }
 
+/** D-084 rule 2: every D-078 field with its date; nothing else of the record. */
+export function bodyEntriesFor(entries: BodyEntry[]): Omit<BodyEntry, 'updatedAt'>[] {
+  return [...entries]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((entry) => {
+      const copy: Partial<BodyEntry> = { ...entry }
+      delete copy.updatedAt
+      return copy as Omit<BodyEntry, 'updatedAt'>
+    })
+}
+
 function confirmedSetCount(sessions: Session[]): number {
   return compactSessions(sessions).reduce(
     (n, s) => n + s.entries.reduce((m, e) => m + (e.sets?.length ?? 0), 0),
@@ -105,7 +137,12 @@ export function buildPayload(
 
   if (kind === 'meals') {
     const lines = data.mealLines ?? []
-    const foods = (data.mealFoods ?? []).map((f) => ({ name: f.name, kcal: f.kcal, ...(f.proteinG !== undefined ? { proteinG: f.proteinG } : {}) }))
+    // D-079 rule 1: a food's own nutrient values go with it, so the model can use them.
+    const foods = (data.mealFoods ?? []).map((f) => {
+      const food: MealFood = { name: f.name, kcal: f.kcal }
+      for (const key of ['proteinG', 'carbsG', 'fatG', 'fibreG', 'sodiumMg', 'addedSugarG', 'satFatG'] as const) if (f[key] !== undefined) food[key] = f[key]
+      return food
+    })
     const baseline = data.mealBaseline?.trim() ?? ''
     return {
       summary: [
@@ -134,15 +171,34 @@ export function buildPayload(
     { label: 'Logged', value: `${count(sets, 'set')} from ${count(sessions.length, 'session')}` },
     { label: 'Goal', value: goalText },
     { label: 'Your training rules', value: linesOf(rules).length ? count(linesOf(rules).length, 'line') : 'None' },
-  ]
+  ].filter((line) => kind !== 'week_note' || (line.label === 'Program' ? Boolean(program) : line.label === 'Logged' ? sessions.length > 0 : true))
 
   const message: Record<string, unknown> = { task: kind }
   if (kind === 'update') {
     message.week = data.week
     message.startedDayIds = data.startedDayIds ?? []
   }
+  if (kind === 'week_note' && data.weekReview) {
+    const review = data.weekReview
+    // D-084 rule 2: the week's score and its parts, at every level.
+    message.view = review.view
+    message.weekStart = review.weekStart
+    if (review.programWeek !== undefined) message.programWeek = review.programWeek
+    message.score = review.score
+    message.parts = review.parts
+    message.weekData = review.data
+    summary.unshift(
+      { label: 'Week', value: `${review.view[0].toUpperCase()}${review.view.slice(1)}, week of ${review.weekStart}` },
+      { label: 'Score', value: review.score === null ? 'None yet' : `${review.score} and its ${count(review.parts.length, 'part')}` },
+      ...(review.summary ?? []),
+    )
+  }
   message.rules = rules.trim() === '' ? 'No rules supplied.' : rules
   message.goal = goalFor(data.goals)
+  // D-084 rule 2: body entries, every field with its date, at every level.
+  const body = bodyEntriesFor(data.bodyEntries ?? [])
+  message.bodyEntries = body
+  summary.push({ label: 'Body entries', value: body.length ? count(body.length, 'entry', 'entries') : 'None' })
 
   if (level === 'standard' || level === 'full') {
     const experience = data.settings?.onboarding?.experience ?? null
@@ -177,5 +233,6 @@ export function joinSummary(summary: SummaryLine[]): string {
 export const PRIVACY_LEVELS: { value: PrivacyLevel; title: string; sub: string }[] = [
   { value: 'minimal', title: 'Minimal', sub: 'Your workouts, program and goal' },
   { value: 'standard', title: 'Standard', sub: 'Adds experience level and "felt off" flags' },
-  { value: 'full', title: 'Full', sub: 'Adds age range, sex and current weight' },
+  // D-084 rule 1: age range and sex are never sent (O-11).
+  { value: 'full', title: 'Full', sub: 'Adds current weight' },
 ]

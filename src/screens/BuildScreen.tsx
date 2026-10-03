@@ -9,7 +9,7 @@ import { sendAndLog } from '../ai/send.ts'
 import { AISetupFlow, OfflineBar, StatePanel } from '../ai/parts.tsx'
 import { useOnline, usePreview } from '../ai/usePreview.tsx'
 import { BuilderBar, Hero } from '../builder/ui.tsx'
-import { getGoals, listAllSessions, saveProgram, saveReprogram } from '../db/index.ts'
+import { getGoals, listAllSessions, listBodyEntries, saveProgram, saveReprogram } from '../db/index.ts'
 import { stripCodeFences } from '../lib/anthropic.ts'
 import { findItem, itemsWithHistory } from '../lib/builder.ts'
 import { toISODate } from '../lib/dates.ts'
@@ -23,7 +23,7 @@ import { Dock, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
 import type { Day } from '../types/program.ts'
-import type { Goals, PrivacyLevel, Session } from '../types/stores.ts'
+import type { BodyEntry, Goals, PrivacyLevel, Session } from '../types/stores.ts'
 
 type Phase =
   | { kind: 'ready' }
@@ -41,16 +41,19 @@ export function BuildScreen() {
   const online = useOnline()
   const [goals, setGoals] = useState<Goals | null | undefined>(undefined)
   const [sessions, setSessions] = useState<Session[]>([])
+  // D-084 rule 2: body entries go at every level.
+  const [bodyEntries, setBodyEntries] = useState<BodyEntry[]>([])
   const [phase, setPhase] = useState<Phase>({ kind: 'ready' })
   const [busy, setBusy] = useState(false)
   const todayIso = toISODate(today)
 
   useEffect(() => {
     let live = true
-    void Promise.all([getGoals(), listAllSessions()]).then(([g, s]) => {
+    void Promise.all([getGoals(), listAllSessions(), listBodyEntries()]).then(([g, s, b]) => {
       if (!live) return
       setGoals(g ?? null)
       setSessions(s)
+      setBodyEntries(b)
     })
     return () => {
       live = false
@@ -105,6 +108,7 @@ export function BuildScreen() {
         settings,
         week,
         startedDayIds: [...started].sort(),
+        bodyEntries,
       }),
     onLevel: (privacyLevel) => void update({ privacyLevel }),
     onSend: (payload, level) => void send(payload, level),

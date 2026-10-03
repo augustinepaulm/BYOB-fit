@@ -116,7 +116,7 @@ export function SwapStep({
         {type !== 'check' && field('restSec', 'Rest', 's')}
       </div>
       <Dock>
-        <PrimaryButton onClick={confirm}>Log it this way</PrimaryButton>
+        <PrimaryButton onClick={confirm}>Swap for today</PrimaryButton>
       </Dock>
     </div>
   )

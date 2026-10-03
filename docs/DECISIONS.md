@@ -447,3 +447,78 @@ Consequence: small change 11.9, as two commits. D-072 rules 2 and 3 leave Phase 
 ## D-076 How-to guide built last (FROZEN, Oct 2, 2026)
 Stated by Auggie, Oct 2, 2026: D-073's placement stays (a guide in Profile and "?" links, no new tab); D-073's guide text becomes a draft. The guide is built last, after the design rework and the other Phase 13 items. Its text is then redrafted against the new screens and recorded as a new decision that supersedes D-073's text. If the rework removes or merges Week, the deck header or Settings > AI, the "?" placement is confirmed again with that text.
 Consequence: the guide leaves Phase 13 and becomes its own step after it.
+
+## D-077 Navigation: five tabs, always shown (FROZEN, Oct 3, 2026)
+Stated by Auggie, Oct 2 and 3, 2026.
+1. Tabs: Train, Meals, Body, Progress, Profile. Train holds two views, Today and Week (Today keeps Start, the deck, Plan and Change; Week keeps day changes and Do this today). Progress holds three views: Training, Nutrition and Body. The per-exercise history and set editing now in Log move to Progress > Training. Settings stays under Profile.
+2. The tab bar is shown on every screen, including during a workout, so the user can check Progress or the week mid-session. It hides only while the keyboard is open (as the banner does, D-064).
+3. While a workout is open and the user is elsewhere, a bar above the tabs shows the workout and any running rest timer; tapping it returns to the deck where the user left.
+4. Leaving the deck loses nothing: the rest timer's end time and typed but unsaved set boxes persist and are restored on return. Checked on `main` (974ddbf): both live only in the deck screen's component state today (`restUntil` and `drafts` in `DeckScreen.tsx`).
+Consequence: supersedes D-007's screen list and the five tabs of PLAN section 4 when the rework is built.
+
+## D-078 Body log: InBody fields, tape measurements, BMR (FROZEN, Oct 3, 2026; amends D-071 rule 3)
+1. A body entry is dated and holds any of: weight; skeletal muscle mass; body fat mass; percent body fat; visceral fat level; BMR (kcal/day); waist, chest, hips, upper arm, thigh. Every field is optional, so a scale-only weigh-in is one field. One entry per date; a new entry for the same date replaces it (D-071 rule 3). Fields chosen to match the InBody result sheet's muscle-fat analysis and obesity analysis; InBody Score, ECW/TBW, segmental values and phase angle are left out (model-specific and slow to enter). Tape measurements kept (Auggie, Oct 3, 2026).
+2. Units: masses in the user's display unit (D-040); lengths in cm with kg and inches with lb (D-071 rule 3).
+3. BMR (Auggie, Oct 3, 2026): when an entered BMR is no more than 8 weeks old (MODELED), it replaces Mifflin-St Jeor as the resting energy in the calorie target (D-046 step 1). The same activity factor, goal adjustment and safety floor apply. Meals names which source the target used.
+4. All body fields are sent to the AI in reviews, updates and period notes and shown in the send preview (D-071 rule 4).
+
+## D-079 Meals: more nutrients, fibre target, limits (FROZEN, Oct 3, 2026)
+Approved by Auggie, Oct 3, 2026. Sources and worked examples in `docs/SCORES.md` Part 4.
+1. Each parsed line and day carries calories, protein, carbohydrate, fat, fibre, sodium, added sugars and saturated fat. Values supplied by the AI are labelled "AI estimate" wherever shown; baseline foods (D-049) gain the same optional fields, so foods the user defines stay on the phone.
+2. Fibre target: 14 g per 1,000 kcal of the day's calorie target (National Academies Adequate Intake, checked at nap.edu Oct 3, 2026). Without a calorie target, the Adequate Intake by sex and age when both are entered; otherwise none. The Dietary Guidelines for Americans 2025–2030 were read first, as Auggie asked: they give no numeric fibre target.
+3. Limits shown against the day: sodium under 2,300 mg; saturated fat no more than 10% of logged calories; added sugars no more than 10 g per meal (DGA 2025–2030, read at cdn.realfood.gov/DGA.pdf Oct 3, 2026).
+4. DEFAULT: the added-sugars limit applies to a group of lines the user labels as a meal; unlabelled lines show a daily total without a limit.
+5. DEFAULT: limits are shown, not scored. The nutrition score keeps the four approved parts (D-080).
+Consequence: meal records and the export gain fields (database and export versions set in the phase contract).
+
+## D-080 Scores: training, nutrition, body (FROZEN, Oct 3, 2026)
+Approved by Auggie, Oct 3, 2026, as drafted. Rules, weights, sources and worked examples in `docs/SCORES.md`, which is the contract.
+1. Three separate scores, 0 to 100, per app week; never combined into one number.
+2. Training: adherence 40%, completeness 30%, progression 30%. Nutrition: logging 25%, energy 35%, protein 25%, fibre 15%. Body: goal measures against the entry about four weeks earlier, with noise bands. Weights are MODELED and labelled as judgement calls on screen.
+3. Safety: a day below the calorie floor never counts in range; an exercise skipped through Discomfort is not held against completeness; an ended empty session is not a finished workout.
+4. Missing data is named on screen; its part drops out and the other weights scale up.
+5. Open before the phase that builds the Body score: a noise band for weight (no source found), and a skeletal-muscle band (the 0.9 kg fat-free-mass figure is used as a labelled proxy until sourced).
+
+## D-081 AI notes on a period (FROZEN, Oct 3, 2026)
+Stated by Auggie, Oct 2, 2026; approved as drafted Oct 3, 2026.
+1. Each Progress view (Training, Nutrition, Body) offers "Review this week". It sends that week's score, its parts and the underlying data at the user's privacy level (D-044), behind the send preview (D-031), and records the call in the sent log.
+2. The reply is stored as a note on that week and shown with the score. Asking again adds a new note; earlier notes stay, newest first.
+3. Calls count toward the monthly budget, and none are offered until usage and budget (D-070) are built.
+
+## D-082 Design rework method and direction (FROZEN, Oct 3, 2026)
+Stated by Auggie, Oct 2, 2026: layouts, flows and navigation may all change; the app should reach the standard of award-winning apps; the paper ground stays, every other colour is open; buttons and controls are to be redesigned if they fall short.
+1. Chat's assessment of the current build (PR #34 tip, rendered at 390 px in light and dark, Oct 2, 2026): five button styles on one screen; heavy outlines on every set box; a navy tab bar heavier than the content; default system type; Log as an alphabetical list of mostly empty rows; the meal parser's grammar shown in a monospace box. Rated 5 of 10 against award-level apps.
+2. Method: decisions and rules first in this chat (D-077 to D-081, SCORES.md), then design brief v3 for Claude Design, which explores two or three directions on two hero screens before the whole app. The approved canvas replaces `design/BYOB-fit_v2_design.dc.html` as the source of truth for layout and copy.
+3. Kept: the paper ground (#f5f2ec light), 44 px touch targets, sentence case, no exclamation marks, light and dark for every frame, placeholder data only (the canvas is committed to a public repo).
+4. Constraints the canvas must respect: fonts bundled with the app (the security policy allows `font-src 'self'` only; D-066), charts drawn as inline SVG, no remote images, one button hierarchy across the app.
+5. D-018's "no animations" covered exercise demos and was superseded by D-033; interface motion is allowed and must respect the system's reduce-motion setting.
+
+## D-083 Design v3 adopted, with corrections (FROZEN, Oct 3, 2026)
+The canvas `design/BYOB-fit_v3_design.html` (direction "Steady" with a navy tab bar, chosen by Auggie in Claude Design) and its handoff notes `design/BYOB-fit_v3_README.md` replace the v2 canvas as the source of truth for layout, tokens and copy. Reviewed in chat Oct 3, 2026: 57 light frames and their dark versions, rendered offline. Corrections approved by Auggie, Oct 3, 2026 ("all recommended"):
+1. Swap (frame 2.10) is for today only, with the "how to log it today" prescription fields of D-069 rule 8 in place of the "Today only / Rest of program" control. Changing the program stays in the builder (D-042).
+2. The session summary (2.12) shows the progression suggestion as text; the "Use 75 kg" and "Keep 72.5 kg" buttons are not built (D-047: the suggestion never applies itself, and program items store no weight).
+3. Screens the canvas does not draw are restyled with the v3 tokens and components and keep their current layout: exercise history and set editing (now under Progress > Training, D-077 rule 1), the Settings sub-pages, the builder, the goal setter, import, the sent log, the privacy page and the foods list. The welcome screen (1a) gains a tertiary "Restore from a backup" under "Get started" (D-072 rule 1).
+4. Muted text (#8a847a; 3.3:1 on the ground, measured in chat) is used only for non-essential text. Every other token pair measured in chat meets WCAG AA (lowest: dark tab label 4.9:1).
+5. Fonts: Bricolage Grotesque and Atkinson Hyperlegible, both SIL OFL 1.1 (checked in Google Fonts' repository Oct 3, 2026), self-hosted as woff2 with their OFL texts. Instrument Sans appears only in the canvas's annotations and is not shipped.
+6. DEFAULT: the tab bar shows on every screen inside the app, including the deck and Settings pages, but not on onboarding, import or the builder, which are full-screen flows with their own Back and Save.
+7. The placeholder training score in brief v3 section 8 (76) is wrong for its own goal; SCORES.md gives 85. Chat's error; no code impact, because tests use SCORES.md's worked examples.
+
+## D-084 Privacy levels kept; body data and scores sent at every level (FROZEN, Oct 3, 2026; amends D-044)
+Approved by Auggie, Oct 3, 2026. The canvas's renamed levels (3.16: "Summaries only", "Summaries and foods", "Everything") are not built.
+1. The levels stay Minimal, Standard and Full with D-044's contents. Frame 3.16's layout is used with D-044's names and descriptions. Onboarding 1k's Full line reads "Adds current weight" (age range and sex are never sent, O-11).
+2. Every level also sends body entries (all D-078 fields, with dates; D-071 rule 4, Auggie's choice) and, in a week review (D-081), that week's score and its parts. D-044's "never: body-stat history" is removed for body entries.
+3. Still never sent, at any level: name, date of birth, height, age and sex (D-046), the Profile screen's free fields, the API key.
+4. The meals estimate keeps sending only the unmatched lines and the user's saved foods (D-045).
+
+## D-085 AI usage and budget, as built (FROZEN, Oct 3, 2026; amends D-070)
+1. Each AI reply's `usage.input_tokens` and `usage.output_tokens` are stored on its sent-log entry with the model used. A call that returns no usage counts as zero and is marked so.
+2. The month is the calendar month in the phone's local time.
+3. Default price table, per million tokens in / out, verified Oct 3, 2026 at platform.claude.com/docs/en/about-claude/pricing (unchanged from Oct 2): Sonnet 5 $2 / $10; Sonnet 5.5 $2 / $10; Haiku 4.5 $1 / $5; Opus 5.5 $4 / $20; Fable 5.1 $10 / $50. Rows are keyed by model string (`claude-sonnet-5`, `claude-sonnet-5-5`, `claude-haiku-4-5-20251001`, `claude-opus-5-5`, `claude-fable-5-1`; the strings other than the app's default come from Claude's product information, not the pricing page). Every row is editable. A model with no row shows its tokens with "No price set", and its cost is not counted.
+4. Budget (frame 3.17): optional monthly amount in dollars, none by default. "Warn me at" a percentage, default 80%. "Stop sending at the budget", on by default once a budget is set (Auggie accepted both, Oct 3, 2026). With the switch on, an AI action at or over the budget shows why and how to raise it, and sends nothing; with it off, a warning only.
+5. Settings links to the Anthropic console's limits page (https://platform.claude.com/settings/limits) and advises a key made only for this app. Every cost is labelled an estimate.
+
+## D-086 An ended session with nothing in it is discarded (FROZEN, Oct 3, 2026; amends D-075 rule 3)
+Approved by Auggie, Oct 3, 2026 (option 1). Found in chat's 11.9 verification: Start, then End with nothing logged, left today Done with no Change or Restore.
+1. When a session ends by any path (the four summary paths of D-075 rule 3, a mid-workout Change, `endOpenSession`) and holds no confirmed set and no checked item, it is deleted instead of ended. The date stays open: Today shows the plan, and Change and Restore stay offered.
+2. The summary then says "Nothing was logged" and its Done returns to Today.
+3. D-080's rule that an empty session is not a finished workout stays, as a second guard.

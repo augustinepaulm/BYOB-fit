@@ -9,7 +9,26 @@ import { SectionHead } from '../onboarding/ui.tsx'
 import { useSettings } from '../settings/useSettings.ts'
 import type { MealFood } from '../types/stores.ts'
 
-type Draft = { index: number | null; name: string; kcal: string; proteinG: string }
+/** D-079 rule 1: a food's optional values beyond calories, counted on the phone. */
+const OPTIONAL = [
+  { key: 'proteinG', label: 'Protein', unit: 'g' },
+  { key: 'carbsG', label: 'Carbohydrate', unit: 'g' },
+  { key: 'fatG', label: 'Fat', unit: 'g' },
+  { key: 'fibreG', label: 'Fibre', unit: 'g' },
+  { key: 'sodiumMg', label: 'Sodium', unit: 'mg' },
+  { key: 'addedSugarG', label: 'Added sugars', unit: 'g' },
+  { key: 'satFatG', label: 'Saturated fat', unit: 'g' },
+] as const
+
+type OptionalKey = (typeof OPTIONAL)[number]['key']
+
+type Draft = { index: number | null; name: string; kcal: string } & Record<OptionalKey, string>
+
+function draftOf(index: number | null, food?: MealFood): Draft {
+  const draft = { index, name: food?.name ?? '', kcal: food ? String(food.kcal) : '' } as Draft
+  for (const { key } of OPTIONAL) draft[key] = food?.[key] === undefined ? '' : String(food[key])
+  return draft
+}
 
 const num = (text: string) => Number(text.trim().replace(',', '.'))
 
@@ -18,7 +37,9 @@ function draftError(draft: Draft, foods: MealFood[]): string | null {
   if (name === '') return 'Give the food a name.'
   if (foods.some((f, i) => i !== draft.index && f.name.trim().toLowerCase() === name.toLowerCase())) return 'You already have a food with this name.'
   if (draft.kcal.trim() === '' || !Number.isFinite(num(draft.kcal)) || num(draft.kcal) < 0) return 'Enter calories as a number.'
-  if (draft.proteinG.trim() !== '' && (!Number.isFinite(num(draft.proteinG)) || num(draft.proteinG) < 0)) return 'Enter protein as a number, or leave it empty.'
+  for (const { key, label } of OPTIONAL) {
+    if (draft[key].trim() !== '' && (!Number.isFinite(num(draft[key])) || num(draft[key]) < 0)) return `Enter ${label.toLowerCase()} as a number, or leave it empty.`
+  }
   return null
 }
 
@@ -37,7 +58,7 @@ export function FoodsScreen() {
     setTried(true)
     if (error) return
     const food: MealFood = { name: draft.name.trim().replace(/\s+/g, ' '), kcal: num(draft.kcal) }
-    if (draft.proteinG.trim() !== '') food.proteinG = num(draft.proteinG)
+    for (const { key } of OPTIONAL) if (draft[key].trim() !== '') food[key] = num(draft[key])
     const next = draft.index === null ? [...foods, food] : foods.map((f, i) => (i === draft.index ? food : f))
     void update({ mealFoods: next })
     setDraft(null)
@@ -56,7 +77,7 @@ export function FoodsScreen() {
       <div className="bd-input">
         <input aria-label="Name" placeholder="breakfast" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
       </div>
-      <div className="bd-cols" style={{ marginTop: 12 }}>
+      <div className="food-grid" style={{ marginTop: 12 }}>
         <div>
           <div className="bd-label">Calories</div>
           <div className="bd-input">
@@ -64,13 +85,15 @@ export function FoodsScreen() {
             <span className="bd-input__unit">kcal</span>
           </div>
         </div>
-        <div>
-          <div className="bd-label">Protein</div>
-          <div className="bd-input">
-            <input inputMode="decimal" aria-label="Protein" placeholder="Optional" value={draft.proteinG} onChange={(e) => setDraft({ ...draft, proteinG: e.target.value })} />
-            <span className="bd-input__unit">g</span>
+        {OPTIONAL.map(({ key, label, unit }) => (
+          <div key={key}>
+            <div className="bd-label">{label}</div>
+            <div className="bd-input">
+              <input inputMode="decimal" aria-label={label} placeholder="Optional" value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} />
+              <span className="bd-input__unit">{unit}</span>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
       {tried && error && <div className="bd-label bd-label--error" style={{ marginTop: 8 }}>{error}</div>}
       <div className="ai-banner__actions">
@@ -104,7 +127,7 @@ export function FoodsScreen() {
               type="button"
               className="ml-line ml-food"
               key={index}
-              onClick={() => { setTried(false); setDraft({ index, name: food.name, kcal: String(food.kcal), proteinG: food.proteinG === undefined ? '' : String(food.proteinG) }) }}
+              onClick={() => { setTried(false); setDraft(draftOf(index, food)) }}
             >
               <span className="ml-line__text">{food.name}</span>
               <span className="bd-value" style={{ fontSize: 14 }}>
@@ -117,7 +140,7 @@ export function FoodsScreen() {
           form
         ) : (
           <div className="ai-banner__actions">
-            <button type="button" className="ai-btn" onClick={() => { setTried(false); setDraft({ index: null, name: '', kcal: '', proteinG: '' }) }}>
+            <button type="button" className="ai-btn" onClick={() => { setTried(false); setDraft(draftOf(null)) }}>
               Add a food
             </button>
           </div>

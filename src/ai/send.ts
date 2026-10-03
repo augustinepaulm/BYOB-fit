@@ -18,9 +18,16 @@ export function statusFor(result: MessageResult): { status: 'sent' | 'failed'; e
   return { status: 'failed', error: result.error }
 }
 
+/** D-085 rule 1: what the reply reported, or that it reported nothing. */
+export type UsageRecord = Pick<SentLogEntry, 'usage' | 'usageMissing'>
+
+export function usageRecord(result: MessageResult): UsageRecord {
+  return result.usage ? { usage: result.usage } : { usageMissing: true }
+}
+
 export interface SendLogStore {
   append: (entry: SentLogEntry) => Promise<void>
-  setStatus: (id: string, status: 'sent' | 'failed', error?: string) => Promise<void>
+  setStatus: (id: string, status: 'sent' | 'failed', error?: string, usage?: UsageRecord) => Promise<void>
 }
 
 const DB_STORE: SendLogStore = { append: appendSentLog, setStatus: setSentLogStatus }
@@ -45,6 +52,7 @@ export async function sendAndLog(
     at,
     kind: input.kind,
     privacyLevel: input.level,
+    model: input.settings.model ?? '',
     payloadSummary: joinSummary(input.payload.summary),
     payload: input.payload.message,
   })
@@ -60,6 +68,8 @@ export async function sendAndLog(
     input.timeoutMs,
   )
   const { status, error } = statusFor(result)
-  await store.setStatus(id, status, error)
+  // A call that never reached the API cost nothing; one that did counts its
+  // tokens, or zero marked as missing when the reply had none (D-085 rule 1).
+  await store.setStatus(id, status, error, status === 'sent' ? usageRecord(result) : undefined)
   return result
 }

@@ -6,18 +6,16 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import pkg from '../../package.json'
 import { Sheet, Switch } from '../builder/ui.tsx'
-import { clearAllStores, listSentLog } from '../db/index.ts'
-import { DEFAULT_MODEL, testKey } from '../lib/anthropic.ts'
-import { buildBackup, deliverBackup, parseBackup, restoreBackup } from '../lib/backup.ts'
+import { clearAllStores, getSettings, listSentLog } from '../db/index.ts'
+import { buildBackup, deliverBackup, parseBackup } from '../lib/backup.ts'
 import { LEVEL_LABEL } from '../lib/payload.ts'
-import { recordStoragePersistence } from '../lib/storage.ts'
+import { formatUsd, monthUsage, pricesOf } from '../lib/usage.ts'
 import { BackIcon, Segmented, SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { applyAppearance } from '../settings/appearance.ts'
+import { restoreFromText } from '../settings/restore.ts'
 import { appearanceOf, privacyLevelOf, unitsOf } from '../settings/defaults.ts'
 import { useSettings } from '../settings/useSettings.ts'
-import { CheckIcon } from '../ui/icons.tsx'
-import { StateBlock } from '../ui/StateBlock.tsx'
 
 type Status = { kind: 'ok' | 'error'; text: string } | null
 type Overlay = 'export' | 'reset' | 'import' | null
@@ -80,19 +78,21 @@ export function SettingsScreen() {
   const navigate = useNavigate()
   const { refresh } = useProgram()
   const { settings, loading, update, reload } = useSettings()
-  const [keyDraft, setKeyDraft] = useState<string | null>(null)
-  const [testing, setTesting] = useState(false)
-  const [testStatus, setTestStatus] = useState<Status>(null)
   const [dataStatus, setDataStatus] = useState<Status>(null)
   // Today's backup note links straight to the export sheet (D-050 rule 2).
   const exportFirst = (useLocation().state as { export?: boolean } | null)?.export === true
   const [overlay, setOverlay] = useState<Overlay>(exportFirst ? 'export' : null)
   const [pendingImport, setPendingImport] = useState<string | null>(null)
   const [sentThisMonth, setSentThisMonth] = useState<number | null>(null)
+  const [monthCost, setMonthCost] = useState<number | null>(null)
 
   useEffect(() => {
     let live = true
-    void listSentLog().then((entries) => live && setSentThisMonth(monthCount(entries.map((e) => e.at), new Date())))
+    void Promise.all([listSentLog(), getSettings()]).then(([entries, stored]) => {
+      if (!live) return
+      setSentThisMonth(monthCount(entries.map((e) => e.at), new Date()))
+      setMonthCost(monthUsage(entries, pricesOf(stored), new Date()).cost)
+    })
     return () => {
       live = false
     }
@@ -100,16 +100,7 @@ export function SettingsScreen() {
 
   if (loading) return null
 
-  const model = settings.model ?? DEFAULT_MODEL
   const foods = settings.mealFoods ?? []
-
-  async function runTest() {
-    setTesting(true)
-    setTestStatus(null)
-    const result = await testKey(keyDraft || settings.apiKey || '', model)
-    setTestStatus(result.ok ? { kind: 'ok', text: 'Key works · tested just now' } : { kind: 'error', text: result.error })
-    setTesting(false)
-  }
 
   async function exportData() {
     setOverlay(null)
@@ -144,13 +135,11 @@ export function SettingsScreen() {
   async function doImport() {
     setOverlay(null)
     if (!pendingImport) return
-    const result = parseBackup(pendingImport)
+    const text = pendingImport
     setPendingImport(null)
+    // The same import the welcome screen runs (D-072 rule 1).
+    const result = await restoreFromText(text)
     if (!result.ok) return
-    await restoreBackup(result.backup)
-    // The restored appearance applies now, not at the next load (EXEC-11 task 4).
-    applyAppearance(appearanceOf(result.backup.settings))
-    await recordStoragePersistence()
     await reload()
     await refresh()
     setDataStatus({ kind: 'ok', text: 'Data replaced from the export.' })
@@ -219,74 +208,9 @@ export function SettingsScreen() {
         </div>
 
         <SectionHead>AI</SectionHead>
-        <div className="sx-key">
-          <label className="sx-label" htmlFor="api-key">
-            API key
-          </label>
-          <div className="sx-key__row">
-            <div className="bd-input sx-key__input">
-              <input
-                id="api-key"
-                type="password"
-                autoComplete="off"
-                placeholder={settings.apiKey ? `••••••••${settings.apiKey.slice(-4)}` : 'sk-ant-…'}
-                value={keyDraft ?? ''}
-                onChange={(event) => setKeyDraft(event.target.value)}
-                onBlur={() => {
-                  if (keyDraft !== null && keyDraft !== '') void update({ apiKey: keyDraft })
-                }}
-              />
-            </div>
-            <button type="button" className="st-btn" disabled={testing} onClick={() => void runTest()}>
-              {testing ? '…' : 'Test'}
-            </button>
-          </div>
-          {testStatus?.kind === 'ok' && (
-            <div className="sx-ok" role="status">
-              <CheckIcon size={14} />
-              <span>{testStatus.text}</span>
-            </div>
-          )}
-          {testStatus?.kind === 'error' && (
-            <div className="sx-inline-state">
-              <StateBlock
-                role="alert"
-                mark="!"
-                title="That key didn’t work"
-                body={
-                  <>
-                    Check it was copied in full, then test again.
-                    <span className="sx-detail">{testStatus.text}</span>
-                  </>
-                }
-                primary={{ label: 'Test again', onClick: () => void runTest() }}
-                secondary={{ label: 'How to get a key', onClick: () => window.open(KEY_HELP_URL, '_blank', 'noreferrer') }}
-              />
-            </div>
-          )}
-          <div className="sx-tip">Tip: set a spend limit in your Anthropic account.</div>
-          {testStatus?.kind !== 'error' && (
-            <a className="sx-link" href={KEY_HELP_URL} target="_blank" rel="noreferrer">
-              How to get a key
-            </a>
-          )}
-        </div>
-        <div className="sx-row">
-          <div className="sx-row__main">
-            <label className="sx-row__title" htmlFor="model">
-              Model name
-            </label>
-          </div>
-          <input
-            id="model"
-            className="sx-model"
-            type="text"
-            spellCheck={false}
-            autoCapitalize="off"
-            value={model}
-            onChange={(event) => void update({ model: event.target.value })}
-          />
-        </div>
+        {/* Frames 3.16 and 3.17: the key, model and level, and usage and budget, have their own pages. */}
+        <Row title="AI key and model" value={settings.apiKey ? 'Key saved' : 'No key'} onClick={() => navigate('/settings/ai')} />
+        <Row title="AI usage and budget" value={monthCost === null ? '' : `${formatUsd(monthCost)} this month`} onClick={() => navigate('/settings/usage')} />
         <Row title="Privacy level" value={LEVEL_LABEL[privacyLevelOf(settings)]} onClick={() => navigate('/settings/privacy')} />
         <Row title="Sent log" value={sentThisMonth === null ? '' : `${sentThisMonth} this month`} onClick={() => navigate('/settings/sent-log')} />
         <div className="sx-field">

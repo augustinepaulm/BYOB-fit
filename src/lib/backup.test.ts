@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Goals, SentLogEntry } from '../types/stores.ts'
+import type { BodyEntry, Goals, SentLogEntry, WeekNote } from '../types/stores.ts'
 import {
   backupFilename,
   backupFromData,
@@ -47,6 +47,15 @@ const sentLog: SentLogEntry[] = [
   },
 ]
 
+const bodyEntries: BodyEntry[] = [
+  { date: '2026-09-20', units: 'kg', weight: 83.4, skeletalMuscle: 34.0, bodyFatMass: 19.1, bodyFatPct: 22.9, visceralFat: 8, bmrKcal: 1790, updatedAt: '2026-09-20T07:00:00.000Z' },
+  { date: '2026-10-01', units: 'kg', weight: 83.0, waist: 88.5, updatedAt: '2026-10-01T07:00:00.000Z' },
+]
+
+const weekNotes: WeekNote[] = [
+  { id: 'n1', weekStart: '2026-09-27', programWeek: 5, view: 'training', reply: 'Four of five workouts done.', at: '2026-10-03T09:00:00.000Z', model: 'claude-sonnet-5' },
+]
+
 function storeData() {
   return {
     programs: [],
@@ -59,6 +68,8 @@ function storeData() {
     meta: { activeProgramId: 'sample' },
     goals,
     sentLog,
+    bodyEntries,
+    weekNotes,
   }
 }
 
@@ -67,16 +78,18 @@ describe('backup envelope validator', () => {
     const result = parseBackup(JSON.stringify(envelopeV1()))
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.backup.schemaVersion).toBe(3)
+    expect(result.backup.schemaVersion).toBe(4)
     expect(result.backup.dayChanges).toEqual([])
     expect(result.backup.goals).toBeNull()
     expect(result.backup.sentLog).toEqual([])
+    expect(result.backup.bodyEntries).toEqual([])
+    expect(result.backup.weekNotes).toEqual([])
     expect(result.backup.meta.activeProgramId).toBe('sample')
   })
 
-  it('round-trips a version 3 file, day changes, goals and sent log included', () => {
+  it('round-trips a version 4 file, day changes, goals, sent log, body entries and notes included', () => {
     const written = backupFromData(storeData(), new Date('2026-09-27T12:00:00Z'))
-    expect(written.schemaVersion).toBe(3)
+    expect(written.schemaVersion).toBe(4)
     const result = parseBackup(JSON.stringify(written))
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -84,6 +97,32 @@ describe('backup envelope validator', () => {
     expect(result.backup.goals).toEqual(goals)
     expect(result.backup.sentLog).toEqual(sentLog)
     expect(result.backup.dayChanges).toEqual(storeData().dayChanges)
+    expect(result.backup.bodyEntries).toEqual(bodyEntries)
+    expect(result.backup.weekNotes).toEqual(weekNotes)
+  })
+
+  it('imports a version 3 file with no body entries or notes', () => {
+    const v3 = { ...backupFromData(storeData(), new Date('2026-09-27T12:00:00Z')), schemaVersion: 3 } as Record<string, unknown>
+    delete v3.bodyEntries
+    delete v3.weekNotes
+    const result = validateBackup(v3)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.backup.schemaVersion).toBe(4)
+    expect(result.backup.sessions).toEqual([])
+    expect(result.backup.dayChanges).toEqual(storeData().dayChanges)
+    expect(result.backup.goals).toEqual(goals)
+    expect(result.backup.sentLog).toEqual(sentLog)
+    expect(result.backup.bodyEntries).toEqual([])
+    expect(result.backup.weekNotes).toEqual([])
+  })
+
+  it('refuses a version 4 file without its body entries or notes', () => {
+    const v4 = backupFromData(storeData()) as unknown as Record<string, unknown>
+    delete v4.weekNotes
+    const result = validateBackup(v4)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.errors).toEqual(['/weekNotes: must be an array'])
   })
 
   it('never writes the API key, or this device’s storage fields', () => {
@@ -125,12 +164,12 @@ describe('backup envelope validator', () => {
     if (!result.ok) expect(result.errors[0]).toMatch(/^\/schemaVersion: missing\./)
   })
 
-  it('refuses version 4, naming 1, 2 and 3', () => {
-    const result = validateBackup({ ...envelopeV1(), schemaVersion: 4, goals: null, sentLog: [], dayChanges: [] })
+  it('refuses version 5, naming 1, 2, 3 and 4', () => {
+    const result = validateBackup({ ...envelopeV1(), schemaVersion: 5, goals: null, sentLog: [], dayChanges: [], bodyEntries: [], weekNotes: [] })
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.errors[0]).toBe(
-        '/schemaVersion: this build reads versions 1, 2 and 3, the file says 4. Nothing was imported',
+        '/schemaVersion: this build reads versions 1, 2, 3 and 4, the file says 5. Nothing was imported',
       )
     }
   })

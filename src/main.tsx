@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './ui/v3.css'
 import App from './App.tsx'
 import { startAppearance } from './settings/appearance.ts'
 

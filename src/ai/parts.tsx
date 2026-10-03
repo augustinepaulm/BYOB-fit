@@ -44,7 +44,7 @@ export function StatePanel({
 export function OfflineBar() {
   return (
     <div className="ai-offline" role="status">
-      <span>You're offline. Logging works; AI features need a connection.</span>
+      <span>You're offline. Everything works except AI.</span>
     </div>
   )
 }

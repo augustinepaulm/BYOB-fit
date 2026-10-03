@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { prescriptionText } from '../lib/prescription.ts'
 import type { DeckItem } from '../lib/session.ts'
 import { planGroups, stepInGroups, type OrderEntry } from '../lib/todayPlan.ts'
-import { HandleIcon, TickIcon } from '../onboarding/ui.tsx'
+import { Marker } from '../ui/shell.tsx'
 
 export function PlanSheet({
   deck,
@@ -101,18 +101,18 @@ export function PlanSheet({
       <div className="bd-scrim" onClick={onClose} />
       <div className="bd-sheet dk-plan" role="dialog" aria-modal="true" aria-label="Today's plan">
         <div className="bd-sheet__grab" />
-        <div className="dk-plan__head">
-          <h2 className="bd-sheet__title">Today&apos;s plan</h2>
-          <button type="button" className="dk-plan__close" aria-label="Close" onClick={onClose}>
+        <div className="plan-sheet__head">
+          <h2 className="sheet__title">Plan</h2>
+          <span className="plan-sheet__hint">Tap to jump, drag to reorder</span>
+          <button type="button" className="plan-sheet__close" aria-label="Close" onClick={onClose}>
             ×
           </button>
         </div>
         <div className="dk-plan__list" ref={listRef}>
           {groups.map((group, g) => (
             <div key={`${group.sectionId}-${g}`}>
-              <div className="ob-sechead dk-plan__section" data-section-id={group.sectionId}>
-                <span>{group.title}</span>
-                <span style={{ fontWeight: 500, color: 'var(--secondary)' }}>{group.items.length}</span>
+              <div className="lgroup__title plan-sheet__section" data-section-id={group.sectionId}>
+                {group.title}
               </div>
               {group.items.length === 0 && <div className="dk-plan__empty">Nothing here today. Move an item here.</div>}
               {group.items.map(({ deckItem, index }) => {
@@ -124,20 +124,36 @@ export function PlanSheet({
                 const up = isDone ? null : stepInGroups(groups, id, 'up')
                 const down = isDone ? null : stepInGroups(groups, id, 'down')
                 const dragging = drag?.itemId === id
+                const current = index === currentIndex
                 return (
                   <div
                     key={id}
-                    className={`dk-plan__row${index === currentIndex ? ' dk-plan__row--current' : ''}${dragging ? ' dk-plan__row--dragging' : ''}`}
+                    className={`plan-sheet__row${current ? ' plan-sheet__row--now' : ''}${dragging ? ' dk-plan__row--dragging' : ''}`}
                     data-item-id={id}
                     data-section-id={deckItem.section.id}
                     style={dragging ? { transform: `translateY(${drag.dy}px)` } : undefined}
                   >
+                    <Marker state={state === 'Done' ? 'done' : current ? 'now' : 'todo'} />
+                    <button type="button" className="plan-sheet__name" onClick={() => onJump(index)}>
+                      <span className={current ? 'plan-sheet__title plan-sheet__title--now' : 'plan-sheet__title'}>{name}</span>
+                      <span className="plan-sheet__value">{current ? 'Now' : partly ? 'In progress' : prescriptionText(deckItem.resolved)}</span>
+                    </button>
+                    {!isDone && (
+                      <span className="plan-sheet__moves">
+                        <button type="button" aria-label={`Move ${name} up`} disabled={!up} onClick={() => up && onMove(id, up.toIndex, up.toSectionId)}>
+                          ↑
+                        </button>
+                        <button type="button" aria-label={`Move ${name} down`} disabled={!down} onClick={() => down && onMove(id, down.toIndex, down.toSectionId)}>
+                          ↓
+                        </button>
+                      </span>
+                    )}
                     {isDone ? (
-                      <span className="dk-plan__handle dk-plan__handle--off" aria-hidden="true" />
+                      <span className="plan-sheet__handle plan-sheet__handle--off" aria-hidden="true" />
                     ) : (
                       <button
                         type="button"
-                        className="dk-plan__handle"
+                        className="plan-sheet__handle"
                         aria-label={`Drag ${name}`}
                         onPointerDown={(event) => startDrag(event, id)}
                         onPointerMove={(event) => drag?.itemId === id && setDrag({ ...drag, dy: event.clientY - drag.startY })}
@@ -150,26 +166,12 @@ export function PlanSheet({
                         onPointerCancel={endDrag}
                         onLostPointerCapture={() => drag && endDrag()}
                       >
-                        <HandleIcon />
+                        <span className="plan-sheet__lines" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
                       </button>
-                    )}
-                    <button type="button" className="dk-plan__name" onClick={() => onJump(index)}>
-                      <span className="dk-plan__title">{name}</span>
-                      <span className="dk-plan__sub">{prescriptionText(deckItem.resolved)}</span>
-                    </button>
-                    <span className={`dk-plan__state dk-plan__state--${state.toLowerCase().replace(' ', '')}`}>
-                      {state === 'Done' && <TickIcon />}
-                      {state}
-                    </span>
-                    {!isDone && (
-                      <span className="dk-plan__moves">
-                        <button type="button" aria-label={`Move ${name} up`} disabled={!up} onClick={() => up && onMove(id, up.toIndex, up.toSectionId)}>
-                          ↑
-                        </button>
-                        <button type="button" aria-label={`Move ${name} down`} disabled={!down} onClick={() => down && onMove(id, down.toIndex, down.toSectionId)}>
-                          ↓
-                        </button>
-                      </span>
                     )}
                   </div>
                 )
@@ -177,17 +179,19 @@ export function PlanSheet({
             </div>
           ))}
         </div>
-        <div className="bd-sheet__actions">
-          <button type="button" className="ob-outline" onClick={onAddExercise}>
-            Add exercise
-          </button>
-          {onChangeDay && (
-            <button type="button" className="ob-outline" onClick={onChangeDay}>
+        <button type="button" className="chip plan-sheet__add" onClick={onAddExercise}>
+          + Add exercise
+        </button>
+        <div className="plan-sheet__foot">
+          {onChangeDay ? (
+            <button type="button" className="btn btn--tertiary" onClick={onChangeDay}>
               Change today&apos;s workout
             </button>
+          ) : (
+            <span />
           )}
-          <button type="button" className="ob-outline dk-plan__end" onClick={onEnd}>
-            End session
+          <button type="button" className="btn btn--destructive-text dk-plan__end" onClick={onEnd}>
+            End workout
           </button>
         </div>
       </div>

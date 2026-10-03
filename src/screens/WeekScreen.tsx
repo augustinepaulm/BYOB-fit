@@ -7,93 +7,114 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ReviewBanner } from '../ai/parts.tsx'
-import { BuilderBar, ChevronRight, Hero, Sheet } from '../builder/ui.tsx'
+import { Sheet } from '../builder/ui.tsx'
 import { endOpenSession, listSessionsBetween } from '../db/index.ts'
-import { formatShortDay, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
+import { formatShortDay, formatTrainContext, formatWeekRange, isSameDate, toISODate } from '../lib/dates.ts'
 import { canChangeDate, changedFrom, dayLabel } from '../lib/dayChanges.ts'
 import { prescriptionText } from '../lib/prescription.ts'
 import { dayForDate, isActiveOn, resolveItem, weekDates } from '../lib/program.ts'
-import { buildDeck, isSetConfirmed, restDayState, sessionState, type DayState } from '../lib/session.ts'
+import { buildDeck, isSetConfirmed, restDayState, sessionIdFor, sessionState, type DayState } from '../lib/session.ts'
 import { SECTION_ORDER } from '../lib/builder.ts'
-import { SectionHead } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
+import { clearDeckState } from '../session/deckState.ts'
 import type { Day, Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
-import { CheckIcon, ChevronLeftIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
+import { AppHeader, BackChevron, ListRow, Marker, RowChevron, Tick, TrainSwitch } from '../ui/shell.tsx'
+import { trainingCounts } from '../lib/scores.ts'
 import { ChangeDay } from './ChangeDay.tsx'
 
-const DAY_DATE = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+const LONG_DAY = new Intl.DateTimeFormat('en-US', { weekday: 'long' })
 
-function StateMark({ state }: { state: DayState }) {
+function PlannedDay({
+  day,
+  date,
+  week,
+  program,
+  onBack,
+  onDoToday,
+  onChange,
+}: {
+  program: Program
+  day: Day
+  date: Date
+  week: number
+  onBack: () => void
+  onDoToday: (() => void) | null
+  /** D-069: Change this date, when it can be changed. */
+  onChange: (() => void) | null
+}) {
+  const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
+  const items = sections.flatMap((section) => section.items.filter((item) => isActiveOn(item, date)).map((item) => ({ section, resolved: resolveItem(item, week) })))
+  const logged = items.filter(({ section, resolved }) => section.kind !== 'warmup' && section.kind !== 'cooldown' && resolved.type !== 'check')
+  const sets = logged.reduce((n, { resolved }) => n + (resolved.sets ?? 1), 0)
+  return (
+    <div className="screen">
+      <AppHeader context={formatTrainContext(date, week)} back={{ label: `Week ${week}`, onClick: onBack }} />
+      <section className="card-v3 today-card">
+        <div className="today-card__meta">
+          {LONG_DAY.format(date)} · week {week}
+        </div>
+        <h1 className="today-card__title">{day.rest ? 'Rest day' : (day.focus ?? day.name)}</h1>
+        {!day.rest && (
+          <p className="today-card__sub">
+            {logged.length} {logged.length === 1 ? 'exercise' : 'exercises'} · {sets} {sets === 1 ? 'set' : 'sets'}
+            {day.durationMin ? ` · about ${day.durationMin} min` : ''}
+          </p>
+        )}
+        {onDoToday && (
+          <button type="button" className="btn btn--primary" onClick={onDoToday}>
+            Do this today
+          </button>
+        )}
+        {onChange && (
+          <button type="button" className="btn btn--secondary today-card__second" onClick={onChange}>
+            Change
+          </button>
+        )}
+      </section>
+      {sections.map((section) => {
+        const list = section.items.filter((item) => isActiveOn(item, date))
+        if (list.length === 0) return null
+        return (
+          <section className="plan-list" key={section.id}>
+            <h2 className="lgroup__title plan-list__head">{section.title}</h2>
+            {list.map((item) => {
+              const resolved = resolveItem(item, week)
+              return (
+                <div className="plan-row" key={item.id}>
+                  <Marker state="todo" />
+                  <span className="plan-row__text">
+                    <span className="plan-row__name">{program.exercises[resolved.exerciseId ?? '']?.name ?? resolved.exerciseId}</span>
+                    {resolved.cue && <span className="plan-row__sub">{resolved.cue}</span>}
+                  </span>
+                  <span className="plan-row__value">{prescriptionText(resolved)}</span>
+                </div>
+              )
+            })}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+/** A day's state in Week (2.13 to 2.15). */
+function statePill(state: DayState, rest: boolean, past: boolean, isToday: boolean, isFuture: boolean) {
+  if (rest) return null
   if (state === 'done') {
     return (
-      <span className="wk-state wk-state--done">
-        <CheckIcon size={14} />
+      <span className="wk-pill wk-pill--done">
+        <Tick size={11} />
         Done
       </span>
     )
   }
-  if (state === 'partial') {
-    return (
-      <span className="wk-state wk-state--partial">
-        <span className="wk-dot" />
-        Partial
-      </span>
-    )
-  }
+  if (isToday) return <span className="wk-pill wk-pill--today">Today</span>
+  if (state === 'partial') return <span className="wk-pill wk-pill--partial">Partly done</span>
+  if (past) return <span className="wk-pill wk-pill--missed">Missed</span>
+  if (!isFuture) return <span className="wk-pill wk-pill--upcoming">Upcoming</span>
   return null
-}
-
-function PlannedTag() {
-  return <span className="ob-badge">As planned today</span>
-}
-
-/**
- * Frame 3l: a future day. D-059: no badge, each item's cue under its name, and
- * the dock above the tab bar. D-069 rule 3: its only action is "Do this today".
- */
-function PlannedDay({ day, date, week, program, onBack, onDoToday }: { program: Program; day: Day; date: Date; week: number; onBack: () => void; onDoToday: (() => void) | null }) {
-  const sections = [...day.sections].sort((a, b) => SECTION_ORDER.indexOf(a.kind) - SECTION_ORDER.indexOf(b.kind))
-  return (
-    // The tabbed layout already pads by the tab bar's height; this clears the
-    // dock above it (about 80 px), so the last item scrolls fully into view.
-    <div className="tl" style={{ paddingBottom: 96 }}>
-      <BuilderBar title={`Week ${week}`} onBack={onBack} />
-      <Hero title={day.rest ? 'Rest day' : (day.focus ?? day.name)} sub={[DAY_DATE.format(date), day.durationMin ? `about ${day.durationMin} min` : null].filter(Boolean).join(' · ')} />
-      <div style={{ margin: '0 24px' }}>
-        {sections.map((section) => {
-          const items = section.items.filter((item) => isActiveOn(item, date))
-          if (items.length === 0) return null
-          const main = section.kind === 'main' || section.kind === 'block' || section.kind === 'abs'
-          return (
-            <div key={section.id}>
-              <SectionHead aside={String(items.length)}>{section.title}</SectionHead>
-              {items.map((item) => {
-                const resolved = resolveItem(item, week)
-                return (
-                  <div className={main ? 'bd-simple bd-simple--main' : 'bd-simple'} key={item.id}>
-                    <span className="bd-simple__name">
-                      {program.exercises[resolved.exerciseId ?? '']?.name ?? resolved.exerciseId}
-                      {resolved.cue && <span className="tl-row__cue">{resolved.cue}</span>}
-                    </span>
-                    <span className="bd-value">{prescriptionText(resolved)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
-      {onDoToday && (
-        <div className="ob-dock ob-dock--above-tabbar">
-          <button type="button" className="ob-primary" style={{ justifyContent: 'center' }} onClick={onDoToday}>
-            <span>Do this today</span>
-          </button>
-        </div>
-      )}
-    </div>
-  )
 }
 
 export function WeekScreen() {
@@ -130,6 +151,9 @@ export function WeekScreen() {
     // 7c "Week, no program".
     return (
       <div className="tl" style={{ paddingBottom: 24 }}>
+        <AppHeader context={formatShortDay(today)}>
+          <TrainSwitch view="week" />
+        </AppHeader>
         <div className="bd-hero">
           <h1 className="lg-title">Week</h1>
         </div>
@@ -149,10 +173,18 @@ export function WeekScreen() {
   const loggedToday = todaySessions.some((s) => s.entries.some((e) => e.sets.some(isSetConfirmed)))
   const applyChange = async (date: Date, dayId: string | null) => {
     const iso = toISODate(date)
-    if (iso === todayIso) await endOpenSession(iso, dayForDate(program, changes, date).id)
+    if (iso === todayIso) {
+      const dayId = dayForDate(program, changes, date).id
+      if (await endOpenSession(iso, dayId)) await clearDeckState(sessionIdFor(iso, dayId))
+    }
     if (dayId === null) await restoreDate(iso)
     else await setChange(iso, dayId)
     setReloadKey((k) => k + 1)
+  }
+  // The program week a date falls in, for the Change sheet's sub line.
+  const weeksOf = (date: Date) => {
+    for (let w = 1; w <= program.programWeeks; w++) if (weekDates(program, w).some((d) => isSameDate(d, date))) return w
+    return viewWeek
   }
   const changeSheet = changing && (
     <ChangeDay
@@ -162,6 +194,8 @@ export function WeekScreen() {
       isToday={toISODate(changing.date) === todayIso}
       loggedToday={loggedToday}
       preset={changing.preset}
+      week={program ? weeksOf(changing.date) : undefined}
+      onRestore={changedFrom(program, changes, changing.date, dayForDate(program, changes, changing.date)) ? () => void applyChange(changing.date, null) : undefined}
       onClose={() => setChanging(null)}
       onConfirm={async (dayId) => {
         await applyChange(changing.date, dayId)
@@ -176,7 +210,15 @@ export function WeekScreen() {
     if (day)
       return (
         <>
-          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={canChangeDate(todayIso, todayIso, todaySessions, dayForDate(program, changes, today).id) ? () => setChanging({ date: today, preset: day }) : null} />
+          <PlannedDay
+            program={program}
+            day={day}
+            date={openDay.date}
+            week={viewWeek}
+            onBack={() => setOpenDay(null)}
+            onDoToday={canChangeDate(todayIso, todayIso, todaySessions, dayForDate(program, changes, today).id) ? () => setChanging({ date: today, preset: day }) : null}
+            onChange={canChangeDate(toISODate(openDay.date), todayIso, sessions, dayForDate(program, changes, openDay.date).id) ? () => setChanging({ date: openDay.date }) : null}
+          />
           {changeSheet}
         </>
       )
@@ -189,114 +231,117 @@ export function WeekScreen() {
   // D-027: Ask AI needs at least one finished session this week.
   const finished = isCurrent ? sessions.filter((session) => session.endedAt).length : 0
   const training = program.days.filter((d) => !d.rest).length
-  const doneCount = sessions.filter((s) => s.endedAt).length
+
+  const counts = trainingCounts({ program, changes, sessions, week: viewWeek, today })
+  const trainingDays = dates.filter((d) => !dayForDate(program, changes, d).rest).length
+  const summaryLine = isFuture
+    ? 'Starts Sunday'
+    : isCurrent
+      ? `${counts.finished} of ${trainingDays} workouts done so far`
+      : `${counts.finished} of ${counts.planned} workouts · ${counts.confirmed} of ${counts.prescribed} sets`
 
   return (
-    <div className="tl" style={{ paddingBottom: 24 }}>
-      <div className="wk-head">
-        <button type="button" className="wk-head__arrow" aria-label="Previous week" disabled={viewWeek <= 1} onClick={() => setShown(viewWeek - 1)}>
-          <ChevronLeftIcon />
+    <div className="screen">
+      <AppHeader context={formatTrainContext(today, week)}>
+        <TrainSwitch view="week" />
+      </AppHeader>
+      <div className="wk-nav">
+        <button type="button" className="wk-nav__step" aria-label="Previous week" disabled={viewWeek <= 1} onClick={() => setShown(viewWeek - 1)}>
+          {viewWeek > 1 && (
+            <>
+              <BackChevron />
+              Week {viewWeek - 1}
+            </>
+          )}
         </button>
-        <div className="wk-head__mid">
-          <div className="wk-head__range">{formatWeekRange(dates)}</div>
-          <h1 className="wk-head__title">
-            Week {viewWeek} of {program.programWeeks}
-          </h1>
-        </div>
+        <h1 className="wk-nav__title">
+          Week {viewWeek} of {program.programWeeks}
+        </h1>
         <button
           type="button"
-          className="wk-head__arrow"
+          className="wk-nav__step wk-nav__step--next"
           aria-label="Next week"
           disabled={viewWeek >= program.programWeeks}
           onClick={() => setShown(viewWeek + 1)}
         >
-          <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
-            <ChevronLeftIcon />
-          </span>
+          {viewWeek < program.programWeeks && (
+            <>
+              Week {viewWeek + 1}
+              <RowChevron />
+            </>
+          )}
         </button>
       </div>
+      <p className="wk-summary">
+        {summaryLine}
+        <span className="visually-hidden"> · {formatWeekRange(dates)}</span>
+      </p>
+      {isFuture && <p className="note-v3 wk-planned">Updates to your program can change this week.</p>}
+      {isCurrent && <ReviewBanner program={program} />}
 
-      {isFuture ? (
-        <>
-          <div className="wk-planned">
-            <PlannedTag />
-          </div>
-          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--secondary)', margin: '8px 40px 0' }}>
-            Updates to your program can change this week.
-          </div>
-        </>
-      ) : null}
-
-      {isCurrent && (
-        <div style={{ marginTop: 14 }}>
-          <ReviewBanner program={program} />
+      <div className="wk-list">
+        {dates.map((date) => {
+          const day = dayForDate(program, changes, date)
+          const isToday = isSameDate(date, today)
+          const iso = toISODate(date)
+          const upcoming = iso > todayIso
+          const past = iso < todayIso
+          const title = dayLabel(day)
+          const session = sessionOn(date, day.id)
+          const state = day.rest ? restDayState(session, buildDeck(day, viewWeek, date)) : sessionState(session)
+          const was = changedFrom(program, changes, date, day)
+          const changeable = canChangeDate(toISODate(date), todayIso, sessions, day.id)
+          const plain = day.rest && !was && !isToday
+          const content = (
+            <>
+              <span className="wk-day__dow">{formatShortDay(date)}</span>
+              <span className="wk-day__text">
+                <span className={day.rest ? 'wk-day__name wk-day__name--rest' : 'wk-day__name'}>{title}</span>
+                {was && <span className="wk-day__sub">Changed (was {dayLabel(was)})</span>}
+              </span>
+              {statePill(state, Boolean(day.rest), past, isToday, isFuture)}
+            </>
+          )
+          return (
+            <div className={`wk-day${plain ? ' wk-day--plain' : ''}${isToday ? ' wk-day--today' : ''}`} key={iso}>
+              {upcoming ? (
+                <button type="button" className="wk-day__open" aria-label={`Open ${formatShortDay(date)} ${title}`} onClick={() => setOpenDay({ dayId: day.id, date })}>
+                  {content}
+                </button>
+              ) : (
+                <div className="wk-day__open">{content}</div>
+              )}
+              {changeable && (
+                <div className="wk-day__actions">
+                  <button type="button" className="wk-day__action" aria-label={`Change ${formatShortDay(date)}`} onClick={() => setChanging({ date })}>
+                    Change
+                  </button>
+                  {was && (
+                    <button type="button" className="wk-day__action" aria-label={`Restore ${formatShortDay(date)}`} onClick={() => void applyChange(date, null)}>
+                      Restore
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {isCurrent && <p className="note-v3">Tap a day to see it. Change and Restore show on today and later days.</p>}
+      {!isCurrent && !isFuture && (
+        <div className="actions-v3">
+          <button type="button" className="btn btn--tertiary" onClick={() => navigate('/progress/training')}>
+            See week {viewWeek} in Progress
+          </button>
         </div>
       )}
-
-      <div style={{ margin: isFuture ? '14px 24px 0' : '0 24px' }}>
-        {!isFuture && (
-          <SectionHead aside={`${doneCount} of ${training} done`}>{isCurrent ? 'This week' : `Week ${viewWeek}`}</SectionHead>
-        )}
-        <div style={{ borderTop: isFuture ? '1.5px solid var(--text)' : undefined }}>
-          {dates.map((date) => {
-            const day = dayForDate(program, changes, date)
-            const isToday = isSameDate(date, today)
-            const upcoming = toISODate(date) > toISODate(today)
-            const title = dayLabel(day)
-            const sub = [day.rest && title !== 'Rest' ? 'Rest' : null, day.durationMin ? `${day.durationMin} min` : null, isToday ? 'today' : null].filter(Boolean).join(' · ')
-            const session = sessionOn(date, day.id)
-            const state = day.rest ? restDayState(session, buildDeck(day, viewWeek, date)) : sessionState(session)
-            const was = changedFrom(program, changes, date, day)
-            const changeable = canChangeDate(toISODate(date), todayIso, sessions, day.id)
-            const content = (
-              <>
-                <span className={isToday ? 'wk-row__dow wk-row__dow--today' : 'wk-row__dow'}>{formatShortDay(date)}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="wk-row__name">{title}</div>
-                  {sub && <div className="wk-row__sub">{sub}</div>}
-                  {was && <div className="wk-row__changed">Changed (was {dayLabel(was)})</div>}
-                </div>
-                {!isFuture && <StateMark state={state} />}
-                {upcoming && <ChevronRight />}
-              </>
-            )
-            return (
-              <div className="wk-row wk-row--day" key={toISODate(date)}>
-                {upcoming ? (
-                  <button type="button" className="wk-row__open" aria-label={`Open ${formatShortDay(date)} ${title}`} onClick={() => setOpenDay({ dayId: day.id, date })}>
-                    {content}
-                  </button>
-                ) : (
-                  <div className="wk-row__open">{content}</div>
-                )}
-                {changeable && (
-                  <div className="wk-row__actions">
-                    <button type="button" className="wk-row__action" aria-label={`Change ${formatShortDay(date)}`} onClick={() => setChanging({ date })}>
-                      Change
-                    </button>
-                    {was && (
-                      <button type="button" className="wk-row__action" aria-label={`Restore ${formatShortDay(date)}`} onClick={() => void applyChange(date, null)}>
-                        Restore
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        {isCurrent && (
-          <button type="button" className="wk-row" style={{ borderBottom: 'none' }} onClick={() => setUpdateOpen(true)}>
-            <div style={{ flex: 1 }}>
-              <div className="wk-row__name" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-                Update program
-              </div>
-              <div className="wk-row__sub">Edit it yourself or ask AI</div>
-            </div>
-            <ChevronRight />
-          </button>
-        )}
-      </div>
+      {isCurrent && (
+        <section className="lgroup">
+          <div className="lgroup__card">
+            <ListRow title="Update program" sub="Edit it yourself or ask AI" onClick={() => setUpdateOpen(true)} />
+          </div>
+        </section>
+      )}
 
       {updateOpen && (
         <Sheet

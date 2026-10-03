@@ -21,6 +21,30 @@ export function formatShortDay(date: Date): string {
   return SHORT_DAY.format(date)
 }
 
+const DAY_MONTH = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
+const WEEKDAY_DAY_MONTH = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+
+/** A YYYY-MM-DD date as a local Date. */
+export function fromISODate(iso: string): Date {
+  return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+}
+
+/** "1 Oct" (v3 frames). */
+export function formatShortDate(iso: string): string {
+  return DAY_MONTH.format(fromISODate(iso)).replace('Sept', 'Sep')
+}
+
+/** "Thu 1 Oct" (v3 frames 3.06, 3.08). */
+export function formatDayDate(iso: string): string {
+  // Some ICU versions write "Sept"; the frames use three letters throughout.
+  return WEEKDAY_DAY_MONTH.format(fromISODate(iso)).replace(',', '').replace('Sept', 'Sep')
+}
+
+/** The Train header's context text (frame 2.01): "Thu · week 6". */
+export function formatTrainContext(date: Date, week: number): string {
+  return `${SHORT_DAY.format(date)} · week ${week}`
+}
+
 /** "Sep 13 – 19", or "Sep 27 – Oct 3" across a month boundary. */
 export function formatWeekRange(dates: Date[]): string {
   const first = dates[0]

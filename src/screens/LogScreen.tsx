@@ -16,7 +16,7 @@ import {
   type ExerciseSession,
 } from '../lib/log.ts'
 import { formatSetValue } from '../lib/prescription.ts'
-import { parseISODate, resolveItem } from '../lib/program.ts'
+import { parseISODate } from '../lib/program.ts'
 import { useProgram } from '../program/useProgram.ts'
 import type { Program } from '../types/program.ts'
 import type { Session } from '../types/stores.ts'
@@ -26,21 +26,9 @@ import { SectionHead } from '../onboarding/ui.tsx'
 import { ChevronRightIcon, SearchIcon } from '../ui/icons.tsx'
 import { StateBlock } from '../ui/StateBlock.tsx'
 import { LogHistory } from './LogHistory.tsx'
+import { indexExerciseIds } from '../lib/charts.ts'
 
 
-/** Exercise ids the program marks as index lifts for the current week. */
-function indexExerciseIds(program: Program, week: number): Set<string> {
-  const ids = new Set<string>()
-  for (const day of program.days) {
-    for (const section of day.sections) {
-      for (const item of section.items) {
-        const resolved = resolveItem(item, week)
-        if (resolved.index && resolved.exerciseId) ids.add(resolved.exerciseId)
-      }
-    }
-  }
-  return ids
-}
 
 function useSessions(): Session[] {
   return useSessionsWithReload()[0]
@@ -118,7 +106,8 @@ function Sparkline({ points }: { points: { date: string; value: number }[] }) {
   )
 }
 
-export function LogScreen() {
+/** The exercise list; under Progress > Training it renders without its own title (D-077 rule 1). */
+export function LogScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { program, week } = useProgram()
   const sessions = useSessions()
   const [query, setQuery] = useState('')
@@ -155,9 +144,13 @@ export function LogScreen() {
 
   return (
     <div className="tl">
-      <div className="bd-hero">
-        <h1 className="lg-title">Log</h1>
-      </div>
+      {embedded ? (
+        <h2 className="lgroup__title log-embedded__head">Exercises</h2>
+      ) : (
+        <div className="bd-hero">
+          <h1 className="lg-title">Log</h1>
+        </div>
+      )}
       <label className="bd-search" style={{ margin: '16px 24px 0' }}>
         <span style={{ display: 'inline-flex', color: 'var(--muted)' }}>
           <SearchIcon />
@@ -195,7 +188,7 @@ export function LogScreen() {
         )}
         {rows.length === 0 && query.trim() === '' && indexOnly && <p className="bd-hint">No index lifts in this program.</p>}
         {rows.map((row) => (
-          <Link className="lg-row log-row" to={`/log/${row.id}`} key={row.id}>
+          <Link className="lg-row log-row" to={`/progress/training/${row.id}`} key={row.id}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="lg-row__name log-row__name">{row.name}</div>
               <div className="lg-row__sub">
@@ -267,7 +260,7 @@ export function ExerciseLogScreen() {
 
   return (
     <div className="tl" style={{ paddingBottom: 40 }}>
-      <BuilderBar title="Log" onBack={() => navigate(-1)} />
+      <BuilderBar title="Progress" onBack={() => navigate(-1)} />
       <div style={{ padding: '4px 24px 0' }}>
         <h1 className="dk-title__name">{names.get(exerciseId) ?? exerciseId}</h1>
       </div>

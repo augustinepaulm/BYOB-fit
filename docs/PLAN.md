@@ -2,7 +2,7 @@
 
 BYOB = Build Your Own Body (STATED, Sep 12, 2026). Repo and app name: BYOB-fit.
 
-Version: 1.24 · Date: Friday, Oct 2, 2026 (v1.23 Oct 2, v1.22 Oct 2, v1.21 Oct 1, v1.20 Oct 1, v1.19 Sep 30, v1.18 Sep 30, v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
+Version: 1.26 · Date: Saturday, Oct 3, 2026 (v1.25 Oct 3, v1.24 Oct 2, v1.23 Oct 2, v1.22 Oct 2, v1.21 Oct 1, v1.20 Oct 1, v1.19 Sep 30, v1.18 Sep 30, v1.17 Sep 30, v1.16 Sep 29, v1.15 Sep 29, v1.14 Sep 28, v1.13 Sep 28, v1.12 Sep 28, v1.11 Sep 28, v1.10 Sep 28, v1.9 Sep 28, v1.8 Sep 28, v1.7 Sep 28, v1.6 Sep 28, v1.5 Sep 27, v1.4 Sep 14, v1.3 Sep 13, v1.2 Sep 12) · Owner: Auggie · Chat pipeline: this Claude chat (decisions) · Execution pipeline: Claude Code in VS Code (implementation)
 
 Provenance convention throughout: STATED (Auggie) · VERIFIED (checked in chat, with source) · MODELED (Claude's estimate, method shown) · DEFAULT (Claude's proposal pending redirect).
 
@@ -20,7 +20,7 @@ Success test for v2 (MODELED): a person who has never seen the app installs it, 
 
 ## 2. Decisions in force
 
-All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default) · security hardening (D-066) · navy tab bar, dependable End, quieter Dependabot (D-067) · swap scope and exercise swap prescription (D-068) · change a day, add and change exercises, edit from Log (D-069) · AI spending limit and usage (D-070) · progress graphs and body log (D-071) · Phase 12 follow-ups (D-072) · how-to guide (D-073) · bug fixes from Oct 2 device use (D-074) · finished dates and ending a session (D-075) · how-to guide built last (D-076).
+All decisions live in DECISIONS.md (checksummed in section 8). Summary of the frozen set: PWA · React + Vite + IndexedDB · GitHub Pages, public repo, personal data via gitignored import · direct browser call to Anthropic with BYO key · claude-sonnet-5 default · three model jobs, each behind a send preview and privacy level (D-006 as amended, D-031) · weekly update as a whole patch (D-025), AI review line by line on request (D-026), update at any time (D-027) · builder with retire-not-delete (D-028) · onboarding with a safety notice (D-029) · structured goals (D-030) · local-first meals with an on-phone calorie target (D-032) · bundled visual demos (D-033) · visual direction 1b, light and dark (D-034) · program schema v2 (D-035) with closed byWeek overrides (D-038) · three approved full-gym starter programs (D-037) · other users in scope (D-036) · keyboard dictation plus parser · Sunday week · sections not flat lists · set boxes and the iOS keyboard (D-054) · add a set and add an exercise during a session, today only unless kept (D-055, D-056) · edit logged sets, in the session and from Log (D-057) · Week day detail and builder fixes (D-059) · the user controls the routine (D-061) · swap any two days and replace a day, in any week (D-062) · today's plan in the deck with reorder (D-063) · set boxes on the device (D-064) · plan sheet and Add set build rules (D-065, default) · security hardening (D-066) · navy tab bar, dependable End, quieter Dependabot (D-067) · swap scope and exercise swap prescription (D-068) · change a day, add and change exercises, edit from Log (D-069) · AI spending limit and usage (D-070) · progress graphs and body log (D-071) · Phase 12 follow-ups (D-072) · how-to guide (D-073) · bug fixes from Oct 2 device use (D-074) · finished dates and ending a session (D-075) · how-to guide built last (D-076) · five tabs, always shown (D-077) · body log fields and BMR (D-078) · more nutrients, fibre target and limits (D-079) · training, nutrition and body scores (D-080) · AI notes on a period (D-081) · design rework method (D-082) · design v3 adopted with corrections (D-083) · privacy levels kept, body data and scores sent (D-084) · AI usage and budget as built (D-085) · an empty ended session is discarded (D-086).
 
 ## 3. Inputs (private, never committed)
 
@@ -35,7 +35,7 @@ The pasted v11 document also carries measured, stated and modeled health context
 
 ## 4. Screens
 
-Source of truth for layout and copy: `design/BYOB-fit_v2_design.dc.html` (frame ids below). Tabs: Today, Week, Log, Meals, Profile.
+Source of truth for layout and copy: `design/BYOB-fit_v2_design.dc.html` (frame ids below) until Phase 13 lands; from Phase 13, `design/BYOB-fit_v3_design.html` (D-083) with the five tabs of D-077. Tabs: Today, Week, Log, Meals, Profile.
 
 | Area | Frames | Model call |
 |---|---|---|
@@ -95,6 +95,8 @@ SentLog   { id, at, kind: review|update|meals, privacyLevel, payloadSummary, pay
 ```
 
 v1.5 storage rules: IndexedDB version 3 adds `goals` (one record, key `me`) and `sentLog` (keyPath `id`, index `at`), and rewrites every stored program's `schemaVersion` to 2 on upgrade. Export envelope version 2 adds `goals` and `sentLog`; import reads versions 1 and 2 (version 1 files restore with empty goals and sent log); any other version is refused. `currentStats` and the API key never leave the phone except that `currentStats` is included in the user's own export file.
+
+v1.26 storage rules (Phase 13): IndexedDB version 5 adds `bodyEntries` (keyPath `date`; D-078 fields) and `weekNotes` (keyPath `id`, index `weekStart`; D-081). Meal lines and baseline foods gain optional `carbsG`, `fatG`, `fibreG`, `sodiumMg`, `addedSugarG`, `satFatG`; a meal day gains `lineMeals` (one entry per line: breakfast, lunch, dinner, snack or null). Sent-log entries gain `model`, `usage` { inputTokens, outputTokens } and the kind `week_note`. Settings gain `prices` and `budget` { monthlyUsd?, warnPct, stopAtBudget }. The open deck's state (rest end time, unsaved boxes) is kept in `meta`. Export envelope version 4 adds `bodyEntries` and `weekNotes`; versions 1 to 4 import; the API key is never exported (unchanged).
 
 Parser grammar (D-011): `<number> (for|x|by|×) <number>` → weight, reps · `<number> (s|sec|seconds)` → seconds · `<number> (m|meters|metres)` → distance · `<number> (min|minutes)` → minutes · `same` → copy last week's set · `bodyweight` or `bw` → weight 0 · spoken numbers ("twenty two point five") normalised before matching. Unparseable input stays in `raw`, row flagged, never silently zeroed.
 
@@ -263,11 +265,13 @@ Small change 11.8: merged Oct 2, 2026 (5bbfcd7). A fresh chat build of the merge
 ### Small change 11.9: finished dates and ending a session (gate: on Auggie's iPhone, installed app: start today's workout, log a set, change today from the Plan sheet; Week still offers Change and Restore on today, and Restore puts the first workout back as Done; End a workout with an exercise not done, leave the summary without tapping Done, and Log offers Edit on that session; Swap mid-workout opens with Same muscles off)
 D-075, with D-072 rules 2 and 3. Executor prompt EXEC-11.9; pull request as a draft, as two commits (Week and days; deck and session). Taken ahead of the design rework by Auggie, Oct 2, 2026, because none of it changes a layout.
 
-### Design rework (STATED, Oct 2, 2026; contracts to follow)
-Layouts, flows and navigation may all change, tabs included. Direction 1b (D-034) is kept and refined. Phase 13 is reissued against the reworked screens once the direction is approved.
+Small change 11.9: merged Oct 2, 2026 (974ddbf; its tree is identical to the verified branch tip 6621164). Verified in chat before merge: each commit passes on its own (437 and 450 tests, lint, build, verify), 0 audit findings, the D-066 policy present, and checks 9b, 9d and 9f reproduced in Chromium under the policy (WebKit could not be downloaded in chat's sandbox). Expected served bytes: index-CalJGyEY.js dc240b637c662d210f0907c9ec559c7b, index-C3iOR89K.css 145e06afff0fcae57f15f541d9745857. Served-bytes check and device gate open. Found in verification, decision open: Start then End with nothing logged leaves today Done with no Change or Restore (option 1: discard an ended session with nothing in it; option 2: leave it). D-080 already excludes such a session from adherence.
 
-### Phase 13: Usage and budget, progress and body log, restore on welcome (gate: on Auggie's iPhone, installed app: after one AI call, this month's tokens and estimated cost show in Settings, and a budget below the estimate stops the next call with its message; Log shows strength, volume, bodyweight and measurement graphs after a body entry and a few sessions; Restore from a backup works on a fresh install)
-D-070, D-071, D-072 rule 1. One contract, EXEC-13, reissued after the design rework (EXEC-13 v1.0 of Oct 2 is superseded), and one draft pull request built as three commits: usage and budget; body log and graphs; restore on welcome. Database version 5 and export envelope version 4 (body log). D-072 rules 2 and 3 moved to small change 11.9 (D-075); the guide moved to Phase 13G (D-076).
+### Design rework (gate met Oct 3, 2026: canvas approved by Auggie and received in chat, md5 810513dd6e85976aab00112b50350bca; committed in Phase 13's contracts commit)
+D-077 to D-082, `docs/SCORES.md`, `docs/DESIGN-BRIEF-v3.md`. Layouts, flows and navigation may all change, tabs included; the paper ground stays and every other colour is open (D-082). Steps: (1) Auggie runs brief v3 in Claude Design, rounds 1 to 4, approving each; (2) the export `BYOB-fit_v3_design.html` is committed by hash; (3) this chat splits the build into phases against the canvas and reissues Phase 13 (D-070, D-071 as amended by D-078, D-072 rule 1) inside them. Usage and budget (D-070) is built before any new AI call (D-081 rule 3). Open before the phase that builds the Body score: a weight noise band and a skeletal-muscle band (D-080 rule 5).
+
+### Phase 13: The rework (gate: on Auggie's iPhone, installed app, light and dark: every tab in the v3 design with the tab bar shown in a workout; leaving a workout mid-rest and returning keeps the timer and typed boxes; a body entry from an InBody scan; a meal day with nutrients, limits and AI estimate marks; each Progress view with its score, parts and "How this is worked out"; one week review note through the preview; usage and estimated cost after that call, and a budget below it stopping the next call; Start then End with nothing logged leaves the day open; Restore from a backup on a fresh install)
+D-070 as amended by D-085, D-071 as amended by D-078, D-072 rule 1, D-077 to D-086, `docs/SCORES.md`, the v3 canvas. One contract, `docs/EXEC-13-rework.md` (EXEC-13 v1.0 of Oct 2 is superseded and never committed), and one draft pull request (Auggie, Oct 3, 2026: "one large PR") built as nine commits after the contracts commit, each passing verify on its own: foundation; data; usage, budget and privacy; body; meals; scores and Progress; week notes; Train restyle; everything else restyled. Database version 5, export envelope version 4.
 
 ### Phase 13G: How-to guide (gate: on Auggie's iPhone, the guide opens from Profile and from each "?", and every step it describes matches the screen)
 D-073 placement, D-076. Built after the design rework and Phase 13. The text is redrafted against the new screens and recorded as a new decision before the contract runs.
@@ -287,8 +291,8 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 
 | File | Role | md5 |
 |---|---|---|
-| docs/DECISIONS.md | Decision records D-001 to D-076 | 13d5248ad3721ef3a92eea5316aae83a |
-| docs/PLAN.md | This file, v1.24 | recorded in chat at delivery (a file cannot carry its own hash) |
+| docs/DECISIONS.md | Decision records D-001 to D-086 | ae2efdac7a686790e0d49aa0a5b86fd8 |
+| docs/PLAN.md | This file, v1.26 | recorded in chat at delivery (a file cannot carry its own hash) |
 | docs/DESIGN-BRIEF.md | Claude Design brief v1.0, placeholder data only | f216f6b548bad5894bbdc974259a6889 |
 | docs/DESIGN-BRIEF-v2.md | Claude Design brief v2.0 | de3ff85f61214a2b812b8a5922d60967 |
 | docs/DESIGN-BRIEF-v2.1.md | Claude Design brief v2.1 | 4eed874c85c1184cba28c7ebfccf4fad |
@@ -314,7 +318,12 @@ v1.5 method: scale by that measured rate, one session per phase of Phase 2 to 4 
 | docs/EXEC-11.7.md | Executor prompt, small change 11.7 | 2709b77c2b4fdcc4c6c44a6aa14e66f6 |
 | docs/EXEC-12.md | Executor prompt, Phase 12 | 0a46847ffc01d09f42681e7bffd0ff3c |
 | docs/EXEC-11.8.md | Executor prompt, small change 11.8 | cf1ad9a18d6ae58fd33391e92f7f54b5 |
-| docs/EXEC-11.9.md | Executor prompt, small change 11.9 | recorded in chat at delivery (it checks this file's hash) |
+| docs/EXEC-11.9.md | Executor prompt, small change 11.9 | 9c51381d240becd7f4c3318b5d05d81c |
+| docs/SCORES.md | Scores, nutrient targets and limits, body noise bands, with sources and worked examples (D-079, D-080) | 58305c1c8d40a2f0d5d8648124268cb3 |
+| docs/EXEC-13-rework.md | Executor prompt, Phase 13 | recorded in chat at delivery (it checks this file's hash) |
+| design/BYOB-fit_v3_design.html | Claude Design canvas v3, 57 frames light and 57 dark, placeholder data; self-contained bundle (React and fonts embedded) | 810513dd6e85976aab00112b50350bca |
+| design/BYOB-fit_v3_README.md | Claude Design handoff notes for the v3 canvas (uploaded as README.md) | f6d6af7ea22521841cf8f40883f80174 |
+| docs/DESIGN-BRIEF-v3.md | Claude Design brief v3.0, the rework, placeholder data only (D-082) | 7692e52739a4562552691cb95d01141e |
 | docs/TARGETS-AND-PROGRESSION.md | Calorie target and progression rule, sources and worked examples (D-046, D-047) | f272d7840a5db2129040dbccd7e5ebfe |
 | docs/STARTER-PROGRAMS.md | Starter program rules, sources, coverage matrix (D-037) | ed27f8fbde2794c79499d631db38f191 |
 | public/templates/starter-3day-fullbody.json | Starter program, beginner | 9b2abfe2ae59a0aba3e80f94290401b2 |

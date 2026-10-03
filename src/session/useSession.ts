@@ -3,8 +3,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { getSessionByDateAndDay, saveSession } from '../db/index.ts'
-import { sessionIdFor, sessionToEnd } from '../lib/session.ts'
+import { deleteSession, getSessionByDateAndDay, saveSession } from '../db/index.ts'
+import { endOutcome, finishOutcome, sessionIdFor, type EndOutcome } from '../lib/session.ts'
+import { clearDeckState } from './deckState.ts'
 import type { ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 
@@ -18,6 +19,8 @@ export interface SessionTarget {
 export interface SessionApi {
   session: Session | null
   loading: boolean
+  /** D-086: the session ended with nothing in it and was deleted. */
+  discarded: boolean
   start: () => Promise<void>
   writeSet: (
     itemId: string,
@@ -33,8 +36,9 @@ export interface SessionApi {
   chooseExercise: (itemId: string, exerciseId: string) => Promise<void>
   /** D-048: store how an exercise felt; Discomfort also marks it skipped. */
   setFeltOff: (itemId: string, exerciseId: string, flag: FeltOff | null) => Promise<void>
+  /** End and leave; never creates a session, and an empty one is deleted (D-086). */
   finish: () => Promise<void>
-  /** D-075 rule 3: mark the stored session ended now; never creates one, never moves an end time. */
+  /** D-075 rule 3: mark the stored session ended now; never creates one, never moves an end time. D-086: an empty one is deleted. */
   end: () => Promise<void>
   reload: () => Promise<void>
   /** D-065 rule 1: today's order, stored when the user moves an item. */
@@ -78,6 +82,7 @@ function withEntry(
 export function useSession(target: SessionTarget | null): SessionApi {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [discarded, setDiscarded] = useState(false)
   // React state is a render-time snapshot, so several writes inside one handler
   // would all start from the same stale session and overwrite each other. The
   // ref is the authoritative copy every mutator reads and updates.
@@ -261,20 +266,41 @@ export function useSession(target: SessionTarget | null): SessionApi {
     [ensure, commit],
   )
 
+  /** D-086: delete the session instead of ending it; the date stays open. */
+  const discard = useCallback(async (current: Session) => {
+    sessionRef.current = null
+    await deleteSession(current.id)
+    await clearDeckState(current.id)
+    setSession(null)
+    setDiscarded(true)
+  }, [])
+
+  /** Store the outcome of ending: delete an empty session, or keep it ended. */
+  const settle = useCallback(
+    async (outcome: EndOutcome) => {
+      if (outcome.kind === 'none') return
+      if (outcome.kind === 'delete') return discard(outcome.session)
+      await commit(outcome.session)
+      await clearDeckState(outcome.session.id)
+    },
+    [commit, discard],
+  )
+
   const finish = useCallback(async () => {
-    const current = await ensure()
-    // D-075 rule 3: an end time set by end() stays.
-    await commit(current.endedAt ? current : { ...current, endedAt: new Date().toISOString() })
-  }, [ensure, commit])
+    // Nothing stored means nothing to end, and no empty session is created.
+    // D-075 rule 3: an end time set by end() stays (finishOutcome keeps it).
+    await settle(finishOutcome(sessionRef.current ?? (await read()), new Date()))
+  }, [read, settle])
 
   const end = useCallback(async () => {
-    const next = sessionToEnd(sessionRef.current, new Date())
-    if (next) await commit(next)
-  }, [commit])
+    // Reads the stored session only; ending never creates one (D-075 rule 3).
+    await settle(endOutcome(sessionRef.current, new Date()))
+  }, [settle])
 
   return {
     session,
     loading,
+    discarded,
     start,
     writeSet,
     setChecked,

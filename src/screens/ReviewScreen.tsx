@@ -9,7 +9,7 @@ import { sendAndLog } from '../ai/send.ts'
 import { AISetupFlow, OfflineBar, StatePanel } from '../ai/parts.tsx'
 import { useOnline, usePreview } from '../ai/usePreview.tsx'
 import { BuilderBar, Hero } from '../builder/ui.tsx'
-import { getGoals, listAllSessions, saveProgram } from '../db/index.ts'
+import { getGoals, listAllSessions, listBodyEntries, saveProgram } from '../db/index.ts'
 import { stripCodeFences } from '../lib/anthropic.ts'
 import { findItem, itemsLoggedOn, itemsWithHistory } from '../lib/builder.ts'
 import { toISODate } from '../lib/dates.ts'
@@ -21,7 +21,7 @@ import { REVIEW_SYSTEM_PROMPT, acceptedOnly, applyReview, changeText, reviewLine
 import { Dock, PrimaryButton, TickIcon } from '../onboarding/ui.tsx'
 import { useProgram } from '../program/useProgram.ts'
 import { useSettings } from '../settings/useSettings.ts'
-import type { Goals, PrivacyLevel, Session } from '../types/stores.ts'
+import type { BodyEntry, Goals, PrivacyLevel, Session } from '../types/stores.ts'
 
 type Phase =
   | { kind: 'ready' }
@@ -38,16 +38,19 @@ export function ReviewScreen() {
   const online = useOnline()
   const [goals, setGoals] = useState<Goals | null | undefined>(undefined)
   const [sessions, setSessions] = useState<Session[]>([])
+  // D-084 rule 2: body entries go at every level.
+  const [bodyEntries, setBodyEntries] = useState<BodyEntry[]>([])
   const [phase, setPhase] = useState<Phase>({ kind: 'ready' })
   const [choices, setChoices] = useState<Record<string, 'accept' | 'reject'>>({})
   const [applying, setApplying] = useState(false)
 
   useEffect(() => {
     let live = true
-    void Promise.all([getGoals(), listAllSessions()]).then(([g, s]) => {
+    void Promise.all([getGoals(), listAllSessions(), listBodyEntries()]).then(([g, s, b]) => {
       if (!live) return
       setGoals(g ?? null)
       setSessions(s)
+      setBodyEntries(b)
     })
     return () => {
       live = false
@@ -93,7 +96,7 @@ export function ReviewScreen() {
     kind: 'review',
     settings,
     build: (level, includeNotes) =>
-      buildPayload('review', level, includeNotes, { program, sessions: programSessions, goals, rules: settings.rules ?? '', settings }),
+      buildPayload('review', level, includeNotes, { program, sessions: programSessions, goals, rules: settings.rules ?? '', settings, bodyEntries }),
     onLevel: (privacyLevel) => void update({ privacyLevel }),
     onSend: (payload, level) => void send(payload, level),
     onCancel: () => navigate(-1),

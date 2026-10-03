@@ -16,6 +16,7 @@ export function ImportScreen() {
   const [fileFailed, setFileFailed] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const [fileName, setFileName] = useState<string | null>(null)
 
   async function activate(program: Program) {
     await saveProgram(program)
@@ -39,6 +40,7 @@ export function ImportScreen() {
   }
 
   async function loadSample() {
+    setFileName(null)
     setBusy(true)
     try {
       const response = await fetch(`${import.meta.env.BASE_URL}sample-program.json`)
@@ -58,6 +60,7 @@ export function ImportScreen() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    setFileName(file.name)
     setBusy(true)
     try {
       await load(await file.text(), true)
@@ -67,34 +70,21 @@ export function ImportScreen() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">Import program</h1>
+    <div className="screen">
+      <div className="page-v3 import-v3">
+        <h1 className="page-v3__title">Import program</h1>
+        <p className="page-v3__lead">
+          Load the sample to look around, or import your own program file. It is checked against the program schema before anything is saved.
+        </p>
       </div>
-      <p className="muted-line">
-        Load the sample to look around, or import your own program file. It is
-        checked against the program schema before anything is saved.
-      </p>
-      <div className="import-actions" style={{ marginTop: 18 }}>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => void loadSample()}
-          disabled={busy}
-        >
-          Load sample program
-        </button>
-        <label className="file-label">
-          <span className="btn-secondary">Import program file</span>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".json,application/json"
-            onChange={(event) => void onFile(event)}
-            disabled={busy}
-          />
-        </label>
-      </div>
+      {busy && (
+        // 4.05: reading a file.
+        <section className="card-v3 import-busy" role="status">
+          <h2 className="card-v3__title">{fileName ? `Reading ${fileName}` : 'Loading the sample program'}</h2>
+          <p className="lrow__sub">Checking days and exercises.</p>
+          <p className="lrow__sub">Nothing is saved until the file passes every check.</p>
+        </section>
+      )}
       {fileFailed && <ImportErrorState errors={errors} onChoose={() => fileInput.current?.click()} />}
       {errors.length > 0 && !fileFailed && (
         <div className="errors">
@@ -108,6 +98,15 @@ export function ImportScreen() {
           </ul>
         </div>
       )}
+      <div className="actions-v3 import-v3__actions">
+        <button type="button" className="btn btn--primary" onClick={() => void loadSample()} disabled={busy}>
+          Load sample program
+        </button>
+        <label className="btn btn--secondary import-v3__file">
+          Import program file
+          <input ref={fileInput} type="file" accept=".json,application/json" className="visually-hidden" onChange={(event) => void onFile(event)} disabled={busy} />
+        </label>
+      </div>
     </div>
   )
 }

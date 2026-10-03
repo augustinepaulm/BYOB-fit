@@ -1,149 +1,285 @@
-/* Colour tokens: 1b "ink and paper" (D-034), values from PLAN v1.5 section 12.
-   Light "text on filled accent" is read from frame 1a of
-   design/BYOB-fit_v2_design.dc.html. */
+/* Fonts (D-083 rule 5): self-hosted woff2 under the SIL OFL 1.1, with their
+   licence texts in public/fonts. Unicode ranges as in the v3 canvas. */
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Bricolage Grotesque is one variable font: weight 400 to 800, width 75% to 100%. */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 400 800;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url('/fonts/bricolage-grotesque-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 400 800;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url('/fonts/bricolage-grotesque-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Colour tokens: design v3 (D-083), values from design/BYOB-fit_v3_README.md.
+   Extra roles the README does not name (rest panel, placeholder, tick ring,
+   handle, scrim, tab bar edge) are read from the canvas frames. Muted is for
+   non-essential text only (D-083 rule 4). */
 
 :root {
-  --bg: #f5f2ec;
-  --text: #1b1a17;
-  --muted: #8f897d;
-  --card: #ebe5da;
-  --hairline: #ddd5c8;
-  --surface: #fbfaf7;
-  --border: #cfc6b7;
-  --field-border: #cfc6b7;
-  --accent: #1f3a5f;
-  --accent-fg: #ffffff;
-  --accent-soft-border: #ddd5c8;
-  --dashed: #cfc6b7;
-  /* D-067 rule 1: a navy tab bar in every appearance. */
-  --tabbar-bg: #1f3a5f;
-  --tabbar-border: #1f3a5f;
-  --tab-inactive: #bcc4cf;
-  --tab-active: #ffffff;
-  --chip-idle: #e4ddd0;
-  --icon-muted: #bdb3a3;
-  --ok: #2e7d4f;
-  --ok-fg: #ffffff;
-  --field-confirmed-bg: #e2e7ee;
-  --field-future-bg: #ebe5da;
-  --placeholder: #bdb3a3;
-  --warn: #a8641c;
-  --danger: #b0413a;
-  --banner-bg: #e2e7ee;
-  --banner-border: #ddd5c8;
-  --banner-text: #1f3a5f;
-  --diff-changed-bg: #ebe5da;
-  --diff-changed-tag: #ebe5da;
-  --diff-added-bg: #e2e7ee;
-  --diff-added-tag: #e2e7ee;
-  --diff-removed-bg: #f1e3c8;
-  --diff-removed-tag: #f1e3c8;
-  --scrim: #f5f2ec00;
-  --secondary: #5f5a50;
-  --warn-fg: #7a4a0f;
-  /* EXEC-11 task 10: no PLAN section 12 role fits these. Backdrop from frame 5f. */
-  --overlay: rgba(27, 26, 23, 0.38);
-  --shadow: rgba(27, 26, 23, 0.08);
-  --shadow-strong: rgba(27, 26, 23, 0.28);
-
-  --r-card: 14px;
-  --r-banner: 12px;
-  --r-field: 10px;
-  --r-pill: 20px;
-
-  --gutter: 16px;
-  --page-x: 20px;
-  --tabbar-h: 84px;
+  --ground: #f5f2ec;
+  --sheet: #fdfcf9;
+  --field: #f1efe9;
+  --chip: #ebe6dc;
+  --line: #e6e0d4;
+  --ink: #1f1d1a;
+  --ink-2: #66615a;
+  --muted: #8a847a;
+  --placeholder: #a39c90;
+  --field-hint: #8f897f;
+  --sage: #3d6b5a;
+  --sage-text: #2f5546;
+  --sage-tint: #e6ede8;
+  --sage-soft: #a9c1b5;
+  --ring-track: #dde6df;
+  --rest-panel: #f1f4ef;
+  --on-sage: #ffffff;
+  --navy: #1f3a5f;
+  --ai-tint: #e3e8f0;
+  --tabbar: #1f3a5f;
+  --tabbar-edge: #34507a;
+  --tab-inactive: #b4c0d0;
+  --tab-active: #fdfcf9;
+  --inprogress: #2f5546;
+  --inprogress-ink: #ffffff;
+  --inprogress-sub: #d6e3dc;
+  --inprogress-track: rgba(255, 255, 255, 0.25);
+  --inprogress-button: rgba(255, 255, 255, 0.14);
+  --warning: #8a5a00;
+  --warning-tint: #f5ead6;
+  --danger: #a8322a;
+  --danger-tint: #f6e4e1;
+  --tick-ring: #cfc8ba;
+  --row-ring: #d3ccbf;
+  --handle: #b9b1a3;
+  --upcoming: #efece5;
+  --backdrop: rgba(24, 22, 18, 0.42);
+  --shadow: rgba(40, 34, 24, 0.14);
+  --shadow-strong: rgba(0, 0, 0, 0.25);
+  --fade: rgba(245, 242, 236, 0);
+  --shadow-card: 0 1px 2px rgba(40, 34, 24, 0.06);
+  --shadow-active: 0 2px 4px rgba(40, 34, 24, 0.05), 0 10px 24px -10px rgba(40, 34, 24, 0.22);
+  --shadow-seg: 0 1px 3px rgba(40, 34, 24, 0.14);
+  --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.25);
+  --shadow-bar: 0 10px 24px -8px rgba(20, 30, 25, 0.45);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #171512;
-    --text: #ede8df;
-    --muted: #8a8276;
-    --card: #24211c;
-    --hairline: #36312a;
-    --surface: #1e1b17;
-    --border: #4a443b;
-    --field-border: #4a443b;
-    --accent: #8fb0d9;
-    --accent-fg: #101a26;
-    --accent-soft-border: #36312a;
-    --dashed: #4a443b;
-    --tabbar-bg: #1f3a5f;
-    --tabbar-border: #1f3a5f;
-    --tab-inactive: #bcc4cf;
-    --tab-active: #ffffff;
-    --chip-idle: #2a2620;
-    --icon-muted: #5a5348;
-    --ok: #5bb887;
-    --ok-fg: #101a26;
-    --field-confirmed-bg: #22303f;
-    --field-future-bg: #24211c;
-    --placeholder: #5a5348;
-    --warn: #e0a560;
-    --danger: #e07868;
-    --banner-bg: #22303f;
-    --banner-border: #36312a;
-    --banner-text: #8fb0d9;
-    --diff-changed-bg: #24211c;
-    --diff-changed-tag: #24211c;
-    --diff-added-bg: #22303f;
-    --diff-added-tag: #22303f;
-    --diff-removed-bg: #3a2c14;
-    --diff-removed-tag: #3a2c14;
-    --scrim: #17151200;
-    --secondary: #b3ab9e;
-    --warn-fg: #f1c98a;
-    --overlay: rgba(0, 0, 0, 0.6);
-    --shadow: rgba(0, 0, 0, 0.35);
-    --shadow-strong: rgba(0, 0, 0, 0.6);
+    --ground: #161816;
+    --sheet: #212421;
+    --field: #2a2d29;
+    --chip: #2c2f2b;
+    --line: #33362f;
+    --ink: #ecebe6;
+    --ink-2: #a9aaa2;
+    --muted: #8b8d86;
+    --placeholder: #6f716a;
+    --field-hint: #7c7e77;
+    --sage: #8cc2aa;
+    --sage-text: #9fd0b9;
+    --sage-tint: #24352d;
+    --sage-soft: #4f6e60;
+    --ring-track: #2b3a32;
+    --rest-panel: #1d2620;
+    --on-sage: #0f1a15;
+    --navy: #a9c2e6;
+    --ai-tint: #22304a;
+    --tabbar: #2a4a73;
+    --tabbar-edge: #3d5f8a;
+    --tab-inactive: #b4c0d0;
+    --tab-active: #fdfcf9;
+    --inprogress: #9fd0b9;
+    --inprogress-ink: #0f1a15;
+    --inprogress-sub: #24352d;
+    --inprogress-track: rgba(0, 0, 0, 0.2);
+    --inprogress-button: rgba(0, 0, 0, 0.12);
+    --warning: #e0b25c;
+    --warning-tint: #3a2f1c;
+    --danger: #f08a7e;
+    --danger-tint: #3d2421;
+    --tick-ring: #4a4d47;
+    --row-ring: #454842;
+    --handle: #5a5d56;
+    --upcoming: #2c2f2b;
+    --backdrop: rgba(0, 0, 0, 0.62);
+  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow-strong: rgba(0, 0, 0, 0.6);
+    --fade: rgba(22, 24, 22, 0);
+    --shadow-card: 0 1px 2px rgba(40, 34, 24, 0.06);
+    --shadow-active: 0 2px 4px rgba(40, 34, 24, 0.05), 0 10px 24px -10px rgba(40, 34, 24, 0.22);
+    --shadow-seg: 0 1px 3px rgba(40, 34, 24, 0.14);
+    --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.25);
+    --shadow-bar: 0 10px 24px -8px rgba(20, 30, 25, 0.45);
   }
 }
 
 /* Appearance: Dark (D-039). The same declarations as the block above;
    a unit test keeps the two identical. */
 :root[data-theme="dark"] {
-  --bg: #171512;
-  --text: #ede8df;
-  --muted: #8a8276;
-  --card: #24211c;
-  --hairline: #36312a;
-  --surface: #1e1b17;
-  --border: #4a443b;
-  --field-border: #4a443b;
-  --accent: #8fb0d9;
-  --accent-fg: #101a26;
-  --accent-soft-border: #36312a;
-  --dashed: #4a443b;
-  --tabbar-bg: #1f3a5f;
-  --tabbar-border: #1f3a5f;
-  --tab-inactive: #bcc4cf;
-  --tab-active: #ffffff;
-  --chip-idle: #2a2620;
-  --icon-muted: #5a5348;
-  --ok: #5bb887;
-  --ok-fg: #101a26;
-  --field-confirmed-bg: #22303f;
-  --field-future-bg: #24211c;
-  --placeholder: #5a5348;
-  --warn: #e0a560;
-  --danger: #e07868;
-  --banner-bg: #22303f;
-  --banner-border: #36312a;
-  --banner-text: #8fb0d9;
-  --diff-changed-bg: #24211c;
-  --diff-changed-tag: #24211c;
-  --diff-added-bg: #22303f;
-  --diff-added-tag: #22303f;
-  --diff-removed-bg: #3a2c14;
-  --diff-removed-tag: #3a2c14;
-  --scrim: #17151200;
-  --secondary: #b3ab9e;
-  --warn-fg: #f1c98a;
-  --overlay: rgba(0, 0, 0, 0.6);
+  --ground: #161816;
+  --sheet: #212421;
+  --field: #2a2d29;
+  --chip: #2c2f2b;
+  --line: #33362f;
+  --ink: #ecebe6;
+  --ink-2: #a9aaa2;
+  --muted: #8b8d86;
+  --placeholder: #6f716a;
+  --field-hint: #7c7e77;
+  --sage: #8cc2aa;
+  --sage-text: #9fd0b9;
+  --sage-tint: #24352d;
+  --sage-soft: #4f6e60;
+  --ring-track: #2b3a32;
+  --rest-panel: #1d2620;
+  --on-sage: #0f1a15;
+  --navy: #a9c2e6;
+  --ai-tint: #22304a;
+  --tabbar: #2a4a73;
+  --tabbar-edge: #3d5f8a;
+  --tab-inactive: #b4c0d0;
+  --tab-active: #fdfcf9;
+  --inprogress: #9fd0b9;
+  --inprogress-ink: #0f1a15;
+  --inprogress-sub: #24352d;
+  --inprogress-track: rgba(0, 0, 0, 0.2);
+  --inprogress-button: rgba(0, 0, 0, 0.12);
+  --warning: #e0b25c;
+  --warning-tint: #3a2f1c;
+  --danger: #f08a7e;
+  --danger-tint: #3d2421;
+  --tick-ring: #4a4d47;
+  --row-ring: #454842;
+  --handle: #5a5d56;
+  --upcoming: #2c2f2b;
+  --backdrop: rgba(0, 0, 0, 0.62);
   --shadow: rgba(0, 0, 0, 0.35);
   --shadow-strong: rgba(0, 0, 0, 0.6);
+  --fade: rgba(22, 24, 22, 0);
+  --shadow-card: 0 1px 2px rgba(40, 34, 24, 0.06);
+  --shadow-active: 0 2px 4px rgba(40, 34, 24, 0.05), 0 10px 24px -10px rgba(40, 34, 24, 0.22);
+  --shadow-seg: 0 1px 3px rgba(40, 34, 24, 0.14);
+  --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.25);
+  --shadow-bar: 0 10px 24px -8px rgba(20, 30, 25, 0.45);
+}
+
+/* Type, radii and layout (v3 README). Names the earlier screens use are kept
+   as aliases of the v3 roles, so a screen not yet redrawn takes the v3
+   palette (D-083 rule 3). Aliases resolve per theme because they live on the
+   same element as the tokens. */
+:root {
+  --font-ui: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --t-title-xl: 36px;
+  --t-title-l: 30px;
+  --t-title-m: 26px;
+  --t-title-s: 22px;
+  --t-body: 16px;
+  --t-secondary: 15px;
+  --t-caption: 13px;
+  --t-tab: 11px;
+
+  --r-card-v3: 24px;
+  --r-sheet: 28px;
+  --r-row: 20px;
+  --r-field-v3: 12px;
+  --r-full: 999px;
+
+  --bg: var(--ground);
+  --text: var(--ink);
+  --secondary: var(--ink-2);
+  --card: var(--chip);
+  --hairline: var(--line);
+  --surface: var(--sheet);
+  --border: var(--line);
+  --field-border: var(--line);
+  --accent: var(--sage);
+  --accent-fg: var(--on-sage);
+  --accent-soft-border: var(--line);
+  --dashed: var(--tick-ring);
+  --tabbar-bg: var(--tabbar);
+  --tabbar-border: var(--tabbar-edge);
+  --chip-idle: var(--chip);
+  --icon-muted: var(--tick-ring);
+  --ok: var(--sage);
+  --ok-fg: var(--on-sage);
+  --field-confirmed-bg: var(--sage-tint);
+  --field-future-bg: var(--field);
+  --warn: var(--warning);
+  --warn-fg: var(--warning);
+  --banner-bg: var(--sage-tint);
+  --banner-border: var(--sage-tint);
+  --banner-text: var(--sage-text);
+  --diff-changed-bg: var(--chip);
+  --diff-changed-tag: var(--chip);
+  --diff-added-bg: var(--sage-tint);
+  --diff-added-tag: var(--sage-tint);
+  --diff-removed-bg: var(--warning-tint);
+  --diff-removed-tag: var(--warning-tint);
+  --overlay: var(--backdrop);
+  --scrim: var(--fade);
+
+  --r-card: 20px;
+  --r-banner: 16px;
+  --r-field: 12px;
+  --r-pill: 22px;
+
+  --gutter: 16px;
+  --page-x: 20px;
+  --header-h: 134px;
+  --tabbar-h: 80px;
+  --inprogress-h: 60px;
 }
 
 * {
@@ -161,7 +297,7 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
 }

@@ -68,8 +68,18 @@ export interface Profile {
   updatedAt: string
 }
 
+/** D-079 rule 1: the nutrients beyond calories and protein, all optional. */
+export interface MealNutrients {
+  carbsG?: number
+  fatG?: number
+  fibreG?: number
+  sodiumMg?: number
+  addedSugarG?: number
+  satFatG?: number
+}
+
 /** One parsed line of a meal day, as the model returns it. */
-export interface ParsedMealLine {
+export interface ParsedMealLine extends MealNutrients {
   line: string
   kcal: number
   proteinG: number
@@ -77,10 +87,13 @@ export interface ParsedMealLine {
   source?: MealSource
 }
 
+/** D-079 rule 4: a line can be labelled as part of a meal. */
+export type MealLabel = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
 export type MealSource = 'phone' | 'ai' | 'manual'
 
 /** One of the user's own foods (D-049 rule 1). */
-export interface MealFood {
+export interface MealFood extends MealNutrients {
   name: string
   kcal: number
   proteinG?: number
@@ -94,8 +107,63 @@ export interface MealDay {
    * PLAN section 5 left the element type of `items` open; EXEC-04 task 6 fixes
    * it as one record per input line.
    */
-  parsed?: { kcal: number; proteinG: number; items: ParsedMealLine[] }
+  parsed?: { kcal: number; proteinG: number; items: ParsedMealLine[] } & MealNutrients
   parsedAt?: string
+  /** PLAN v1.26: one entry per line, the meal it belongs to or null (D-079 rule 4). */
+  lineMeals?: (MealLabel | null)[]
+}
+
+/**
+ * D-078: one body entry per date; every field optional. Masses are in the
+ * entry's units (kg or lb), lengths in cm with kg and inches with lb.
+ */
+export interface BodyEntry {
+  /** YYYY-MM-DD, the key. */
+  date: string
+  units: LoadUnit
+  weight?: number
+  skeletalMuscle?: number
+  bodyFatMass?: number
+  bodyFatPct?: number
+  visceralFat?: number
+  /** kcal/day, from a scan (D-078 rule 3). */
+  bmrKcal?: number
+  waist?: number
+  chest?: number
+  hips?: number
+  upperArm?: number
+  thigh?: number
+  updatedAt: string
+}
+
+export type ProgressView = 'training' | 'nutrition' | 'body'
+
+/** D-081: an AI note on one week of one Progress view. */
+export interface WeekNote {
+  id: string
+  /** The Sunday that starts the week, YYYY-MM-DD. */
+  weekStart: string
+  programWeek?: number
+  view: ProgressView
+  reply: string
+  /** ISO date-time the reply arrived. */
+  at: string
+  model?: string
+}
+
+/** D-085 rule 3: price per million tokens, in and out, in US dollars. */
+export interface ModelPrice {
+  inputPerM: number
+  outputPerM: number
+}
+
+/** D-085 rule 4: the optional monthly budget. */
+export interface Budget {
+  monthlyUsd?: number
+  /** Warn at this share of the budget, in percent; default 80. */
+  warnPct: number
+  /** Stop sending at the budget; on by default once a budget is set. */
+  stopAtBudget: boolean
 }
 
 export interface Settings {
@@ -135,6 +203,10 @@ export interface Settings {
   backupNoteDismissedAt?: string
   /** Program ids whose review suggestion banner the user has dismissed. */
   reviewBannerDismissedFor?: string[]
+  /** D-085 rule 3: the price table, keyed by model string; missing reads as the defaults. */
+  prices?: Record<string, ModelPrice>
+  /** D-085 rule 4. */
+  budget?: Budget
 }
 
 export type PrivacyLevel = 'minimal' | 'standard' | 'full'
@@ -184,8 +256,14 @@ export interface SentLogEntry {
   id: string
   /** ISO date-time of the call. */
   at: string
-  kind: 'review' | 'update' | 'meals'
+  kind: 'review' | 'update' | 'meals' | 'week_note'
   privacyLevel: PrivacyLevel
+  /** D-085 rule 1: the model the call used. */
+  model?: string
+  /** D-085 rule 1: tokens the reply reported. */
+  usage?: { inputTokens: number; outputTokens: number }
+  /** D-085 rule 1: the reply carried no usage, so it counts as zero. */
+  usageMissing?: true
   /** One-line description of what was sent, for the list view. */
   payloadSummary: string
   /** Exactly what was sent, as JSON. */
