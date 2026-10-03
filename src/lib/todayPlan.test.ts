@@ -12,6 +12,7 @@ import { buildDeck } from './session.ts'
 import {
   applyOrder,
   currentAfterMove,
+  isDeckItemInProgress,
   isDeckItemDone,
   keepOrder,
   keepSets,
@@ -101,19 +102,43 @@ describe('moves (task 4b)', () => {
   })
 })
 
-describe('the current item after a move (task 4c, D-065 rule 3)', () => {
+describe('the current item after a move (D-065 rule 3, D-074 rule 1)', () => {
   const before = orderOf(deck)
-  it('another item moved: the current item stays current', () => {
+  it('an item moved ahead of the current one becomes current', () => {
     const after = moveItem(before, 'i012', 0, 'tue-warmup', new Set())
-    expect(currentAfterMove(before, after, 'i010', 'i012')).toBe('i010')
+    expect(currentAfterMove(before, after, 'i010', 'i012')).toBe('i012')
+  })
+  it('an item moved to the current position becomes current; the replaced one follows it', () => {
+    const at = before.findIndex((o) => o.itemId === 'i010')
+    const after = moveItem(before, 'i013', at, 'tue-main', new Set())
+    expect(after[at].itemId).toBe('i013')
+    expect(after[at + 1].itemId).toBe('i010')
+    expect(currentAfterMove(before, after, 'i010', 'i013')).toBe('i013')
+  })
+  it('an item moved later changes nothing', () => {
+    const after = moveItem(before, 'i011', 5, 'tue-main', new Set())
+    expect(currentAfterMove(before, after, 'i010', 'i011')).toBe('i010')
   })
   it('the current item moved earlier: it stays current', () => {
     const after = moveItem(before, 'i011', 1, 'tue-main', new Set())
     expect(currentAfterMove(before, after, 'i011', 'i011')).toBe('i011')
   })
-  it('the current item moved later: the item that takes its place is current', () => {
+  it('the current item moved later: the item that takes its place is current (unchanged from D-065)', () => {
     const after = moveItem(before, 'i010', 5, 'tue-main', new Set())
     expect(currentAfterMove(before, after, 'i010', 'i010')).toBe('i011')
+  })
+  it('the replaced item keeps its saved sets and shows as in progress', () => {
+    const session = { id: 's', date: '2026-09-29', dayId: 'tue', programWeek: 8, entries: [{ itemId: 'i009', exerciseId: 'back-squat', sets: [{ n: 1, weight: 100, reps: 6 }] }] }
+    const squat = deck.find((d) => d.item.id === 'i009')!
+    expect(isDeckItemInProgress(squat, session)).toBe(true)
+    const all = { ...session, entries: [{ itemId: 'i009', exerciseId: 'back-squat', sets: [1, 2, 3, 4].map((n) => ({ n, weight: 100, reps: 6 })) }] }
+    expect(isDeckItemInProgress(squat, all)).toBe(false)
+    expect(isDeckItemInProgress(squat, undefined)).toBe(false)
+  })
+  it('done items stay locked, so nothing changes', () => {
+    const after = moveItem(before, 'i009', 5, 'tue-main', new Set(['i009']))
+    expect(after).toBe(before)
+    expect(currentAfterMove(before, after, 'i010', 'i009')).toBe('i010')
   })
 })
 

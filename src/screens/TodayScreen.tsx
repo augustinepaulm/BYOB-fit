@@ -244,7 +244,6 @@ export function TodayScreen() {
         <div className="tl-line">
           <span>
             {summary.setsConfirmed} sets
-            {summary.volumeByUnit.map(({ unit, volume }) => ` · ${volume.toLocaleString('en-US')} ${unit}`)}
             {summary.durationMin !== null ? ` · ${summary.durationMin} min` : ''}
           </span>
           <Link to="/log">View log</Link>

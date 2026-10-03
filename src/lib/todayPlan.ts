@@ -6,7 +6,7 @@ import type { Day, Item, Program } from '../types/program.ts'
 import type { Entry, Session } from '../types/stores.ts'
 import { finishDraft, loadDraft } from './builder.ts'
 import { isLogged } from './program.ts'
-import { findEntry, isSetConfirmed, setRowsFor, type DeckItem, type SetRow } from './session.ts'
+import { findEntry, findSet, isSetConfirmed, setRowsFor, type DeckItem, type SetRow } from './session.ts'
 
 /** One item in today's order and the section it sits in today (D-065 rule 1). */
 export interface OrderEntry {
@@ -58,6 +58,29 @@ export function isDeckItemDone(deckItem: DeckItem, session: Session | undefined)
   return entry?.checked === true
 }
 
+/**
+ * D-074 rule 3: the rest timer after Done. Done that saved at least one set
+ * not saved before starts rest now with the finished exercise's rest; Done
+ * that saved nothing new leaves the timer as it was.
+ */
+export function restAfterDone(restUntil: number | null, newSets: number, restSec: number | undefined, now: number): number | null {
+  if (newSets === 0 || !restSec || restSec <= 0) return restUntil
+  return now + restSec * 1000
+}
+
+/**
+ * D-074 rule 1: a logged item with some of its sets saved, not all, and not
+ * skipped shows as in progress in the plan sheet (it still counts as done for
+ * locking and Resume, D-065 rule 4).
+ */
+export function isDeckItemInProgress(deckItem: DeckItem, session: Session | undefined): boolean {
+  const entry = findEntry(session, deckItem.item.id)
+  if (!deckItem.logged || entry?.skipped) return false
+  const rows = setRowsWithAdded(deckItem.resolved, entry?.addedSets)
+  const saved = rows.filter((row) => isSetConfirmed(findSet(entry, row))).length
+  return saved > 0 && saved < rows.length
+}
+
 // ── b. Moves ──
 
 /**
@@ -93,13 +116,20 @@ export function stepTarget(order: OrderEntry[], itemId: string, direction: 'up' 
 // ── c. The current item after a move ──
 
 /**
- * D-065 rule 3: the current item stays current, unless it was itself moved
- * later; then the item that takes its old place becomes current.
+ * D-074 rule 1 (amends D-065 rule 3): an item moved to the current position or
+ * ahead of it becomes current; the item it replaced keeps its saved sets. A
+ * move to a later position changes nothing, except when the current item
+ * itself moves later: then the item that takes its old place becomes current.
  */
 export function currentAfterMove(before: OrderEntry[], after: OrderEntry[], currentId: string, movedId: string): string {
-  if (movedId !== currentId) return currentId
   const was = before.findIndex((o) => o.itemId === currentId)
   const now = after.findIndex((o) => o.itemId === currentId)
+  if (movedId !== currentId) {
+    // Only a move from behind the current item to its place or ahead of it.
+    const from = before.findIndex((o) => o.itemId === movedId)
+    const to = after.findIndex((o) => o.itemId === movedId)
+    return from > was && to >= 0 && to < now ? movedId : currentId
+  }
   if (now <= was) return currentId
   return after[was]?.itemId ?? currentId
 }

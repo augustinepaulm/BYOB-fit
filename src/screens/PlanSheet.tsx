@@ -4,7 +4,7 @@
 // D-069: sections emptied today stay as drop targets (rule 11), and "Change
 // today's workout" (rule 5).
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 import { prescriptionText } from '../lib/prescription.ts'
 import type { DeckItem } from '../lib/session.ts'
@@ -16,6 +16,7 @@ export function PlanSheet({
   order,
   currentIndex,
   done,
+  inProgress,
   nameOf,
   sections,
   onJump,
@@ -32,6 +33,8 @@ export function PlanSheet({
   currentIndex: number
   /** Item ids that are done; they never move (D-065 rule 4). */
   done: ReadonlySet<string>
+  /** Done items with only some sets saved show as in progress (D-074 rule 1). */
+  inProgress: ReadonlySet<string>
   nameOf: (deckItem: DeckItem) => string
   onJump: (index: number) => void
   onMove: (itemId: string, toIndex: number, toSectionId: string) => void
@@ -45,6 +48,8 @@ export function PlanSheet({
   const listRef = useRef<HTMLDivElement>(null)
   const groups = planGroups(deck, sections)
   const [drag, setDrag] = useState<{ itemId: string; startY: number; dy: number } | null>(null)
+  // The handle holding the pointer during a drag (D-074 rule 2).
+  const captured = useRef<{ element: HTMLElement; pointerId: number } | null>(null)
 
   /** Where a drop at clientY lands: the index among the other items, and the section. */
   function dropTarget(itemId: string, clientY: number): { toIndex: number; toSectionId: string } {
@@ -63,8 +68,33 @@ export function PlanSheet({
   function startDrag(event: ReactPointerEvent<HTMLButtonElement>, itemId: string) {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
+    captured.current = { element: event.currentTarget, pointerId: event.pointerId }
     setDrag({ itemId, startY: event.clientY, dy: 0 })
   }
+
+  /** D-074 rule 2: release the pointer and clear the drag, so nothing blocks the next scroll. */
+  function endDrag() {
+    const held = captured.current
+    captured.current = null
+    if (held) {
+      try {
+        if (held.element.hasPointerCapture(held.pointerId)) held.element.releasePointerCapture(held.pointerId)
+      } catch {
+        // The element is gone or the pointer already ended.
+      }
+    }
+    setDrag(null)
+  }
+  // Closing the sheet mid-drag releases it too.
+  useEffect(() => () => {
+    const held = captured.current
+    captured.current = null
+    try {
+      if (held?.element.hasPointerCapture(held.pointerId)) held.element.releasePointerCapture(held.pointerId)
+    } catch {
+      // Already released.
+    }
+  }, [])
 
   return (
     <>
@@ -89,7 +119,8 @@ export function PlanSheet({
                 const id = deckItem.item.id
                 const name = nameOf(deckItem)
                 const isDone = done.has(id)
-                const state = isDone ? 'Done' : index === currentIndex ? 'Current' : 'Upcoming'
+                const partly = inProgress.has(id)
+                const state = isDone && !partly ? 'Done' : index === currentIndex ? 'Current' : partly ? 'In progress' : 'Upcoming'
                 const up = isDone ? null : stepInGroups(groups, id, 'up')
                 const down = isDone ? null : stepInGroups(groups, id, 'down')
                 const dragging = drag?.itemId === id
@@ -111,12 +142,13 @@ export function PlanSheet({
                         onPointerDown={(event) => startDrag(event, id)}
                         onPointerMove={(event) => drag?.itemId === id && setDrag({ ...drag, dy: event.clientY - drag.startY })}
                         onPointerUp={(event) => {
-                          if (drag?.itemId !== id) return
+                          if (drag?.itemId !== id) return endDrag()
                           const target = dropTarget(id, event.clientY)
-                          setDrag(null)
+                          endDrag()
                           if (Math.abs(event.clientY - drag.startY) > 4) onMove(id, target.toIndex, target.toSectionId)
                         }}
-                        onPointerCancel={() => setDrag(null)}
+                        onPointerCancel={endDrag}
+                        onLostPointerCapture={() => drag && endDrag()}
                       >
                         <HandleIcon />
                       </button>
@@ -125,8 +157,8 @@ export function PlanSheet({
                       <span className="dk-plan__title">{name}</span>
                       <span className="dk-plan__sub">{prescriptionText(deckItem.resolved)}</span>
                     </button>
-                    <span className={`dk-plan__state dk-plan__state--${state.toLowerCase()}`}>
-                      {isDone && <TickIcon />}
+                    <span className={`dk-plan__state dk-plan__state--${state.toLowerCase().replace(' ', '')}`}>
+                      {state === 'Done' && <TickIcon />}
                       {state}
                     </span>
                     {!isDone && (

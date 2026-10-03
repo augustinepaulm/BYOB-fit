@@ -30,6 +30,7 @@ import { loadRowOutcome, numberBoxAttributes, repRangeText, singleRowOutcome, ty
 import { formatClock, formatRest, formatSetValue, prescriptionText } from '../lib/prescription.ts'
 import { dayForDate } from '../lib/program.ts'
 import { suggestProgression, suggestionText } from '../lib/progression.ts'
+import { compareWithLastWeek, readyToProgress } from '../lib/summary.ts'
 import {
   buildDeck,
   findEntry,
@@ -47,7 +48,9 @@ import {
 import {
   applyOrder,
   currentAfterMove,
+  restAfterDone,
   isDeckItemDone,
+  isDeckItemInProgress,
   keepOrder,
   keepSets,
   moveItem,
@@ -287,8 +290,8 @@ function Deck() {
   const exerciseId = entry?.exerciseId ?? current?.resolved.exerciseId ?? ''
   const exercise: Exercise | undefined = program?.exercises[exerciseId] ?? library.find((l) => l.id === exerciseId)?.exercise
   const referenceEntry = useMemo(
-    () => (day ? findReferenceEntry(history, day.id, exerciseId) : undefined),
-    [history, day, exerciseId],
+    () => (day ? findReferenceEntry(history, day.id, exerciseId, current?.resolved.type) : undefined),
+    [history, day, exerciseId, current?.resolved.type],
   )
   const unit = current?.resolved.unit ?? 'kg'
 
@@ -342,8 +345,11 @@ function Deck() {
     setErrors(drop)
   }, [])
 
+  // Sets Done saved that were not saved before (D-074 rule 3).
+  const savedByDone = useRef(0)
+
   const writeRow = useCallback(
-    async (row: SetRow, fields: ParsedFields) => {
+    async (row: SetRow, fields: ParsedFields, action: RowAction = 'tick') => {
       if (!current) return true
       try {
         await api.writeSet(current.item.id, exerciseId, { n: row.n, ...(row.side ? { side: row.side } : {}), ...fields })
@@ -354,7 +360,9 @@ function Deck() {
       }
       setSaveFailed(null)
       clearBoxes(rowKey(current.item.id, row))
-      startRest()
+      // Done starts rest once, after all its saves (D-074 rule 3).
+      if (action === 'done') savedByDone.current += 1
+      else startRest()
       return true
     },
     [api, current, exerciseId, clearBoxes, startRest],
@@ -385,7 +393,7 @@ function Deck() {
           setErrors((e) => ({ ...e, [boxKey(key, type === 'load_reps' ? 'w' : 'v')]: 'Nothing from last week to copy' }))
           return false
         }
-        return writeRow(row, result.fields)
+        return writeRow(row, result.fields, action)
       }
 
       const show = (results: [Box, BoxResult][]) => {
@@ -413,7 +421,7 @@ function Deck() {
           return false
         }
         show([['w', { ok: true, value: outcome.weight }], ['r', { ok: true, value: outcome.reps }]])
-        return writeRow(row, { weight: outcome.weight, reps: outcome.reps })
+        return writeRow(row, { weight: outcome.weight, reps: outcome.reps }, action)
       }
 
       const single = SINGLE[type] ?? SINGLE.bodyweight_reps
@@ -425,7 +433,7 @@ function Deck() {
         return false
       }
       show([['v', { ok: true, value: outcome.value }]])
-      return writeRow(row, { [single.field]: outcome.value })
+      return writeRow(row, { [single.field]: outcome.value }, action)
     },
     [current, entry, drafts, prefillFor, exactReference, writeRow],
   )
@@ -456,6 +464,7 @@ function Deck() {
       advance(from)
       return
     }
+    savedByDone.current = 0
     for (const row of setRowsWithAdded(current.resolved, entry?.addedSets)) {
       const key = rowKey(current.item.id, row)
       const hasTyped = (['w', 'r', 'v'] as Box[]).some((box) => (drafts[boxKey(key, box)] ?? '').trim() !== '')
@@ -463,8 +472,12 @@ function Deck() {
       // Typed boxes must save; an untouched row saves only last week's values
       // for that row, and is otherwise left empty (D-053).
       const saved = stored && !hasTyped ? true : await saveRow(row, 'done')
-      if (!saved) return
+      if (!saved) {
+        setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
+        return
+      }
     }
+    setRestUntil((until) => restAfterDone(until, savedByDone.current, current.resolved.restSec, Date.now()))
     advance(from)
   }, [api, current, deck, exerciseId, drafts, entry, saveRow, advance])
 
@@ -502,6 +515,7 @@ function Deck() {
   const setsLogged = summary.setsConfirmed
   // Exercises with nothing recorded yet, for End early (7b).
   const doneIds = new Set(deck.filter((deckItem) => isDeckItemDone(deckItem, api.session ?? undefined)).map((d) => d.item.id))
+  const inProgressIds = new Set(deck.filter((deckItem) => isDeckItemInProgress(deckItem, api.session ?? undefined)).map((d) => d.item.id))
   const notDone = deck.length - doneIds.size
   const restRemaining = restUntil ? (restUntil - now) / 1000 : 0
   const nameOf = (id: string) => program.exercises[id]?.name ?? library.find((l) => l.id === id)?.exercise.name ?? id
@@ -528,6 +542,53 @@ function Deck() {
     const currentId = deck[at]?.item.id
     await api.setOrder(after)
     if (currentId) setPosition(after.findIndex((o) => o.itemId === currentAfterMove(before, after, currentId, itemId)))
+  }
+
+  /** D-074 rule 4: compared with last week, and ready to progress. */
+  function renderProgress() {
+    if (!day) return null
+    const session = api.session ?? undefined
+    const compared = compareWithLastWeek(session, deck, history, day.id)
+    const ready = readyToProgress(session, deck, history, (id) => program?.exercises[id] ?? library.find((l) => l.id === id)?.exercise)
+    const counted = compared.up + compared.same + compared.down
+    return (
+      <>
+        {(counted > 0 || compared.newIds.length > 0) && (
+          <div className="dk-compare">
+            <div className="ob-sechead">
+              <span>Compared with last week</span>
+            </div>
+            {counted > 0 && (
+              <div className="dk-compare__counts">
+                Up {compared.up} · Same {compared.same} · Down {compared.down}
+              </div>
+            )}
+            {compared.upLines.map((line) => (
+              <div className="dk-compare__line" key={line.exerciseId}>
+                {nameOf(line.exerciseId)}: {line.today}, last week {line.last}
+              </div>
+            ))}
+            {compared.newIds.length > 0 && (
+              <div className="dk-compare__line">
+                <span style={{ color: 'var(--secondary)' }}>New:</span> {compared.newIds.map((id) => nameOf(id)).join(', ')}
+              </div>
+            )}
+          </div>
+        )}
+        {ready.length > 0 && (
+          <div className="dk-compare">
+            <div className="ob-sechead">
+              <span>Ready to progress</span>
+            </div>
+            {ready.map((r) => (
+              <div className="dk-compare__line" key={r.exerciseId}>
+                {nameOf(r.exerciseId)}: {r.text}
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )
   }
 
   /** D-063 rule 6, D-055, D-065 rules 2, 7 and 8: only these taps change the program. */
@@ -677,12 +738,6 @@ function Deck() {
             <span className="dk-stat__label">Sets done</span>
             <span className="dk-stat__value">{summary.setsConfirmed}</span>
           </div>
-          {summary.volumeByUnit.map(({ unit: u, volume }) => (
-            <div className="dk-stat" key={u}>
-              <span className="dk-stat__label">Volume, {u}</span>
-              <span className="dk-stat__value">{volume.toLocaleString('en-US')}</span>
-            </div>
-          ))}
           <div className="dk-stat">
             <span className="dk-stat__label">Time</span>
             <span className="dk-stat__value">{minutes} min</span>
@@ -692,6 +747,7 @@ function Deck() {
             <span className="dk-stat__value">{summary.skipped}</span>
           </div>
         </div>
+        {renderProgress()}
         {felt.length > 0 && (
           <div style={{ margin: '16px 24px 0', fontSize: 15, lineHeight: 1.45 }}>
             <span style={{ color: 'var(--secondary)' }}>Felt off:</span>{' '}
@@ -1284,6 +1340,7 @@ function Deck() {
           order={orderOf(deck)}
           currentIndex={at}
           done={doneIds}
+          inProgress={inProgressIds}
           nameOf={(d) => nameOf(findEntry(api.session ?? undefined, d.item.id)?.exerciseId ?? d.resolved.exerciseId ?? '')}
           onJump={(index) => {
             setPlanOpen(false)

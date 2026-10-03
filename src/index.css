@@ -5349,6 +5349,8 @@ input[type='file'] {
 }
 
 .dk-plan__list {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   margin: 4px -24px 0;
   padding: 0 24px 8px;
@@ -5431,6 +5433,10 @@ input[type='file'] {
 
 .dk-plan__state--current {
   color: var(--accent);
+}
+
+.dk-plan__state--inprogress {
+  color: var(--text);
 }
 
 .dk-plan__moves {
@@ -5629,4 +5635,21 @@ input[type='file'] {
 }
 .lg-hist__edit {
   padding: 6px 0 10px;
+}
+
+/* Session summary: compared with last week, ready to progress (D-074 rule 4) */
+.dk-compare {
+  margin: 20px 24px 0;
+}
+.dk-compare__counts {
+  padding: 10px 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dk-compare__line {
+  padding: 6px 0;
+  font-size: 15px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
 }
