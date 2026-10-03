@@ -147,7 +147,8 @@ function CreateExercise({
 }
 
 /**
- * Frame 2c. Same muscles starts on when the current exercise has muscles;
+ * Frame 2c. Same muscles starts on when the current exercise has muscles,
+ * except in the deck's mid-workout swap (D-072 rule 2);
  * Beginner friendly starts on for New (onboarding) users.
  */
 export function ExercisePicker({
@@ -159,10 +160,13 @@ export function ExercisePicker({
   onPick,
   onBack,
   allowCreate = true,
+  sameMusclesOff = false,
 }: {
   title: string
   /** False where a new exercise could not be kept, e.g. a session-only swap. */
   allowCreate?: boolean
+  /** D-072 rule 2: the deck's mid-workout swap starts with Same muscles off. */
+  sameMusclesOff?: boolean
   current?: LibraryEntry
   library: LibraryEntry[]
   beginnerDefault: boolean
@@ -172,7 +176,7 @@ export function ExercisePicker({
 }) {
   const muscles = current?.exercise.muscles
   const [query, setQuery] = useState('')
-  const [same, setSame] = useState(Boolean(muscles?.length))
+  const [same, setSame] = useState(!sameMusclesOff && Boolean(muscles?.length))
   const [beginner, setBeginner] = useState(beginnerDefault)
   const [noEquipment, setNoEquipment] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)

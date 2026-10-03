@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getSessionByDateAndDay, saveSession } from '../db/index.ts'
-import { sessionIdFor } from '../lib/session.ts'
+import { sessionIdFor, sessionToEnd } from '../lib/session.ts'
 import type { ItemFields } from '../types/program.ts'
 import type { Entry, FeltOff, Session, SetLog } from '../types/stores.ts'
 
@@ -34,6 +34,8 @@ export interface SessionApi {
   /** D-048: store how an exercise felt; Discomfort also marks it skipped. */
   setFeltOff: (itemId: string, exerciseId: string, flag: FeltOff | null) => Promise<void>
   finish: () => Promise<void>
+  /** D-075 rule 3: mark the stored session ended now; never creates one, never moves an end time. */
+  end: () => Promise<void>
   reload: () => Promise<void>
   /** D-065 rule 1: today's order, stored when the user moves an item. */
   setOrder: (order: { itemId: string; sectionId: string }[]) => Promise<void>
@@ -261,8 +263,14 @@ export function useSession(target: SessionTarget | null): SessionApi {
 
   const finish = useCallback(async () => {
     const current = await ensure()
-    await commit({ ...current, endedAt: new Date().toISOString() })
+    // D-075 rule 3: an end time set by end() stays.
+    await commit(current.endedAt ? current : { ...current, endedAt: new Date().toISOString() })
   }, [ensure, commit])
+
+  const end = useCallback(async () => {
+    const next = sessionToEnd(sessionRef.current, new Date())
+    if (next) await commit(next)
+  }, [commit])
 
   return {
     session,
@@ -274,6 +282,7 @@ export function useSession(target: SessionTarget | null): SessionApi {
     chooseExercise,
     setFeltOff,
     finish,
+    end,
     reload,
     setOrder,
     changeAddedSets,

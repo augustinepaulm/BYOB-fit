@@ -445,6 +445,8 @@ function Deck() {
   const advance = useCallback(
     (from: number) => {
       if (from >= deck.length - 1) {
+        // D-075 rule 3: every way into the summary ends the session now.
+        void api.end()
         setPhase('summary')
         window.scrollTo({ top: 0 })
         return
@@ -452,7 +454,7 @@ function Deck() {
       setPosition(from + 1)
       window.scrollTo({ top: 0 })
     },
-    [deck.length],
+    [deck.length, api],
   )
 
   /** Done: save typed rows and last week's values for untouched ones, then advance. */
@@ -535,6 +537,7 @@ function Deck() {
       return
     }
     window.scrollTo({ top: 0 })
+    void api.end()
     setPhase('summary')
   }
 
@@ -856,6 +859,7 @@ function Deck() {
         beginnerDefault={isNew}
         draft={program}
         allowCreate={false}
+        sameMusclesOff
         onBack={() => setSheet(null)}
         onPick={(picked) => setSwapPick({ id: picked.id, name: picked.exercise.name })}
       />
@@ -1100,6 +1104,7 @@ function Deck() {
               label: 'End session',
               onClick: () => {
                 setResumeAsked(true)
+                void api.end()
                 setPhase('summary')
               },
             }}
@@ -1366,6 +1371,7 @@ function Deck() {
           onConfirm={() => {
             setEndAsked(false)
             window.scrollTo({ top: 0 })
+            void api.end()
             setPhase('summary')
           }}
         />
