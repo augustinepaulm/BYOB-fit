@@ -35,6 +35,15 @@ export function buildDeck(day: Day, week: number, date: Date): DeckItem[] {
   return deck
 }
 
+/**
+ * D-075 rule 3: the session End stores, or null when there is nothing to
+ * write. Ending never creates a session, and a session keeps its first end time.
+ */
+export function sessionToEnd(stored: Session | null | undefined, now: Date): Session | null {
+  if (!stored || stored.endedAt) return null
+  return { ...stored, endedAt: now.toISOString() }
+}
+
 /** One session per (date, dayId): the pair is the key. */
 export function sessionIdFor(date: string, dayId: string): string {
   return `${date}__${dayId}`

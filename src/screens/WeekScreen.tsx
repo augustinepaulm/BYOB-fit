@@ -176,7 +176,7 @@ export function WeekScreen() {
     if (day)
       return (
         <>
-          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={canChangeDate(todayIso, todayIso, todaySessions) ? () => setChanging({ date: today, preset: day }) : null} />
+          <PlannedDay program={program} day={day} date={openDay.date} week={viewWeek} onBack={() => setOpenDay(null)} onDoToday={canChangeDate(todayIso, todayIso, todaySessions, dayForDate(program, changes, today).id) ? () => setChanging({ date: today, preset: day }) : null} />
           {changeSheet}
         </>
       )
@@ -247,7 +247,7 @@ export function WeekScreen() {
             const session = sessionOn(date, day.id)
             const state = day.rest ? restDayState(session, buildDeck(day, viewWeek, date)) : sessionState(session)
             const was = changedFrom(program, changes, date, day)
-            const changeable = canChangeDate(toISODate(date), todayIso, sessions)
+            const changeable = canChangeDate(toISODate(date), todayIso, sessions, day.id)
             const content = (
               <>
                 <span className={isToday ? 'wk-row__dow wk-row__dow--today' : 'wk-row__dow'}>{formatShortDay(date)}</span>
