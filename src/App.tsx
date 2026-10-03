@@ -9,7 +9,7 @@ import { DeckScreen } from './screens/DeckScreen.tsx'
 import { ImportScreen } from './screens/ImportScreen.tsx'
 import { FoodsScreen } from './screens/FoodsScreen.tsx'
 import { GoalScreen } from './screens/GoalScreen.tsx'
-import { ExerciseLogScreen, LogScreen } from './screens/LogScreen.tsx'
+import { ExerciseLogScreen } from './screens/LogScreen.tsx'
 import { MealsScreen } from './screens/MealsScreen.tsx'
 import { OnboardingScreen } from './screens/OnboardingScreen.tsx'
 import { PrivacyLevelScreen, SentLogScreen } from './screens/PrivacyScreens.tsx'
@@ -21,7 +21,7 @@ import { TodayLoading, TodayScreen } from './screens/TodayScreen.tsx'
 import { WeekScreen } from './screens/WeekScreen.tsx'
 import { BodyEntryScreen, BodyHistoryScreen, BodyScreen } from './screens/BodyScreen.tsx'
 import { AiSettingsScreen, UsageScreen } from './screens/AiSettingsScreens.tsx'
-import { ProgressFrame, ProgressPlaceholder } from './screens/ProgressScreen.tsx'
+import { ProgressScreen } from './screens/ProgressScreen.tsx'
 import { PlainLayout, TabbedLayout } from './ui/AppShell.tsx'
 
 /** D-077 rule 1: the Log moved to Progress > Training; old links still land. */
@@ -55,10 +55,10 @@ export default function App() {
               <Route path="/body/new" element={<BodyEntryScreen />} />
               <Route path="/body/history" element={<BodyHistoryScreen />} />
               <Route path="/progress" element={<Navigate replace to="/progress/training" />} />
-              <Route path="/progress/training" element={<ProgressFrame view="training"><LogScreen /></ProgressFrame>} />
+              <Route path="/progress/training" element={<ProgressScreen view="training" />} />
               <Route path="/progress/training/:exerciseId" element={<ExerciseLogScreen />} />
-              <Route path="/progress/nutrition" element={<ProgressPlaceholder view="nutrition" />} />
-              <Route path="/progress/body" element={<ProgressPlaceholder view="body" />} />
+              <Route path="/progress/nutrition" element={<ProgressScreen view="nutrition" />} />
+              <Route path="/progress/body" element={<ProgressScreen view="body" />} />
               <Route path="/profile" element={<ProfileScreen />} />
               <Route path="/settings" element={<SettingsScreen />} />
               <Route path="/goal" element={<GoalScreen />} />

@@ -180,6 +180,12 @@ export async function getMealDay(date: string): Promise<MealDay | undefined> {
   return db.get('meals', date)
 }
 
+/** Every stored meal day, in date order. */
+export async function listMealDays(): Promise<MealDay[]> {
+  const db = await getDB()
+  return db.getAll('meals')
+}
+
 export async function saveMealDay(meal: MealDay): Promise<void> {
   const db = await getDB()
   await db.put('meals', meal)
