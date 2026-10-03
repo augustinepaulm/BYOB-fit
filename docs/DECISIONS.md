@@ -435,3 +435,15 @@ From the Oct 2 bug handoff, which Auggie asked to fix (items NEW-1 to NEW-8; its
 8. Page pulled past its ends. Not reproducible off the phone. Fixes: `overscroll-behavior: none` on `html` and `body` (supported since Safari 16, but one report says installed web apps on iOS behave differently, so the phone decides), and the tab bar painted to the screen's bottom edge. The handoff's `env(safe-area-inset-*)` offsets are left out: they are zero unless the page sets `viewport-fit=cover`, which this app does not. Content blurred under the clock while the page is scrolled is iOS's own effect (O-12) and is not changed here.
 Consequence: small change 11.8, as two commits (deck and summary; Week and app shell). Phase 13 moves after it.
 
+
+## D-075 Finished dates and ending a session (FROZEN, Oct 2, 2026)
+Approved by Auggie, Oct 2, 2026. Checked in chat on `main` (5bbfcd7) and prototyped on a scratch branch (434 tests, lint, build and verify pass) before this record.
+1. A date counts as finished only when a session of the workout it currently shows has ended (amends D-074 rule 6). An ended session of a workout the date was changed away from no longer hides Change, Restore or Do this today. Cause: `canChangeDate` checks for any ended session on the date, and a mid-workout Change ends the first session (D-069 rule 4), so since 11.8 a mid-workout Change left today with no Change and no Restore, against D-061.
+2. DEFAULT: Restore to a workout whose session has ended makes the date finished again, so Change and Restore leave that date; the session's sets stay in Log.
+3. D-072 rule 3 applies to every way into the summary: the last exercise finished, End with nothing left, the End dialog's "End session", and "End session" on the resume prompt (DEFAULT: D-072 named two of the four). Ending never creates a session when none is stored, and a session keeps its first end time: the summary's Done no longer moves it.
+4. D-072 rule 2 is built as stated: the mid-workout swap opens with Same muscles off; the builder's picker keeps its frame 2c behaviour.
+Consequence: small change 11.9, as two commits. D-072 rules 2 and 3 leave Phase 13.
+
+## D-076 How-to guide built last (FROZEN, Oct 2, 2026)
+Stated by Auggie, Oct 2, 2026: D-073's placement stays (a guide in Profile and "?" links, no new tab); D-073's guide text becomes a draft. The guide is built last, after the design rework and the other Phase 13 items. Its text is then redrafted against the new screens and recorded as a new decision that supersedes D-073's text. If the rework removes or merges Week, the deck header or Settings > AI, the "?" placement is confirmed again with that text.
+Consequence: the guide leaves Phase 13 and becomes its own step after it.
